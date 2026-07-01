@@ -1,0 +1,11 @@
+{
+  "title": "Private Apps",
+  "description": "Private internal tools routed through one gateway.",
+  "routes": [
+    {
+      "prefix": "/backlog",
+      "label": "zo-backlog",
+      "targetOrigin": "http://127.0.0.1:3000"
+    }
+  ]
+}
