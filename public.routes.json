@@ -6,6 +6,11 @@
       "prefix": "/mapper",
       "label": "zo-relationship-mapper",
       "targetOrigin": "http://127.0.0.1:8000"
+    },
+    {
+      "prefix": "/expert",
+      "label": "zo-expert",
+      "targetOrigin": "http://127.0.0.1:8001"
     }
   ]
 }
