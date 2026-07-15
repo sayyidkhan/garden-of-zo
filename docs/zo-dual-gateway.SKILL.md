@@ -21,16 +21,16 @@ Maintain the Zo reverse-proxy setup with:
 
 Router project:
 
-- `Github/zo-router`
+- `Start/garden-of-zo/zo-router`
 
 Mapping files:
 
-- `Github/zo-router/private.routes.json`
-- `Github/zo-router/public.routes.json`
+- `Start/garden-of-zo/zo-router/private.routes.json`
+- `Start/garden-of-zo/zo-router/public.routes.json`
 
 Router code:
 
-- `Github/zo-router/server.ts`
+- `Start/garden-of-zo/zo-router/server.ts`
 
 Current route map:
 
@@ -98,11 +98,11 @@ env:
 
 Private app:
 
-- edit `Github/zo-router/private.routes.json`
+- edit `Start/garden-of-zo/zo-router/private.routes.json`
 
 Public app:
 
-- edit `Github/zo-router/public.routes.json`
+- edit `Start/garden-of-zo/zo-router/public.routes.json`
 
 Route object shape:
 
@@ -178,9 +178,9 @@ Common failure patterns:
 
 When working on this setup, inspect:
 
-- `Github/zo-router/server.ts`
-- `Github/zo-router/private.routes.json`
-- `Github/zo-router/public.routes.json`
+- `Start/garden-of-zo/zo-router/server.ts`
+- `Start/garden-of-zo/zo-router/private.routes.json`
+- `Start/garden-of-zo/zo-router/public.routes.json`
 - the target app README and env example
 
 ## Current App Notes
