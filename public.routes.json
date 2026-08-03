@@ -25,6 +25,12 @@
       "targetOrigin": "http://127.0.0.1:43071",
       "stripPrefix": true,
       "assetQuery": "zo-drive-20260719a"
+    },
+    {
+      "prefix": "/zotube",
+      "label": "zotube",
+      "targetOrigin": "http://127.0.0.1:8788",
+      "stripPrefix": true
     }
   ]
 }

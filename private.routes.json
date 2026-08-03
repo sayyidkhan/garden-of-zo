@@ -6,12 +6,6 @@
       "prefix": "/backlog",
       "label": "zo-backlog",
       "targetOrigin": "http://127.0.0.1:3000"
-    },
-    {
-      "prefix": "/zotube",
-      "label": "zotube",
-      "targetOrigin": "http://127.0.0.1:8788",
-      "stripPrefix": true
     }
   ]
 }
