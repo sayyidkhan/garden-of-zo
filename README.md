@@ -8,4 +8,10 @@ Small Bun-based reverse proxy for Zo service consolidation.
 
 Current route plan:
 - private: `/backlog` -> `http://127.0.0.1:3000`
+- private: `/zotube` -> `http://127.0.0.1:8788` (prefix stripped)
 - public: `/mapper` -> `http://127.0.0.1:8000`
+- public: `/expert` -> `http://127.0.0.1:8001`
+- public: `/pocketbase` -> `http://127.0.0.1:8090` (prefix stripped)
+
+Set `stripPrefix` only for upstreams that must receive root-relative paths.
+Set `assetQuery` only when static assets need a versioned URL after a cache correction.

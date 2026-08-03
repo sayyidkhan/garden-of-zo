@@ -2,6 +2,8 @@ type RouteConfig = {
   prefix: string;
   label: string;
   targetOrigin: string;
+  stripPrefix?: boolean;
+  assetQuery?: string;
 };
 
 type RouterConfig = {
@@ -17,6 +19,10 @@ function normalizePrefix(value: string): string {
   }
   const withSlash = raw.startsWith("/") ? raw : `/${raw}`;
   return withSlash.replace(/\/+$/, "");
+}
+
+function escapeRegularExpression(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function loadConfig(): RouterConfig {
@@ -103,8 +109,13 @@ Bun.serve({
       });
     }
 
-    const upstreamUrl = new URL(url.pathname + url.search, route.targetOrigin);
+    const upstreamPath = route.stripPrefix
+      ? url.pathname.slice(route.prefix.length) || "/"
+      : url.pathname;
+    const upstreamUrl = new URL(upstreamPath + url.search, route.targetOrigin);
     const headers = new Headers(request.headers);
+    // Bun transparently decodes upstream responses, so do not forward an encoding it cannot preserve.
+    headers.delete("accept-encoding");
     headers.set("x-forwarded-host", url.host);
     headers.set("x-forwarded-proto", url.protocol.replace(":", ""));
     headers.set("x-forwarded-prefix", route.prefix);
@@ -117,7 +128,53 @@ Bun.serve({
       redirect: "manual"
     });
 
-    return fetch(proxied);
+    const upstream = await fetch(proxied);
+    const responseHeaders = new Headers(upstream.headers);
+    // Bun has already decoded the body returned by fetch, so these upstream headers are stale.
+    responseHeaders.delete("content-encoding");
+    responseHeaders.delete("content-length");
+
+    const contentType = responseHeaders.get("content-type") ?? "";
+
+    if (route.assetQuery && contentType.includes("text/html")) {
+      const assetQuery = encodeURIComponent(route.assetQuery);
+      const html = await upstream.text();
+      const rewrittenHtml = html.replace(
+        /(["'])\.\/((?:assets|libs)\/[^"'?]+)\1/g,
+        (_match, quote, assetPath) => `${quote}./${assetPath}?v=${assetQuery}${quote}`
+      ).replace(
+        new RegExp(`(["'])${escapeRegularExpression(route.prefix)}/((?:assets|libs)/[^"'?]+)\\1`, "g"),
+        (_match, quote, assetPath) => `${quote}${route.prefix}/${assetPath}?v=${assetQuery}${quote}`
+      );
+      responseHeaders.set("cache-control", "no-store");
+
+      return new Response(rewrittenHtml, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: responseHeaders
+      });
+    }
+
+    if (route.assetQuery && contentType.includes("javascript")) {
+      const assetQuery = encodeURIComponent(route.assetQuery);
+      const script = await upstream.text();
+      const rewrittenScript = script.replace(
+        /(["'`])\.\/([^"'`?]+\.js)\1/g,
+        (_match, quote, assetPath) => `${quote}./${assetPath}?v=${assetQuery}${quote}`
+      );
+
+      return new Response(rewrittenScript, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: responseHeaders
+      });
+    }
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      statusText: upstream.statusText,
+      headers: responseHeaders
+    });
   }
 });
 

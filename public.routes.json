@@ -11,6 +11,20 @@
       "prefix": "/expert",
       "label": "zo-expert",
       "targetOrigin": "http://127.0.0.1:8001"
+    },
+    {
+      "prefix": "/pocketbase",
+      "label": "zo-pocketbase",
+      "targetOrigin": "http://127.0.0.1:8090",
+      "stripPrefix": true,
+      "assetQuery": "gateway-fix-20260716b"
+    },
+    {
+      "prefix": "/drive",
+      "label": "zo-drive",
+      "targetOrigin": "http://127.0.0.1:43071",
+      "stripPrefix": true,
+      "assetQuery": "zo-drive-20260719a"
     }
   ]
 }
