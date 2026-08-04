@@ -31,6 +31,12 @@
       "label": "zotube",
       "targetOrigin": "http://127.0.0.1:8788",
       "stripPrefix": true
+    },
+    {
+      "prefix": "/moments",
+      "label": "zo-moments",
+      "targetOrigin": "http://127.0.0.1:8790",
+      "stripPrefix": true
     }
   ]
 }
