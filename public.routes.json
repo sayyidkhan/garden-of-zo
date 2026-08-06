@@ -1,27 +1,46 @@
 {
-  "title": "Public Apps",
-  "description": "Public-facing tools routed through one gateway.",
+  "title": "Garden of Zo",
+  "description": "A catalogue of apps growing on Zo Computer.",
+  "access": "public",
+  "gatewayUrl": "https://public-apps-sayyidkhan.zocomputer.io",
   "routes": [
     {
       "prefix": "/mapper",
       "label": "zo-relationship-mapper",
+      "title": "Relationship Mapper",
+      "description": "Reveal the people, systems and connections shaping an idea.",
+      "category": "Insight",
+      "icon": "network",
       "targetOrigin": "http://127.0.0.1:8000"
     },
     {
       "prefix": "/expert",
       "label": "zo-expert",
+      "title": "Zo Expert",
+      "description": "Turn a difficult question into a guided path through specialist knowledge.",
+      "category": "AI Agent",
+      "icon": "spark",
       "targetOrigin": "http://127.0.0.1:8001"
     },
     {
       "prefix": "/pocketbase",
       "label": "zo-pocketbase",
+      "title": "PocketBase",
+      "description": "The compact data control plane powering services across the garden.",
+      "category": "Infrastructure",
+      "icon": "database",
       "targetOrigin": "http://127.0.0.1:8090",
+      "entryPath": "/_/",
       "stripPrefix": true,
       "assetQuery": "gateway-fix-20260716b"
     },
     {
       "prefix": "/drive",
       "label": "zo-drive",
+      "title": "Zo Drive",
+      "description": "Browse, organise and work with the files held on your personal server.",
+      "category": "Workspace",
+      "icon": "folder",
       "targetOrigin": "http://127.0.0.1:43071",
       "stripPrefix": true,
       "assetQuery": "zo-drive-20260719a"
@@ -29,12 +48,20 @@
     {
       "prefix": "/zotube",
       "label": "zotube",
+      "title": "ZoTube",
+      "description": "Stream an independent media library with background audio and installable access.",
+      "category": "Media",
+      "icon": "play",
       "targetOrigin": "http://127.0.0.1:8788",
       "stripPrefix": true
     },
     {
       "prefix": "/moments",
       "label": "zo-moments",
+      "title": "Zo Moments",
+      "description": "Collect conversations and memories into private, cinematic keepsakes.",
+      "category": "Social",
+      "icon": "image",
       "targetOrigin": "http://127.0.0.1:8790",
       "stripPrefix": true
     }

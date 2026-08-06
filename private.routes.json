@@ -1,11 +1,26 @@
 {
-  "title": "Private Apps",
-  "description": "Private internal tools routed through one gateway.",
+  "title": "Garden of Zo",
+  "description": "The owner-only catalogue for private Zo applications.",
+  "access": "private",
+  "gatewayUrl": "https://private-apps-sayyidkhan.zo.computer",
   "routes": [
     {
       "prefix": "/backlog",
       "label": "zo-backlog",
+      "title": "Zo Backlog",
+      "description": "Operate ideas, commitments and delivery from one focused command board.",
+      "category": "Operations",
+      "icon": "compass",
       "targetOrigin": "http://127.0.0.1:3000"
+    },
+    {
+      "prefix": "/usage",
+      "label": "zo-usage",
+      "title": "Zo Usage",
+      "description": "Observe live resources, application traffic and long-term host health.",
+      "category": "Observatory",
+      "icon": "pulse",
+      "targetOrigin": "http://127.0.0.1:8791"
     }
   ]
 }
