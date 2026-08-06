@@ -12,6 +12,15 @@ type RouterConfig = {
   routes: RouteConfig[];
 };
 
+type TrafficSample = {
+  at: number;
+  application: string;
+  receivedBytes: number;
+  sentBytes: number;
+  requestCount: number;
+  errorCount: number;
+};
+
 function normalizePrefix(value: string): string {
   const raw = value.trim();
   if (!raw || raw === "/") {
@@ -44,6 +53,62 @@ function loadConfig(): RouterConfig {
 
 const config = loadConfig();
 const port = Number(process.env.PORT || "9000");
+const trafficEndpoint = process.env.USAGE_TRAFFIC_ENDPOINT || "http://127.0.0.1:8791/usage/api/application-traffic";
+let pendingTraffic = new Map<string, TrafficSample>();
+
+function contentLength(headers: Headers) {
+  const value = Number(headers.get("content-length") || "0");
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+function recordApplicationTraffic(route: RouteConfig, request: Request, upstream: Response) {
+  const at = Math.floor(Date.now() / 60_000) * 60_000;
+  const key = `${at}:${route.label}`;
+  const sample = pendingTraffic.get(key) || {
+    at,
+    application: route.label,
+    receivedBytes: 0,
+    sentBytes: 0,
+    requestCount: 0,
+    errorCount: 0
+  };
+  sample.receivedBytes += contentLength(request.headers);
+  sample.sentBytes += contentLength(upstream.headers);
+  sample.requestCount += 1;
+  sample.errorCount += upstream.status >= 400 ? 1 : 0;
+  pendingTraffic.set(key, sample);
+}
+
+function mergeTraffic(samples: Iterable<TrafficSample>) {
+  for (const incoming of samples) {
+    const key = `${incoming.at}:${incoming.application}`;
+    const sample = pendingTraffic.get(key) || { ...incoming, receivedBytes: 0, sentBytes: 0, requestCount: 0, errorCount: 0 };
+    sample.receivedBytes += incoming.receivedBytes;
+    sample.sentBytes += incoming.sentBytes;
+    sample.requestCount += incoming.requestCount;
+    sample.errorCount += incoming.errorCount;
+    pendingTraffic.set(key, sample);
+  }
+}
+
+async function flushApplicationTraffic() {
+  if (!pendingTraffic.size) return;
+  const batch = pendingTraffic;
+  pendingTraffic = new Map();
+  try {
+    const response = await fetch(trafficEndpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ samples: [...batch.values()] })
+    });
+    if (!response.ok) throw new Error(`Usage collector returned ${response.status}`);
+  } catch (error) {
+    mergeTraffic(batch.values());
+    console.warn(`Unable to record application traffic: ${error}`);
+  }
+}
+
+setInterval(() => void flushApplicationTraffic(), 60_000);
 
 function matchRoute(pathname: string): RouteConfig | undefined {
   return config.routes.find((route) => pathname === route.prefix || pathname.startsWith(`${route.prefix}/`));
@@ -129,6 +194,7 @@ Bun.serve({
     });
 
     const upstream = await fetch(proxied);
+    recordApplicationTraffic(route, request, upstream);
     const responseHeaders = new Headers(upstream.headers);
     // Bun has already decoded the body returned by fetch, so these upstream headers are stale.
     responseHeaders.delete("content-encoding");
