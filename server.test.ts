@@ -9,6 +9,10 @@ describe("Garden of Zo catalogue", () => {
   test("catalogues all public and private router apps", () => {
     const html = renderIndex(loadConfig(publicFile), loadCatalogConfigs(publicFile));
     expect((html.match(/<article[^>]+data-app-card/g) ?? []).length).toBe(8);
+    expect((html.match(/data-sky-node/g) ?? []).length).toBe(8);
+    expect(html).toContain("Horizontal sky atlas");
+    expect(html).toContain("data-atlas-prev");
+    expect(html).toContain("data-atlas-next");
     expect(html).toContain("Relationship Mapper");
     expect(html).toContain("Zo Usage");
     expect(html).toContain("6 open");

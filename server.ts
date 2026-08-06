@@ -95,7 +95,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   const allApps = catalog.flatMap((gateway) => gateway.routes.map((route) => ({ gateway, route })));
   const publicCount = allApps.filter(({ gateway }) => gateway.access === "public").length;
   const privateCount = allApps.length - publicCount;
-  const cards = allApps.map(({ gateway, route }, index) => {
+  const nodeHeights = [72, 238, 118, 292, 82, 224, 132, 274];
+  const nodes = allApps.map(({ gateway, route }, index) => {
     const restricted = gateway.access === "private";
     const sameGateway = gateway.access === current.access;
     const routeHref = `${route.prefix}${route.entryPath ?? ""}`;
@@ -103,21 +104,26 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const accessLabel = restricted ? "Owner access" : "Open access";
     const action = restricted ? "Unlock realm" : "Enter realm";
 
-    return `<article class="realm-card ${restricted ? "realm-card--private" : ""}" data-app-card data-access="${gateway.access}" style="--order:${index}">
-      <div class="realm-card__top">
-        <span class="realm-icon">${icon(route.icon)}</span>
-        <span class="access-badge ${restricted ? "access-badge--private" : ""}">
-          ${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}
-        </span>
+    return `<article class="sky-node ${restricted ? "sky-node--private" : ""}" data-app-card data-sky-node data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" style="--order:${index};--node-y:${nodeHeights[index % nodeHeights.length]}px">
+      <span class="sky-node__route" aria-hidden="true"></span>
+      <div class="sky-node__beacon" aria-hidden="true">
+        <span class="sky-node__pulse"></span>
+        <span class="sky-node__icon">${icon(route.icon)}</span>
+        <span class="sky-node__number">${String(index + 1).padStart(2, "0")}</span>
       </div>
-      <div class="realm-card__body">
-        <p class="realm-card__category">${escapeHtml(route.category)}</p>
+      <div class="sky-node__card">
+        <div class="sky-node__meta">
+          <span class="sky-node__category">${escapeHtml(route.category)}</span>
+          <span class="access-badge ${restricted ? "access-badge--private" : ""}">
+            ${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}
+          </span>
+        </div>
         <h2>${escapeHtml(route.title)}</h2>
         <p>${escapeHtml(route.description)}</p>
+        <a class="sky-node__link" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
+          <span>${action}</span><span aria-hidden="true">&nearr;</span>
+        </a>
       </div>
-      <a class="realm-card__link" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
-        <span>${action}</span><span aria-hidden="true">&nearr;</span>
-      </a>
     </article>`;
   }).join("");
 
@@ -185,40 +191,58 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .explore:hover { transform: translateY(-3px); background: #fffaf0; }
     .hero__count { color: #d9e3dd; font: 500 .78rem/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase; }
     .hero__count strong { color: var(--gold); }
-    .catalogue { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); margin: -42px auto 0; padding: 86px 0 120px; }
-    .catalogue__head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; margin-bottom: 38px; }
+    .catalogue { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); margin: -42px auto 0; padding: 86px 0 110px; }
+    .catalogue__head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; margin-bottom: 28px; }
     .catalogue__head h2 { margin: 0; max-width: 720px; font: 500 clamp(2.8rem, 6vw, 5.2rem)/.94 var(--serif); letter-spacing: -.035em; }
     .catalogue__head p { max-width: 570px; margin: 18px 0 0; color: var(--muted); line-height: 1.65; }
     .filters { display: flex; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(3,18,23,.5); }
     .filter { border: 0; border-radius: 999px; padding: 10px 15px; color: #aebfbb; background: transparent; cursor: pointer; font-size: .77rem; font-weight: 800; letter-spacing: .04em; transition: color .2s, background .2s; }
     .filter[aria-pressed="true"] { color: #162027; background: var(--ink); }
-    .realms { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
-    .realm-card { grid-column: span 4; position: relative; min-height: 360px; display: flex; flex-direction: column; padding: 25px; border: 1px solid var(--line); border-radius: 4px 38px 4px 38px; background: linear-gradient(150deg, rgba(20,51,56,.94), rgba(6,27,33,.82)); box-shadow: 0 28px 80px rgba(0,0,0,.16); overflow: hidden; animation: rise .7s calc(var(--order) * 70ms) both; transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .35s, box-shadow .35s; }
-    .realm-card::before { content: ""; position: absolute; inset: 0; opacity: .36; background: radial-gradient(circle at 95% 0%, rgba(228,193,120,.34), transparent 37%); pointer-events: none; }
-    .realm-card::after { content: ""; position: absolute; width: 150px; height: 80px; right: -24px; bottom: -22px; border-radius: 50%; opacity: .18; filter: blur(2px); background: radial-gradient(ellipse, #a7ceca 0 16%, transparent 67%); }
-    .realm-card:hover { transform: translateY(-8px); border-color: rgba(228,193,120,.54); box-shadow: 0 32px 90px rgba(0,0,0,.3); }
-    .realm-card--private { background: linear-gradient(150deg, rgba(41,43,51,.94), rgba(16,28,34,.88)); }
-    .realm-card[hidden] { display: none; }
-    .realm-card__top, .realm-card__body, .realm-card__link { position: relative; z-index: 1; }
-    .realm-card__top { display: flex; justify-content: space-between; align-items: flex-start; }
-    .realm-icon { display: grid; place-items: center; width: 54px; height: 54px; border: 1px solid rgba(228,193,120,.36); border-radius: 50%; color: var(--gold); background: rgba(5,22,27,.44); }
-    .icon { width: 25px; height: 25px; }
+    .atlas { position: relative; width: 100vw; margin-left: calc(50% - 50vw); border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 16% 18%, rgba(58,111,115,.18), transparent 24rem), radial-gradient(circle at 78% 64%, rgba(221,125,102,.09), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.64), rgba(6,29,35,.94)); overflow: hidden; }
+    .atlas::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .3; background-image: radial-gradient(circle, rgba(244,230,196,.8) 0 1px, transparent 1.5px); background-size: 67px 67px; mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent); }
+    .atlas__bar { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 20px; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 20px 0; }
+    .atlas__status { display: flex; align-items: center; gap: 12px; color: #d6e3df; font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .atlas__status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 18px rgba(228,193,120,.9); }
+    .atlas__hint { color: #849c99; font-weight: 500; letter-spacing: .04em; }
+    .atlas__controls { display: flex; gap: 8px; }
+    .atlas__control { display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid rgba(228,193,120,.25); border-radius: 50%; color: var(--ink); background: rgba(6,25,31,.7); cursor: pointer; transition: transform .2s, border-color .2s, background .2s; }
+    .atlas__control:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(228,193,120,.66); background: rgba(25,54,58,.9); }
+    .atlas__control:disabled { cursor: default; opacity: .28; }
+    .atlas__viewport { position: relative; z-index: 2; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; cursor: grab; touch-action: pan-x pan-y; }
+    .atlas__viewport::-webkit-scrollbar { display: none; }
+    .atlas__viewport.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+    .atlas__track { display: flex; width: max-content; min-height: 650px; padding: 10px max(24px, calc(50vw - 195px)) 40px; }
+    .sky-node { position: relative; flex: 0 0 clamp(290px, 29vw, 390px); height: 590px; scroll-snap-align: center; animation: rise .7s calc(var(--order) * 70ms) both; }
+    .sky-node[hidden] { display: none; }
+    .sky-node__route { position: absolute; z-index: 0; top: calc(var(--node-y) + 40px); left: calc(50% + 40px); width: var(--route-width, 0); height: 2px; transform: rotate(var(--route-angle, 0deg)); transform-origin: left center; background: repeating-linear-gradient(90deg, rgba(228,193,120,.7) 0 5px, transparent 5px 12px); filter: drop-shadow(0 0 8px rgba(228,193,120,.4)); }
+    .sky-node:last-child .sky-node__route { display: none; }
+    .sky-node__beacon { position: absolute; z-index: 2; top: var(--node-y); left: 50%; width: 80px; height: 80px; transform: translateX(-50%); display: grid; place-items: center; border: 1px solid rgba(228,193,120,.62); border-radius: 50%; color: var(--gold); background: radial-gradient(circle, rgba(23,65,69,.95), rgba(4,21,27,.92) 68%); box-shadow: 0 0 0 9px rgba(228,193,120,.05), 0 18px 38px rgba(0,0,0,.55), 0 0 34px rgba(138,199,180,.2); }
+    .sky-node__pulse { position: absolute; inset: -9px; border: 1px solid rgba(138,199,180,.28); border-radius: inherit; animation: beacon-pulse 2.8s ease-out infinite; }
+    .sky-node--private .sky-node__beacon { border-color: rgba(221,125,102,.68); color: #e9b690; box-shadow: 0 0 0 9px rgba(221,125,102,.05), 0 18px 38px rgba(0,0,0,.55), 0 0 34px rgba(221,125,102,.16); }
+    .sky-node__icon .icon { width: 28px; height: 28px; }
+    .sky-node__number { position: absolute; top: -10px; right: -12px; padding: 4px 6px; border-radius: 999px; color: #182528; background: var(--gold); font-size: .58rem; font-weight: 900; letter-spacing: .08em; }
+    .sky-node__card { position: absolute; z-index: 2; top: calc(var(--node-y) + 104px); left: 50%; width: min(320px, calc(100% - 30px)); min-height: 238px; transform: translateX(-50%); display: flex; flex-direction: column; padding: 21px; border: 1px solid rgba(228,193,120,.2); border-radius: 4px 30px 4px 30px; background: linear-gradient(145deg, rgba(18,51,56,.94), rgba(5,25,31,.91)); box-shadow: 0 30px 60px rgba(0,0,0,.28); backdrop-filter: blur(16px); transition: transform .3s, border-color .3s, box-shadow .3s; }
+    .sky-node:hover .sky-node__card, .sky-node.is-current .sky-node__card { transform: translateX(-50%) translateY(-7px); border-color: rgba(228,193,120,.53); box-shadow: 0 38px 72px rgba(0,0,0,.4), 0 0 40px rgba(138,199,180,.08); }
+    .sky-node--private .sky-node__card { background: linear-gradient(145deg, rgba(45,43,48,.95), rgba(14,27,33,.92)); }
+    .sky-node__meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .sky-node__category { color: var(--coral); font-size: .63rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
     .badge-icon { width: 12px; height: 12px; }
-    .realm-card__body { margin-top: 42px; }
-    .realm-card__category { margin: 0 0 9px !important; color: var(--coral) !important; font-size: .68rem !important; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-    .realm-card h2 { margin: 0; font: 600 2.15rem/1 var(--serif); letter-spacing: -.025em; }
-    .realm-card__body > p:last-child { margin: 17px 0 0; color: #b8c8c5; font-size: .9rem; line-height: 1.62; }
-    .realm-card__link { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 22px; border-top: 1px solid rgba(255,255,255,.1); color: #f4e6c9; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
-    .realm-card__link span:last-child { font-size: 1.2rem; transition: transform .2s; }
-    .realm-card__link:hover span:last-child { transform: translate(3px,-3px); }
+    .sky-node h2 { margin: 22px 0 0; font: 600 2rem/1 var(--serif); letter-spacing: -.025em; }
+    .sky-node__card > p { margin: 13px 0 20px; color: #b8c8c5; font-size: .84rem; line-height: 1.58; }
+    .sky-node__link { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.1); color: #f4e6c9; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+    .sky-node__link span:last-child { font-size: 1.1rem; transition: transform .2s; }
+    .sky-node__link:hover span:last-child { transform: translate(3px,-3px); }
+    .atlas__progress { position: relative; z-index: 3; height: 3px; background: rgba(255,255,255,.06); }
+    .atlas__progress span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--mint), var(--gold)); box-shadow: 0 0 16px rgba(228,193,120,.5); transition: width .2s ease-out; }
     .legend { display: flex; justify-content: space-between; gap: 24px; margin-top: 34px; padding: 22px 0; border-top: 1px solid var(--line); color: #8fa5a2; font-size: .73rem; line-height: 1.6; }
     .legend strong { color: #d6e3df; }
     .legend__mark { color: var(--gold); text-transform: uppercase; letter-spacing: .14em; }
     .footer { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 30px 0 40px; border-top: 1px solid var(--line); color: #829895; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
     @keyframes reveal-art { from { opacity: 0; transform: scale(1.09); } to { opacity: 1; transform: scale(1.025); } }
     @keyframes rise { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes beacon-pulse { 0% { opacity: .7; transform: scale(.82); } 75%, 100% { opacity: 0; transform: scale(1.38); } }
     @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
     @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
     @media (max-width: 900px) {
@@ -231,7 +255,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .hero__pegasus { right: -20%; bottom: 42px; width: min(84vw, 690px); }
       .catalogue__head { grid-template-columns: 1fr; align-items: start; }
       .filters { justify-self: start; }
-      .realm-card { grid-column: span 6; }
+      .atlas__track { min-height: 620px; }
+      .sky-node { flex-basis: 340px; }
     }
     @media (max-width: 620px) {
       .nav { width: min(100% - 28px, 1180px); padding-top: 18px; }
@@ -251,7 +276,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .catalogue__head h2 { font-size: 3.3rem; }
       .filters { width: 100%; overflow-x: auto; }
       .filter { flex: 1; }
-      .realm-card { grid-column: 1 / -1; min-height: 330px; }
+      .atlas__bar { width: min(100% - 28px, 1180px); }
+      .atlas__hint { display: none; }
+      .atlas__track { min-height: 610px; padding-inline: max(20px, calc(50vw - 150px)); }
+      .sky-node { flex-basis: 300px; }
+      .sky-node__card { width: 270px; }
       .legend, .footer { align-items: flex-start; flex-direction: column; }
       .footer { width: min(100% - 28px, 1180px); }
     }
@@ -278,7 +307,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <h1>Garden <em>of Zo</em></h1>
         <p class="hero__lede">${escapeHtml(heroCopy)}</p>
         <div class="hero__footer">
-          <a class="explore" href="#realms">Explore the kingdoms <span aria-hidden="true">&darr;</span></a>
+          <a class="explore" href="#realms">Open the sky atlas <span aria-hidden="true">&darr;</span></a>
           <span class="hero__count"><strong>${allApps.length}</strong> realms &nbsp; / &nbsp; ${publicCount} open &nbsp; / &nbsp; ${privateCount} owner-only</span>
         </div>
       </div>
@@ -286,9 +315,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     <main class="catalogue" id="realms">
       <div class="catalogue__head">
         <div>
-          <p class="eyebrow">The realm atlas</p>
-          <h2>Every creation,<br />one horizon.</h2>
-          <p>Explore the applications and agents running across this Zo. Private realms remain protected by owner authentication.</p>
+          <p class="eyebrow">The sky atlas</p>
+          <h2>Choose the next<br />horizon.</h2>
+          <p>Travel from node to node across your apps, workflows and agents. Every stop is a live destination in the Garden of Zo.</p>
         </div>
         <div class="filters" role="group" aria-label="Filter realms">
           <button class="filter" type="button" data-filter="all" aria-pressed="true">All ${allApps.length}</button>
@@ -296,9 +325,21 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
           <button class="filter" type="button" data-filter="private" aria-pressed="false">Private ${privateCount}</button>
         </div>
       </div>
-      <section class="realms" aria-label="Application catalogue">${cards}</section>
+      <section class="atlas" aria-label="Sky atlas">
+        <div class="atlas__bar">
+          <span class="atlas__status"><span data-atlas-status>Node 01 / ${String(allApps.length).padStart(2, "0")} &middot; ${escapeHtml(allApps[0]?.route.title ?? "")}</span><span class="atlas__hint">Drag or scroll to travel</span></span>
+          <div class="atlas__controls">
+            <button class="atlas__control" type="button" data-atlas-prev aria-label="Previous sky node">&larr;</button>
+            <button class="atlas__control" type="button" data-atlas-next aria-label="Next sky node">&rarr;</button>
+          </div>
+        </div>
+        <div class="atlas__viewport" data-atlas tabindex="0" aria-label="Horizontal sky atlas. Use left and right arrow keys to travel between nodes.">
+          <div class="atlas__track" data-atlas-track>${nodes}</div>
+        </div>
+        <div class="atlas__progress" aria-hidden="true"><span data-atlas-progress></span></div>
+      </section>
       <div class="legend">
-        <span><strong>Open realms</strong> can be visited by anyone. <strong>Owner realms</strong> pass through Zo's private authentication boundary.</span>
+        <span><strong>Open nodes</strong> can be visited by anyone. <strong>Owner nodes</strong> pass through Zo's private authentication boundary.</span>
         <span class="legend__mark">Built on Zo Computer</span>
       </div>
     </main>
@@ -307,11 +348,98 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   <script>
     const filters = [...document.querySelectorAll('[data-filter]')];
     const cards = [...document.querySelectorAll('[data-app-card]')];
+    const atlas = document.querySelector('[data-atlas]');
+    const status = document.querySelector('[data-atlas-status]');
+    const progress = document.querySelector('[data-atlas-progress]');
+    const previous = document.querySelector('[data-atlas-prev]');
+    const next = document.querySelector('[data-atlas-next]');
+    const visibleNodes = () => cards.filter((card) => !card.hidden);
+    const centreNode = (node) => {
+      if (!node) return;
+      const left = node.offsetLeft + node.offsetWidth / 2 - atlas.clientWidth / 2;
+      atlas.scrollTo({ left, behavior: 'smooth' });
+    };
+    const refreshRoute = () => {
+      const visible = visibleNodes();
+      visible.forEach((node, index) => {
+        const following = visible[index + 1];
+        const route = node.querySelector('.sky-node__route');
+        if (!following) {
+          route.style.setProperty('--route-width', '0px');
+          return;
+        }
+        const from = node.querySelector('.sky-node__beacon').getBoundingClientRect();
+        const to = following.querySelector('.sky-node__beacon').getBoundingClientRect();
+        const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+        const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+        route.style.setProperty('--route-width', Math.hypot(dx, dy) + 'px');
+        route.style.setProperty('--route-angle', Math.atan2(dy, dx) * 180 / Math.PI + 'deg');
+      });
+    };
+    const updateAtlas = () => {
+      const visible = visibleNodes();
+      if (!visible.length) return;
+      const centre = atlas.getBoundingClientRect().left + atlas.clientWidth / 2;
+      let current = visible[0];
+      let distance = Infinity;
+      visible.forEach((node) => {
+        const rect = node.getBoundingClientRect();
+        const delta = Math.abs(rect.left + rect.width / 2 - centre);
+        if (delta < distance) { current = node; distance = delta; }
+      });
+      visible.forEach((node) => node.classList.toggle('is-current', node === current));
+      const index = visible.indexOf(current);
+      status.textContent = 'Node ' + String(index + 1).padStart(2, '0') + ' / ' + String(visible.length).padStart(2, '0') + ' · ' + current.dataset.nodeTitle;
+      const max = atlas.scrollWidth - atlas.clientWidth;
+      progress.style.width = (max > 0 ? atlas.scrollLeft / max * 100 : 100) + '%';
+      previous.disabled = index === 0;
+      next.disabled = index === visible.length - 1;
+    };
     filters.forEach((button) => button.addEventListener('click', () => {
       const filter = button.dataset.filter;
       filters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
       cards.forEach((card) => { card.hidden = filter !== 'all' && card.dataset.access !== filter; });
+      atlas.scrollTo({ left: 0, behavior: 'smooth' });
+      requestAnimationFrame(() => { refreshRoute(); updateAtlas(); });
     }));
+    previous.addEventListener('click', () => {
+      const visible = visibleNodes();
+      const current = visible.findIndex((node) => node.classList.contains('is-current'));
+      centreNode(visible[Math.max(0, current - 1)]);
+    });
+    next.addEventListener('click', () => {
+      const visible = visibleNodes();
+      const current = visible.findIndex((node) => node.classList.contains('is-current'));
+      centreNode(visible[Math.min(visible.length - 1, current + 1)]);
+    });
+    atlas.addEventListener('scroll', updateAtlas, { passive: true });
+    atlas.addEventListener('wheel', (event) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      const canTravel = (event.deltaY > 0 && atlas.scrollLeft < atlas.scrollWidth - atlas.clientWidth - 1) || (event.deltaY < 0 && atlas.scrollLeft > 1);
+      if (canTravel) { event.preventDefault(); atlas.scrollLeft += event.deltaY; }
+    }, { passive: false });
+    atlas.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') { event.preventDefault(); previous.click(); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); next.click(); }
+    });
+    let dragStart = 0;
+    let scrollStart = 0;
+    atlas.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('a, button')) return;
+      dragStart = event.clientX;
+      scrollStart = atlas.scrollLeft;
+      atlas.classList.add('is-dragging');
+      atlas.setPointerCapture(event.pointerId);
+    });
+    atlas.addEventListener('pointermove', (event) => {
+      if (!atlas.classList.contains('is-dragging')) return;
+      atlas.scrollLeft = scrollStart - (event.clientX - dragStart);
+    });
+    const endDrag = () => atlas.classList.remove('is-dragging');
+    atlas.addEventListener('pointerup', endDrag);
+    atlas.addEventListener('pointercancel', endDrag);
+    addEventListener('resize', () => { refreshRoute(); updateAtlas(); });
+    requestAnimationFrame(() => { refreshRoute(); updateAtlas(); });
   </script>
 </body>
 </html>`;
