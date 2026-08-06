@@ -8,11 +8,18 @@ const privateFile = join(import.meta.dir, "private.routes.json");
 describe("Garden of Zo catalogue", () => {
   test("catalogues all public and private router apps", () => {
     const html = renderIndex(loadConfig(publicFile), loadCatalogConfigs(publicFile));
-    expect((html.match(/<article[^>]+data-app-card/g) ?? []).length).toBe(8);
+    expect((html.match(/<article[^>]+data-atlas-card/g) ?? []).length).toBe(8);
+    expect((html.match(/<article[^>]+data-list-card/g) ?? []).length).toBe(8);
     expect((html.match(/data-sky-node/g) ?? []).length).toBe(8);
-    expect(html).toContain("Horizontal sky atlas");
-    expect(html).toContain("data-atlas-prev");
-    expect(html).toContain("data-atlas-next");
+    expect(html).toContain("Pannable sky atlas");
+    expect(html).toContain('data-view="atlas"');
+    expect(html).toContain('data-view="list"');
+    expect(html).toContain('data-view-panel="list"');
+    expect(html).toContain("garden-of-zo-view");
+    expect((html.match(/<path data-sky-route/g) ?? []).length).toBe(11);
+    expect(html).toContain("data-atlas-zoom-out");
+    expect(html).toContain("data-atlas-zoom-in");
+    expect(html).toContain("data-atlas-reset");
     expect(html).toContain("Relationship Mapper");
     expect(html).toContain("Zo Usage");
     expect(html).toContain("6 open");
