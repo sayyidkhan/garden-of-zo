@@ -29,14 +29,16 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/mapper"');
   });
 
-  test("serves catalogue metadata and the generated hero asset", async () => {
+  test("serves catalogue metadata and the layered hero assets", async () => {
     const handler = createHandler(publicFile);
     const health = await handler(new Request("http://localhost/health"));
     expect(health.status).toBe(200);
     expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: 8 });
 
-    const asset = await handler(new Request("http://localhost/assets/garden-sky.webp"));
-    expect(asset.status).toBe(200);
-    expect(asset.headers.get("content-type")).toBe("image/webp");
+    for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-pegasus.webp"]) {
+      const asset = await handler(new Request(`http://localhost/assets/${path}`));
+      expect(asset.status).toBe(200);
+      expect(asset.headers.get("content-type")).toBe("image/webp");
+    }
   });
 });

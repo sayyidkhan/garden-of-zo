@@ -7,7 +7,7 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - backend apps should be started with matching `APP_BASE_PATH` values
 - both gateway homepages render the complete catalogue from both manifests
 - private app links always resolve through the authenticated private Zo service
-- catalogue artwork lives at `assets/garden-sky.webp`
+- catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
 
 Current route plan:
 - private: `/backlog` -> `http://127.0.0.1:3000`

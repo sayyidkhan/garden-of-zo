@@ -158,8 +158,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .shell { position: relative; overflow: hidden; min-height: 100vh; background: radial-gradient(circle at 20% 5%, #174b55 0, transparent 36rem), linear-gradient(180deg, #071721 0%, #0b2830 55%, #06151d 100%); }
     .shell::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .16; z-index: 10; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.34'/%3E%3C/svg%3E"); }
     .hero { position: relative; min-height: 760px; isolation: isolate; }
-    .hero__art { position: absolute; inset: 0; background: url('/assets/garden-sky.webp') center center / cover no-repeat; transform: scale(1.025); animation: reveal-art 1.6s cubic-bezier(.2,.7,.2,1) both; }
+    .hero__art { position: absolute; inset: 0; background: url('/assets/garden-sky-v2.webp') center center / cover no-repeat; transform: scale(1.025); animation: reveal-art 1.6s cubic-bezier(.2,.7,.2,1) both; }
     .hero__art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3,16,22,.89) 0%, rgba(3,16,22,.57) 38%, rgba(3,16,22,.03) 72%), linear-gradient(180deg, rgba(4,18,25,.48) 0%, transparent 28%, rgba(6,21,29,.18) 64%, #0a252d 100%); }
+    .hero__kingdom, .hero__pegasus { position: absolute; z-index: 2; pointer-events: none; }
+    .hero__kingdom { top: 8px; right: -2%; width: min(55vw, 760px); animation: kingdom-float 9s ease-in-out infinite alternate; }
+    .hero__kingdom::before { content: ""; position: absolute; z-index: -1; left: 19%; right: 18%; bottom: 6%; height: 15%; border-radius: 50%; background: rgba(2, 12, 17, .64); filter: blur(24px); transform: skewX(-12deg); opacity: .76; }
+    .hero__kingdom img { display: block; width: 100%; height: auto; filter: drop-shadow(0 30px 24px rgba(1, 10, 14, .46)); }
+    .hero__pegasus { right: -10%; bottom: -125px; width: min(63vw, 930px); animation: pegasus-soar 11s ease-in-out infinite alternate; }
+    .hero__pegasus img { display: block; width: 100%; height: auto; filter: drop-shadow(0 28px 24px rgba(2, 13, 20, .55)); }
     .nav { position: relative; z-index: 4; display: flex; align-items: center; justify-content: space-between; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 26px 0; border-bottom: 1px solid rgba(255,255,255,.16); }
     .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; font-family: var(--serif); font-weight: 700; letter-spacing: .04em; font-size: 1.2rem; }
     .brand__mark { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(244,216,155,.5); border-radius: 50%; color: var(--gold); background: rgba(6,21,29,.46); backdrop-filter: blur(12px); }
@@ -212,10 +218,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @keyframes reveal-art { from { opacity: 0; transform: scale(1.09); } to { opacity: 1; transform: scale(1.025); } }
     @keyframes rise { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes cloud-drift { to { transform: translate3d(4%, -5px, 0); } }
+    @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
+    @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
     @media (max-width: 900px) {
       .hero { min-height: 700px; }
       .hero__art { background-position: 62% center; }
       .hero__art::after { background: linear-gradient(90deg, rgba(3,16,22,.9), rgba(3,16,22,.18)), linear-gradient(180deg, rgba(4,18,25,.35), transparent 35%, #0a252d 100%); }
+      .hero__kingdom { top: 42px; right: -21%; width: min(74vw, 650px); opacity: .9; }
+      .hero__pegasus { right: -26%; bottom: -80px; width: min(92vw, 760px); }
       .catalogue__head { grid-template-columns: 1fr; align-items: start; }
       .filters { justify-self: start; }
       .realm-card { grid-column: span 6; }
@@ -225,10 +235,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .nav__status { font-size: 0; padding: 11px; }
       .hero { min-height: 650px; }
       .hero__art { background-position: 67% center; }
+      .hero__kingdom { top: 46px; right: -49%; width: 118vw; opacity: .68; }
+      .hero__pegasus { right: -48%; bottom: -125px; width: 130vw; opacity: .88; }
       .hero__content { width: min(100% - 32px, 1180px); padding: 98px 0 130px; }
       .hero h1 { font-size: clamp(4.1rem, 22vw, 6rem); }
       .hero__lede { max-width: 92%; font-size: .98rem; }
       .hero__footer { align-items: flex-start; flex-direction: column; gap: 18px; }
+      .hero__count { padding: 6px 8px; margin-left: -8px; border-radius: 999px; background: rgba(3, 16, 22, .48); backdrop-filter: blur(8px); }
       .catalogue { width: min(100% - 28px, 1180px); padding-top: 72px; }
       .catalogue__head h2 { font-size: 3.3rem; }
       .filters { width: 100%; overflow-x: auto; }
@@ -247,6 +260,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   <div class="shell">
     <header class="hero">
       <div class="hero__art" aria-hidden="true"></div>
+      <div class="hero__kingdom" aria-hidden="true"><img src="/assets/garden-kingdom.webp" alt="" /></div>
+      <div class="hero__pegasus" aria-hidden="true"><img src="/assets/garden-pegasus.webp" alt="" /></div>
       <nav class="nav" aria-label="Primary navigation">
         <a class="brand" href="/"><span class="brand__mark">${icon("spark")}</span><span>Garden of Zo</span></a>
         <span class="nav__status">${escapeHtml(viewLabel)}</span>
@@ -361,8 +376,15 @@ export function createHandler(configFile: string) {
       return new Response(renderFavicon(), { headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" } });
     }
 
-    if (url.pathname === "/assets/garden-sky.webp") {
-      return new Response(Bun.file(join(dirname(configFile), "assets/garden-sky.webp")), {
+    const heroAssets: Record<string, string> = {
+      "/assets/garden-sky.webp": "garden-sky.webp",
+      "/assets/garden-sky-v2.webp": "garden-sky-v2.webp",
+      "/assets/garden-kingdom.webp": "garden-kingdom.webp",
+      "/assets/garden-pegasus.webp": "garden-pegasus.webp"
+    };
+
+    if (heroAssets[url.pathname]) {
+      return new Response(Bun.file(join(dirname(configFile), "assets", heroAssets[url.pathname])), {
         headers: { "content-type": "image/webp", "cache-control": "public, max-age=604800, immutable" }
       });
     }
