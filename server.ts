@@ -2,6 +2,7 @@ import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
 
 export type Access = "public" | "private";
+export type RealmKind = "app" | "workflow" | "agent";
 
 export type RouteConfig = {
   prefix: string;
@@ -9,6 +10,7 @@ export type RouteConfig = {
   title: string;
   description: string;
   category: string;
+  kind: RealmKind;
   icon: string;
   targetOrigin: string;
   entryPath?: string;
@@ -79,6 +81,11 @@ export function loadConfig(file: string): RouterConfig {
     prefix: normalizePrefix(route.prefix),
     targetOrigin: route.targetOrigin.replace(/\/+$/, "")
   }));
+  for (const route of parsed.routes) {
+    if (!(["app", "workflow", "agent"] as string[]).includes(route.kind)) {
+      throw new Error(`Invalid realm kind for ${route.label}: ${route.kind}`);
+    }
+  }
   return parsed;
 }
 
@@ -96,6 +103,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   const allApps = catalog.flatMap((gateway) => gateway.routes.map((route) => ({ gateway, route })));
   const publicCount = allApps.filter(({ gateway }) => gateway.access === "public").length;
   const privateCount = allApps.length - publicCount;
+  const kindCounts = {
+    app: allApps.filter(({ route }) => route.kind === "app").length,
+    workflow: allApps.filter(({ route }) => route.kind === "workflow").length,
+    agent: allApps.filter(({ route }) => route.kind === "agent").length
+  };
   const nodePositions = [
     { x: 130, y: 390, art: "outpost", scale: .88 },
     { x: 470, y: 110, art: "observatory", scale: 1.08 },
@@ -146,7 +158,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     return `<path data-sky-route data-from="${fromIndex}" data-to="${toIndex}" d="M ${x1} ${y1} C ${midX} ${y1 + curve}, ${midX} ${y2 - curve}, ${x2} ${y2}" />`;
   }).join("");
   const listCards = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
-    return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" style="--order:${index}">
+    return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index}">
       <span class="realm-row__number">${String(index + 1).padStart(2, "0")}</span>
       <span class="realm-row__icon" aria-hidden="true">${icon(route.icon)}</span>
       <div class="realm-row__identity">
@@ -291,6 +303,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
     .realm-list__bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 18px; color: #849c99; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     .realm-list__bar strong { color: var(--gold); }
+    .realm-kind-filters { display: flex; gap: 5px; padding: 4px; border: 1px solid rgba(228,193,120,.18); border-radius: 999px; background: rgba(3,18,23,.54); }
+    .realm-kind-filter { border: 0; border-radius: 999px; padding: 8px 12px; color: #91aaa6; background: transparent; cursor: pointer; font: inherit; letter-spacing: .08em; text-transform: uppercase; transition: color .2s, background .2s; }
+    .realm-kind-filter[aria-pressed="true"] { color: #172328; background: var(--gold); }
     .realm-list__rows { border-top: 1px solid rgba(228,193,120,.18); }
     .realm-row { display: grid; grid-template-columns: 42px 48px minmax(150px, .85fr) minmax(240px, 1.5fr) auto 132px; align-items: center; gap: 18px; min-height: 116px; border-bottom: 1px solid rgba(228,193,120,.14); animation: rise .55s calc(var(--order) * 45ms) both; transition: background .2s, transform .2s; }
     .realm-row[hidden] { display: none; }
@@ -362,7 +377,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .atlas__status::before { display: none; }
       .atlas__control { min-width: 38px; height: 38px; padding-inline: 11px; }
       .realm-list { padding-inline: 14px; }
-      .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 5px; }
+      .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .realm-kind-filters { width: 100%; overflow-x: auto; }
+      .realm-kind-filter { flex: 1; white-space: nowrap; }
       .realm-row { grid-template-columns: 34px 42px 1fr auto; gap: 12px; min-height: 112px; padding: 16px 2px; }
       .realm-row__identity { align-self: center; }
       .realm-row > p { grid-column: 3 / -1; }
@@ -438,7 +455,15 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <div class="atlas__progress" aria-hidden="true"><span data-atlas-progress></span></div>
       </section>
       <section class="realm-list" id="list-view" data-view-panel="list" aria-label="Realm list" hidden>
-        <div class="realm-list__bar"><span><strong data-list-count>${allApps.length}</strong> destinations in view</span><span>Apps &middot; workflows &middot; agents</span></div>
+        <div class="realm-list__bar">
+          <span><strong data-list-count>${allApps.length}</strong> destinations in view</span>
+          <div class="realm-kind-filters" role="group" aria-label="Filter list by realm type">
+            <button class="realm-kind-filter" type="button" data-kind-filter="all" aria-pressed="true">All ${allApps.length}</button>
+            <button class="realm-kind-filter" type="button" data-kind-filter="app" aria-pressed="false">Apps ${kindCounts.app}</button>
+            <button class="realm-kind-filter" type="button" data-kind-filter="workflow" aria-pressed="false">Workflows ${kindCounts.workflow}</button>
+            <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents ${kindCounts.agent}</button>
+          </div>
+        </div>
         <div class="realm-list__rows">${listCards}</div>
       </section>
       <div class="legend">
@@ -449,7 +474,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     <footer class="footer"><span>Garden of Zo</span><span>One server. Many worlds.</span></footer>
   </div>
   <script>
-    const filters = [...document.querySelectorAll('[data-filter]')];
+    const accessFilters = [...document.querySelectorAll('[data-filter]')];
+    const kindFilters = [...document.querySelectorAll('[data-kind-filter]')];
     const viewButtons = [...document.querySelectorAll('[data-view]')];
     const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
     const atlasCards = [...document.querySelectorAll('[data-atlas-card]')];
@@ -466,6 +492,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const viewEyebrow = document.querySelector('[data-view-eyebrow]');
     const viewDescription = document.querySelector('[data-view-description]');
     const visibleNodes = () => atlasCards.filter((card) => !card.hidden);
+    let accessFilter = 'all';
+    let kindFilter = 'all';
     let zoom = innerWidth < 620 ? .64 : innerWidth < 1000 ? .72 : .82;
     let mapInitialised = false;
     const setZoom = (nextZoom, focusX = atlas.clientWidth / 2, focusY = atlas.clientHeight / 2) => {
@@ -523,12 +551,25 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       progress.style.width = Math.max(8, viewportRatio * 100) + '%';
       progress.style.transform = 'translateX(' + (atlas.scrollLeft / max * (100 / viewportRatio - 100)) + '%)';
     };
-    filters.forEach((button) => button.addEventListener('click', () => {
-      const filter = button.dataset.filter;
-      filters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-      [...atlasCards, ...listCards].forEach((card) => { card.hidden = filter !== 'all' && card.dataset.access !== filter; });
+    const applyFilters = () => {
+      atlasCards.forEach((card) => { card.hidden = accessFilter !== 'all' && card.dataset.access !== accessFilter; });
+      listCards.forEach((card) => {
+        const accessMismatch = accessFilter !== 'all' && card.dataset.access !== accessFilter;
+        const kindMismatch = kindFilter !== 'all' && card.dataset.kind !== kindFilter;
+        card.hidden = accessMismatch || kindMismatch;
+      });
       listCount.textContent = String(listCards.filter((card) => !card.hidden).length);
       requestAnimationFrame(() => { refreshRoute(); centreMap(); updateAtlas(); });
+    };
+    accessFilters.forEach((button) => button.addEventListener('click', () => {
+      accessFilter = button.dataset.filter;
+      accessFilters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+      applyFilters();
+    }));
+    kindFilters.forEach((button) => button.addEventListener('click', () => {
+      kindFilter = button.dataset.kindFilter;
+      kindFilters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+      applyFilters();
     }));
     viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
     zoomOut.addEventListener('click', () => setZoom(zoom - .1));

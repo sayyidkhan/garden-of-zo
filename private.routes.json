@@ -10,6 +10,7 @@
       "title": "Zo Backlog",
       "description": "Operate ideas, commitments and delivery from one focused command board.",
       "category": "Operations",
+      "kind": "app",
       "icon": "compass",
       "targetOrigin": "http://127.0.0.1:3000"
     },
@@ -19,6 +20,7 @@
       "title": "Zo Usage",
       "description": "Observe live resources, application traffic and long-term host health.",
       "category": "Observatory",
+      "kind": "app",
       "icon": "pulse",
       "targetOrigin": "http://127.0.0.1:8791"
     }

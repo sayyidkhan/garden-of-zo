@@ -10,6 +10,7 @@
       "title": "Relationship Mapper",
       "description": "Reveal the people, systems and connections shaping an idea.",
       "category": "Insight",
+      "kind": "workflow",
       "icon": "network",
       "targetOrigin": "http://127.0.0.1:8000"
     },
@@ -19,6 +20,7 @@
       "title": "Zo Expert",
       "description": "Turn a difficult question into a guided path through specialist knowledge.",
       "category": "AI Agent",
+      "kind": "agent",
       "icon": "spark",
       "targetOrigin": "http://127.0.0.1:8001"
     },
@@ -28,6 +30,7 @@
       "title": "PocketBase",
       "description": "The compact data control plane powering services across the garden.",
       "category": "Infrastructure",
+      "kind": "app",
       "icon": "database",
       "targetOrigin": "http://127.0.0.1:8090",
       "entryPath": "/_/",
@@ -40,6 +43,7 @@
       "title": "Zo Drive",
       "description": "Browse, organise and work with the files held on your personal server.",
       "category": "Workspace",
+      "kind": "app",
       "icon": "folder",
       "targetOrigin": "http://127.0.0.1:43071",
       "stripPrefix": true,
@@ -51,6 +55,7 @@
       "title": "ZoTube",
       "description": "Stream an independent media library with background audio and installable access.",
       "category": "Media",
+      "kind": "app",
       "icon": "play",
       "targetOrigin": "http://127.0.0.1:8788",
       "stripPrefix": true
@@ -61,6 +66,7 @@
       "title": "Zo Moments",
       "description": "Collect conversations and memories into private, cinematic keepsakes.",
       "category": "Social",
+      "kind": "app",
       "icon": "image",
       "targetOrigin": "http://127.0.0.1:8790",
       "stripPrefix": true
