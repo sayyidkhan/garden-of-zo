@@ -28,7 +28,9 @@ describe("Garden of Zo catalogue", () => {
     expect(html).not.toContain("Back to garden");
     expect(html.indexOf("Back to home")).toBeLessThan(html.lastIndexOf("Garden of Zo</span></a>"));
     expect(html).toContain("kingdom-sparkle");
-    expect(html).toContain("kingdom-node.is-active .kingdom-node__art::before");
+    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__art::before");
+    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__label > a::before");
+    expect(html).toContain("if (activeNode === node) node.classList.add('is-arrived')");
     expect((html.match(/<button[^>]+data-atlas-select/g) ?? []).length).toBe(8);
     expect(html).toContain("focusNode");
     expect(html).toContain("enter-realm-shimmer");

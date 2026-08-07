@@ -326,7 +326,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node__beacon i { position: absolute; inset: -9px; border: 1px solid rgba(138,199,180,.28); border-radius: inherit; animation: beacon-pulse 2.8s ease-out infinite; }
     .kingdom-node.is-active { z-index: 6; }
     .kingdom-node.is-active .kingdom-node__art { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: 1; }
-    .kingdom-node.is-active .kingdom-node__art::before { animation: kingdom-sparkle .9s cubic-bezier(.16,.8,.28,1) both; }
+    .kingdom-node.is-active.is-arrived .kingdom-node__art::before { animation: kingdom-sparkle .9s cubic-bezier(.16,.8,.28,1) both; }
     .kingdom-node.is-active .kingdom-node__art::after { opacity: 1; transform: scale(1.05); }
     .kingdom-node.is-active .kingdom-node__beacon { border: 2px solid #fff3c9; color: #fff3c9; background: #1b2a2c; box-shadow: 0 0 0 6px rgba(255,240,189,.18), 0 0 0 13px rgba(228,193,120,.12), 0 0 50px rgba(228,193,120,.96); }
     .kingdom-node.is-active .kingdom-node__label { border: 2px solid #e4c178; background: linear-gradient(145deg, #28453f, #071b20); box-shadow: 0 22px 52px rgba(0,0,0,.58), 0 0 0 5px rgba(228,193,120,.1), 0 0 38px rgba(228,193,120,.34); }
@@ -341,7 +341,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node__label > a { position: relative; grid-column: 2 / -1; display: flex; justify-content: space-between; overflow: hidden; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.08); color: #f4e6c9; font-size: .56rem; font-weight: 900; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
     .kingdom-node__label > a::before { content: ""; position: absolute; inset: 4px -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
     .kingdom-node.is-active .kingdom-node__label > a { margin: 0 -7px -6px; padding: 9px 7px 6px; border-radius: 7px; color: #fff8df; background: rgba(228,193,120,.1); }
-    .kingdom-node.is-active .kingdom-node__label > a::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
+    .kingdom-node.is-active.is-arrived .kingdom-node__label > a::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
     .badge-icon { width: 12px; height: 12px; }
@@ -615,6 +615,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let zoomTarget = zoom;
     let cameraAnimation = null;
+    let cameraSettling = false;
     let cameraStartLeft = 0;
     let cameraStartTop = 0;
     let cameraStartOffset = 0;
@@ -658,7 +659,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       updateZoomControls();
       updateAtlas();
     };
-    const animateCamera = (nextZoom, nextLeft, nextTop, duration) => {
+    const animateCamera = (nextZoom, nextLeft, nextTop, duration, onArrival) => {
       const targetZoom = clampZoom(nextZoom);
       cancelZoomAnimation();
       const startZoom = zoom;
@@ -672,10 +673,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         zoom = targetZoom;
         zoomTarget = targetZoom;
         atlas.style.setProperty('--atlas-zoom', String(zoom));
+        cameraSettling = true;
         atlas.scrollLeft = targetLeft;
         atlas.scrollTop = targetTop;
+        requestAnimationFrame(() => { cameraSettling = false; });
         updateZoomControls();
         updateAtlas();
+        onArrival?.();
         return;
       }
       zoomTarget = targetZoom;
@@ -697,11 +701,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         cameraAnimation = null;
         zoom = targetZoom;
         atlas.style.setProperty('--atlas-zoom', String(zoom));
+        cameraSettling = true;
         atlas.scrollLeft = targetLeft;
         atlas.scrollTop = targetTop;
+        requestAnimationFrame(() => { cameraSettling = false; });
         atlas.classList.remove('is-zooming');
         updateZoomControls();
         updateAtlas();
+        onArrival?.();
       }).catch(() => {});
     };
     const animateZoom = (nextZoom, focusX = atlas.clientWidth / 2, focusY = atlas.clientHeight / 2) => {
@@ -724,10 +731,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const setActiveNode = (node, shouldCentre = true, behavior = 'smooth') => {
       const visible = visibleNodes();
       if (!node || node.hidden) node = visible[0] || null;
+      const activeChanged = node !== activeNode;
       activeNode = node;
       atlasCards.forEach((card) => {
         const selected = card === activeNode;
         card.classList.toggle('is-active', selected);
+        if (!selected || activeChanged) card.classList.remove('is-arrived');
         const selector = card.querySelector('[data-atlas-select]');
         selector?.setAttribute('aria-pressed', String(selected));
       });
@@ -743,6 +752,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const focusNode = (node) => {
       if (!node || node.hidden) return;
       cancelZoomAnimation();
+      node.classList.remove('is-arrived');
       setActiveNode(node, false);
       const focusZoom = innerWidth < 620 ? 1.05 : innerWidth < 1000 ? 1.2 : 1.38;
       const targetZoom = clampZoom(Math.max(zoom, focusZoom));
@@ -756,7 +766,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const targetOffset = canvasOffsetForZoom(targetZoom);
       const targetLeft = nodeCentreX * targetZoom + targetOffset - atlas.clientWidth / 2;
       const targetTop = nodeCentreY * targetZoom - atlas.clientHeight / 2;
-      animateCamera(targetZoom, targetLeft, targetTop, 640);
+      animateCamera(targetZoom, targetLeft, targetTop, 640, () => {
+        if (activeNode === node) node.classList.add('is-arrived');
+      });
     };
     const fitMap = (behavior = 'smooth') => {
       const visible = visibleNodes();
@@ -940,7 +952,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     atlasCards.forEach((card) => card.querySelector('[data-atlas-select]')?.addEventListener('click', () => focusNode(card)));
     atlasCards.forEach((card) => card.addEventListener('focusin', () => setActiveNode(card, false)));
     atlas.addEventListener('scroll', () => {
-      markInteracting();
+      if (!cameraSettling) markInteracting();
       scheduleAtlasUpdate();
     }, { passive: true });
     atlas.addEventListener('wheel', (event) => {
