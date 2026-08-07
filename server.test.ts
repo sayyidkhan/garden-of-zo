@@ -24,7 +24,11 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('data-screen="landing"');
     expect(html).toContain('data-screen="catalogue" hidden');
     expect(html).toContain('href="#atlas" aria-controls="realms"');
-    expect(html).toContain("Back to garden");
+    expect(html).toContain("Back to home");
+    expect(html).not.toContain("Back to garden");
+    expect(html.indexOf("Back to home")).toBeLessThan(html.lastIndexOf("Garden of Zo</span></a>"));
+    expect(html).toContain("kingdom-sparkle");
+    expect(html).toContain("kingdom-node.is-active .kingdom-node__art::before");
     expect(html).toContain("addEventListener('hashchange', syncScreen)");
     expect(html).toContain("selected === 'list' ? '#list' : '#atlas'");
     expect(html).toContain("location.hash === '#list'");

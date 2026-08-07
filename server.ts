@@ -264,9 +264,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .view-toggle, .filters, .realm-kind-filters { display: flex; flex: none; gap: 3px; }
     .view-toggle__button { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 12px; padding: 9px 11px; color: #94aaa6; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: color .2s, background .2s, box-shadow .2s; }
     .view-toggle__button svg { width: 16px; height: 16px; }
-    .view-toggle__button[aria-pressed="true"] { color: #172328; background: var(--gold); box-shadow: 0 6px 18px rgba(228,193,120,.2); }
+    .view-toggle__button[aria-pressed="true"] { color: #101b20; background: linear-gradient(135deg, #fff0bd, var(--gold)); box-shadow: 0 0 0 1px rgba(255,240,189,.72), 0 7px 22px rgba(228,193,120,.38); }
     .filter { border: 0; border-radius: 10px; padding: 9px 10px; color: #aebfbb; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap; transition: color .2s, background .2s; }
-    .filter[aria-pressed="true"] { color: #162027; background: var(--ink); }
+    .filter[aria-pressed="true"] { color: #101b20; background: #fff7e3; box-shadow: 0 0 0 1px rgba(255,255,255,.72), 0 5px 16px rgba(248,242,223,.2); }
     .commandbar__divider { flex: none; width: 1px; height: 24px; margin: 0 3px; background: rgba(228,193,120,.2); }
     body.is-atlas-view { overflow: hidden; }
     body.is-atlas-view .shell { height: 100svh; min-height: 0; overflow: hidden; }
@@ -293,7 +293,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__control { display: grid; place-items: center; min-width: 42px; height: 42px; padding: 0 13px; border: 1px solid rgba(228,193,120,.25); border-radius: 999px; color: var(--ink); background: rgba(6,25,31,.7); cursor: pointer; font-size: .72rem; font-weight: 900; letter-spacing: .04em; transition: transform .2s, border-color .2s, background .2s; }
     .atlas__control:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(228,193,120,.66); background: rgba(25,54,58,.9); }
     .atlas__control:disabled { cursor: default; opacity: .28; }
-    .atlas__location { display: grid; grid-template-columns: auto minmax(100px, 160px); align-items: center; gap: 9px; min-height: 42px; padding: 6px 12px; border: 1px solid rgba(138,199,180,.2); border-radius: 999px; background: rgba(4,22,28,.76); }
+    .atlas__location { display: grid; grid-template-columns: auto minmax(100px, 160px); align-items: center; gap: 9px; min-height: 42px; padding: 6px 12px; border: 1px solid rgba(228,193,120,.58); border-radius: 999px; background: linear-gradient(135deg, rgba(54,47,31,.96), rgba(4,22,28,.94)); box-shadow: inset 0 0 0 1px rgba(255,240,189,.06), 0 0 24px rgba(228,193,120,.15); }
     .atlas__location small { color: var(--gold); font-size: .56rem; font-weight: 900; letter-spacing: .12em; }
     .atlas__location strong { overflow: hidden; color: #dce8e3; font: 700 .78rem/1.1 var(--serif); text-overflow: ellipsis; white-space: nowrap; }
     .atlas__viewport { position: relative; z-index: 2; height: min(720px, 72vh); min-height: 540px; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; cursor: grab; touch-action: none; contain: layout paint style; background: radial-gradient(circle at 50% 45%, rgba(67,130,132,.1), transparent 34rem); }
@@ -309,6 +309,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node[hidden] { display: none; }
     .kingdom-node__island { position: absolute; inset: 0 0 auto; height: 175px; display: grid; place-items: center; text-decoration: none; }
     .kingdom-node__art { position: absolute; inset: 0; display: grid; place-items: center; transform: scale(var(--node-scale)); transform-origin: center bottom; will-change: transform; animation: kingdom-art-float 9s calc(var(--order) * -1.3s) ease-in-out infinite alternate; transition: transform .3s, opacity .3s; }
+    .kingdom-node__art::before, .kingdom-node__art::after { content: ""; position: absolute; pointer-events: none; opacity: 0; }
+    .kingdom-node__art::before { z-index: 3; inset: -18px -8px 8px; background: radial-gradient(circle at 12% 34%, #fff8d7 0 2px, transparent 3px), radial-gradient(circle at 26% 13%, #e4c178 0 2px, transparent 3.5px), radial-gradient(circle at 48% 4%, #fff8d7 0 1.5px, transparent 3px), radial-gradient(circle at 73% 17%, #fff0bd 0 2px, transparent 3.5px), radial-gradient(circle at 91% 40%, #e4c178 0 2px, transparent 3.5px), radial-gradient(circle at 78% 68%, #fff8d7 0 1.5px, transparent 3px), radial-gradient(circle at 18% 72%, #fff0bd 0 2px, transparent 3.5px); transform: scale(.72) rotate(-5deg); }
+    .kingdom-node__art::after { z-index: 0; inset: 22px 24px 8px; border-radius: 50%; background: radial-gradient(ellipse, rgba(255,240,189,.48), rgba(228,193,120,.14) 46%, transparent 73%); transform: scale(.78); transition: opacity .28s ease, transform .35s ease; }
     .kingdom-node:hover .kingdom-node__art, .kingdom-node:focus-within .kingdom-node__art { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: .94; }
     .kingdom-node__art img { position: relative; z-index: 2; display: block; width: 230px; height: 175px; object-fit: contain; }
     .kingdom-node--main .kingdom-node__art img { width: 265px; }
@@ -319,11 +322,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node__beacon svg { width: 21px; height: 21px; }
     .kingdom-node__beacon i { position: absolute; inset: -9px; border: 1px solid rgba(138,199,180,.28); border-radius: inherit; animation: beacon-pulse 2.8s ease-out infinite; }
     .kingdom-node.is-active { z-index: 6; }
-    .kingdom-node.is-active .kingdom-node__beacon { border-color: #fff0bd; box-shadow: 0 0 0 10px rgba(228,193,120,.13), 0 0 42px rgba(228,193,120,.78); }
-    .kingdom-node.is-active .kingdom-node__label { border-color: rgba(228,193,120,.66); box-shadow: 0 22px 52px rgba(0,0,0,.52), 0 0 30px rgba(228,193,120,.1); }
-    .kingdom-node--private .kingdom-node__beacon { border-color: rgba(221,125,102,.72); color: #e9b690; box-shadow: 0 0 0 8px rgba(221,125,102,.06), 0 0 28px rgba(221,125,102,.35); }
+    .kingdom-node.is-active .kingdom-node__art { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: 1; }
+    .kingdom-node.is-active .kingdom-node__art::before { animation: kingdom-sparkle .9s cubic-bezier(.16,.8,.28,1) both; }
+    .kingdom-node.is-active .kingdom-node__art::after { opacity: 1; transform: scale(1.05); }
+    .kingdom-node.is-active .kingdom-node__beacon { border: 2px solid #fff3c9; color: #fff3c9; background: #1b2a2c; box-shadow: 0 0 0 6px rgba(255,240,189,.18), 0 0 0 13px rgba(228,193,120,.12), 0 0 50px rgba(228,193,120,.96); }
+    .kingdom-node.is-active .kingdom-node__label { border: 2px solid #e4c178; background: linear-gradient(145deg, #28453f, #071b20); box-shadow: 0 22px 52px rgba(0,0,0,.58), 0 0 0 5px rgba(228,193,120,.1), 0 0 38px rgba(228,193,120,.34); }
+    .kingdom-node--private:not(.is-active) .kingdom-node__beacon { border-color: rgba(221,125,102,.72); color: #e9b690; box-shadow: 0 0 0 8px rgba(221,125,102,.06), 0 0 28px rgba(221,125,102,.35); }
     .kingdom-node__label { position: absolute; z-index: 5; left: 50%; bottom: 0; width: 255px; min-height: 96px; transform: translateX(-50%); display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 13px 14px; border: 1px solid rgba(228,193,120,.24); border-radius: 4px 20px 4px 20px; background: linear-gradient(145deg, #113136, #04161c); box-shadow: 0 20px 38px rgba(0,0,0,.38); }
-    .kingdom-node--private .kingdom-node__label { background: linear-gradient(145deg, #322a2b, #0c191e); }
+    .kingdom-node--private:not(.is-active) .kingdom-node__label { background: linear-gradient(145deg, #322a2b, #0c191e); }
     .kingdom-node__number { color: #7e9793; font-size: .58rem; font-weight: 900; letter-spacing: .1em; }
     .kingdom-node__category { color: var(--coral); font-size: .52rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
     .kingdom-node h2 { margin: 4px 0 0; font: 600 1.22rem/1 var(--serif); letter-spacing: -.02em; }
@@ -350,7 +356,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-list__bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 18px; color: #849c99; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     .realm-list__bar strong { color: var(--gold); }
     .realm-kind-filter { border: 0; border-radius: 10px; padding: 9px 10px; color: #91aaa6; background: transparent; cursor: pointer; font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: color .2s, background .2s; }
-    .realm-kind-filter[aria-pressed="true"] { color: #172328; background: var(--gold); }
+    .realm-kind-filter[aria-pressed="true"] { color: #101b20; background: linear-gradient(135deg, #fff0bd, var(--gold)); box-shadow: 0 0 0 1px rgba(255,240,189,.72), 0 5px 16px rgba(228,193,120,.3); }
     .realm-list__rows { border-top: 1px solid rgba(228,193,120,.18); }
     .realm-row { display: grid; grid-template-columns: 42px 48px minmax(150px, .85fr) minmax(240px, 1.5fr) auto 132px; align-items: center; gap: 18px; min-height: 116px; border-bottom: 1px solid rgba(228,193,120,.14); animation: rise .55s calc(var(--order) * 45ms) both; transition: background .2s, transform .2s; }
     .realm-row[hidden] { display: none; }
@@ -376,6 +382,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @keyframes route-drift { to { stroke-dashoffset: -180; } }
     @keyframes kingdom-node-arrive { from { opacity: 0; } to { opacity: 1; } }
     @keyframes kingdom-art-float { from { translate: 0 -5px; } to { translate: 0 9px; } }
+    @keyframes kingdom-sparkle { 0% { opacity: 0; transform: scale(.72) rotate(-5deg); } 28% { opacity: 1; } 72% { opacity: .9; } 100% { opacity: 0; transform: scale(1.2) rotate(6deg); } }
     @keyframes pegasus-map { from { transform: translate3d(0, 8px, 0) rotate(-2deg); } to { transform: translate3d(28px, -13px, 0) rotate(1deg); } }
     @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
     @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
@@ -484,8 +491,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     </header>
     <main class="catalogue" id="realms" data-screen="catalogue" hidden>
       <nav class="catalogue__nav" aria-label="Catalogue navigation">
+        <a class="catalogue__return" href="/" data-close-catalogue><span aria-hidden="true">&larr;</span> Back to home</a>
         <a class="brand" href="/" data-close-catalogue><span class="brand__mark">${icon("spark")}</span><span>Garden of Zo</span></a>
-        <a class="catalogue__return" href="/" data-close-catalogue><span aria-hidden="true">&larr;</span> Back to garden</a>
       </nav>
       <div class="catalogue__head">
         <div class="catalogue__intro">
