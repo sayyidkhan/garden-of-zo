@@ -32,6 +32,9 @@ describe("Garden of Zo catalogue", () => {
     expect((html.match(/data-kind="agent"/g) ?? []).length).toBe(2);
     expect(html).toContain("garden-of-zo-view");
     expect((html.match(/<path data-sky-route/g) ?? []).length).toBe(11);
+    expect(html).toContain('d="M 265 444 C');
+    expect(html).toContain('class="kingdom-node__art"');
+    expect(html).toContain("height: auto; aspect-ratio: 520 / 293");
     expect(html).toContain("data-atlas-zoom-out");
     expect(html).toContain("data-atlas-zoom-in");
     expect(html).toContain("data-atlas-reset");

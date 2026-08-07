@@ -108,15 +108,17 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     workflow: allApps.filter(({ route }) => route.kind === "workflow").length,
     agent: allApps.filter(({ route }) => route.kind === "agent").length
   };
+  const nodeHalfWidth = 135;
+  const nodeBeaconOffset = 54;
   const nodePositions = [
-    { x: 130, y: 390, art: "outpost", scale: .88 },
-    { x: 470, y: 110, art: "observatory", scale: 1.08 },
-    { x: 500, y: 690, art: "main", scale: .9 },
-    { x: 850, y: 350, art: "main", scale: 1.18 },
-    { x: 1110, y: 740, art: "outpost", scale: .96 },
-    { x: 1370, y: 90, art: "observatory", scale: 1.02 },
-    { x: 1510, y: 520, art: "main", scale: 1.06 },
-    { x: 1880, y: 280, art: "outpost", scale: 1.12 }
+    { x: 265, y: 444, art: "outpost", scale: .88 },
+    { x: 605, y: 164, art: "observatory", scale: 1.08 },
+    { x: 635, y: 744, art: "main", scale: .9 },
+    { x: 985, y: 404, art: "main", scale: 1.18 },
+    { x: 1245, y: 794, art: "outpost", scale: .96 },
+    { x: 1505, y: 144, art: "observatory", scale: 1.02 },
+    { x: 1645, y: 574, art: "main", scale: 1.06 },
+    { x: 2015, y: 334, art: "outpost", scale: 1.12 }
   ];
   const graphLinks = [[0, 1], [0, 2], [1, 3], [2, 3], [2, 4], [3, 5], [3, 6], [4, 6], [5, 6], [5, 7], [6, 7]];
   const appEntries = allApps.map(({ gateway, route }, index) => {
@@ -132,10 +134,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
     const position = nodePositions[index];
     const artFile = position.art === "main" ? "garden-kingdom-atlas.webp" : `garden-kingdom-${position.art}-atlas.webp`;
-    return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x}px;--node-y:${position.y}px;--node-scale:${position.scale}">
+    return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
       <a class="kingdom-node__island" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
-        <span class="kingdom-node__halo" aria-hidden="true"></span>
-        <img src="/assets/${artFile}" alt="" aria-hidden="true" decoding="async" draggable="false" />
+        <span class="kingdom-node__art" aria-hidden="true">
+          <span class="kingdom-node__halo"></span>
+          <img src="/assets/${artFile}" alt="" decoding="async" draggable="false" />
+        </span>
         <span class="kingdom-node__beacon" aria-hidden="true">${icon(route.icon)}<i></i></span>
       </a>
       <div class="kingdom-node__label">
@@ -149,10 +153,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   const routes = graphLinks.map(([fromIndex, toIndex], index) => {
     const from = nodePositions[fromIndex];
     const to = nodePositions[toIndex];
-    const x1 = from.x + 135;
-    const y1 = from.y + 100;
-    const x2 = to.x + 135;
-    const y2 = to.y + 100;
+    const x1 = from.x;
+    const y1 = from.y;
+    const x2 = to.x;
+    const y2 = to.y;
     const curve = index % 2 === 0 ? -90 : 90;
     const midX = (x1 + x2) / 2;
     return `<path data-sky-route data-from="${fromIndex}" data-to="${toIndex}" d="M ${x1} ${y1} C ${midX} ${y1 + curve}, ${midX} ${y2 - curve}, ${x2} ${y2}" />`;
@@ -275,14 +279,15 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .sky-routes { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
     .sky-routes path { fill: none; stroke: rgba(228,193,120,.78); stroke-width: 3; stroke-dasharray: 4 14; stroke-linecap: round; animation: route-drift 20s linear infinite; }
     .sky-routes path.is-hidden { display: none; }
-    .atlas__pegasus { position: absolute; z-index: 2; left: 1060px; top: 285px; width: 330px; opacity: .58; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
-    .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; contain: layout style; will-change: transform; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both, kingdom-node-float 9s calc(var(--order) * -1.3s) ease-in-out infinite alternate; }
+    .atlas__pegasus { position: absolute; z-index: 2; left: 1060px; top: 285px; width: 330px; height: auto; aspect-ratio: 520 / 293; object-fit: contain; opacity: .58; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
+    .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; contain: layout style; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both; }
     .kingdom-node[hidden] { display: none; }
-    .kingdom-node__island { position: absolute; inset: 0 0 auto; height: 175px; display: grid; place-items: center; text-decoration: none; transform: scale(var(--node-scale)); transform-origin: center bottom; transition: transform .3s, opacity .3s; }
-    .kingdom-node:hover .kingdom-node__island, .kingdom-node:focus-within .kingdom-node__island { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: .94; }
-    .kingdom-node__island img { position: relative; z-index: 2; display: block; width: 230px; height: 175px; object-fit: contain; }
-    .kingdom-node--main .kingdom-node__island img { width: 265px; }
-    .kingdom-node:nth-of-type(3n+2) .kingdom-node__island img { transform: scaleX(-1); }
+    .kingdom-node__island { position: absolute; inset: 0 0 auto; height: 175px; display: grid; place-items: center; text-decoration: none; }
+    .kingdom-node__art { position: absolute; inset: 0; display: grid; place-items: center; transform: scale(var(--node-scale)); transform-origin: center bottom; will-change: transform; animation: kingdom-art-float 9s calc(var(--order) * -1.3s) ease-in-out infinite alternate; transition: transform .3s, opacity .3s; }
+    .kingdom-node:hover .kingdom-node__art, .kingdom-node:focus-within .kingdom-node__art { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: .94; }
+    .kingdom-node__art img { position: relative; z-index: 2; display: block; width: 230px; height: 175px; object-fit: contain; }
+    .kingdom-node--main .kingdom-node__art img { width: 265px; }
+    .kingdom-node:nth-of-type(3n+2) .kingdom-node__art img { transform: scaleX(-1); }
     .kingdom-node__halo { position: absolute; z-index: 1; width: 180px; height: 54px; border-radius: 50%; transform: translateY(48px) scaleY(.7); background: radial-gradient(ellipse, rgba(0,7,11,.9), rgba(15,47,49,.4) 48%, transparent 74%); box-shadow: 0 18px 32px rgba(0,0,0,.34); }
     .kingdom-node--private .kingdom-node__halo { background: radial-gradient(ellipse, rgba(0,7,11,.92), rgba(81,45,39,.38) 48%, transparent 74%); }
     .kingdom-node__beacon { position: absolute; z-index: 4; left: 50%; top: 28px; display: grid; place-items: center; width: 52px; height: 52px; transform: translateX(-50%); border: 1px solid rgba(228,193,120,.7); border-radius: 50%; color: var(--gold); background: rgba(4,22,28,.9); box-shadow: 0 0 0 8px rgba(228,193,120,.06), 0 0 28px rgba(228,193,120,.42); }
@@ -302,8 +307,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .badge-icon { width: 12px; height: 12px; }
     .atlas__progress { position: relative; z-index: 3; height: 3px; background: rgba(255,255,255,.06); }
     .atlas__progress span { display: block; width: 18%; height: 100%; transform: translateX(0); background: linear-gradient(90deg, var(--mint), var(--gold)); box-shadow: 0 0 16px rgba(228,193,120,.5); transition: width .2s ease-out, transform .2s ease-out; }
-    .atlas__viewport.is-interacting .kingdom-node, .atlas__viewport.is-interacting .atlas__pegasus, .atlas__viewport.is-interacting .sky-routes path, .atlas__viewport.is-interacting .kingdom-node__beacon i { animation-play-state: paused; }
-    .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus, .atlas.is-offscreen .kingdom-node, .atlas.is-offscreen .atlas__pegasus, .atlas.is-offscreen .sky-routes path, .atlas.is-offscreen .kingdom-node__beacon i { animation-play-state: paused; }
+    .atlas__viewport.is-interacting .kingdom-node__art, .atlas__viewport.is-interacting .atlas__pegasus, .atlas__viewport.is-interacting .sky-routes path, .atlas__viewport.is-interacting .kingdom-node__beacon i { animation-play-state: paused; }
+    .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
     .realm-list__bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 18px; color: #849c99; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
@@ -335,7 +340,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @keyframes beacon-pulse { 0% { opacity: .7; transform: scale(.82); } 75%, 100% { opacity: 0; transform: scale(1.38); } }
     @keyframes route-drift { to { stroke-dashoffset: -180; } }
     @keyframes kingdom-node-arrive { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes kingdom-node-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(0, 9px, 0); } }
+    @keyframes kingdom-art-float { from { translate: 0 -5px; } to { translate: 0 9px; } }
     @keyframes pegasus-map { from { transform: translate3d(0, 8px, 0) rotate(-2deg); } to { transform: translate3d(28px, -13px, 0) rotate(1deg); } }
     @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
     @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
@@ -388,8 +393,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
       .realm-kind-filters { width: 100%; overflow-x: auto; }
       .realm-kind-filter { flex: 1; white-space: nowrap; }
-      .hero__kingdom, .hero__pegasus, .kingdom-node, .atlas__pegasus, .sky-routes path, .kingdom-node__beacon i { animation: none; }
-      .kingdom-node { will-change: auto; }
+      .hero__kingdom, .hero__pegasus, .kingdom-node, .kingdom-node__art, .atlas__pegasus, .sky-routes path, .kingdom-node__beacon i { animation: none; }
+      .kingdom-node__art { will-change: auto; }
       .shell::before { display: none; }
       .brand__mark, .nav__status, .hero__count { backdrop-filter: none; }
       .realm-row { grid-template-columns: 34px 42px 1fr auto; gap: 12px; min-height: 112px; padding: 16px 2px; }
@@ -678,7 +683,6 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         entries.forEach((entry) => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));
       }, { rootMargin: '120px' });
       visibilityObserver.observe(hero);
-      visibilityObserver.observe(document.querySelector('.atlas'));
     }
     let savedView = 'atlas';
     try { savedView = localStorage.getItem('garden-of-zo-view') || 'atlas'; } catch {}
