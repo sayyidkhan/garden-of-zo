@@ -7,6 +7,7 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - backend apps should be started with matching `APP_BASE_PATH` values
 - both gateway homepages render the complete catalogue from both manifests
 - the catalogue toggles between a pannable two-dimensional Sky Atlas graph and a compact list view, with the preference stored in the browser
+- the Atlas uses lightweight artwork variants, compositor-only motion, native mobile panning, and animation-frame-throttled interaction
 - private app links always resolve through the authenticated private Zo service
 - catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
 

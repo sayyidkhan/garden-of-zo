@@ -131,11 +131,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   });
   const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
     const position = nodePositions[index];
-    const artFile = position.art === "main" ? "garden-kingdom.webp" : `garden-kingdom-${position.art}.webp`;
+    const artFile = position.art === "main" ? "garden-kingdom-atlas.webp" : `garden-kingdom-${position.art}-atlas.webp`;
     return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x}px;--node-y:${position.y}px;--node-scale:${position.scale}">
       <a class="kingdom-node__island" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
         <span class="kingdom-node__halo" aria-hidden="true"></span>
-        <img src="/assets/${artFile}" alt="" aria-hidden="true" />
+        <img src="/assets/${artFile}" alt="" aria-hidden="true" decoding="async" draggable="false" />
         <span class="kingdom-node__beacon" aria-hidden="true">${icon(route.icon)}<i></i></span>
       </a>
       <div class="kingdom-node__label">
@@ -189,6 +189,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   <meta name="description" content="${escapeHtml(current.description ?? "A catalogue of apps growing on Zo Computer.")}" />
   <title>Garden of Zo</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preload" href="/assets/garden-sky-v2.webp" as="image" fetchpriority="high" />
   <style>
     :root {
       color-scheme: dark;
@@ -210,7 +211,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     a { color: inherit; }
     button { font: inherit; }
     .shell { position: relative; overflow: hidden; min-height: 100vh; background: radial-gradient(circle at 20% 5%, #174b55 0, transparent 36rem), linear-gradient(180deg, #071721 0%, #0b2830 55%, #06151d 100%); }
-    .shell::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .16; z-index: 10; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.34'/%3E%3C/svg%3E"); }
+    .shell::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .12; z-index: 10; background-image: radial-gradient(circle, rgba(255,255,255,.42) 0 .6px, transparent .8px); background-size: 5px 5px; }
     .hero { position: relative; min-height: 760px; isolation: isolate; }
     .hero__art { position: absolute; inset: 0; background: url('/assets/garden-sky-v2.webp') center center / cover no-repeat; transform: scale(1.025); animation: reveal-art 1.6s cubic-bezier(.2,.7,.2,1) both; }
     .hero__art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3,16,22,.89) 0%, rgba(3,16,22,.57) 38%, rgba(3,16,22,.03) 72%), linear-gradient(180deg, rgba(4,18,25,.48) 0%, transparent 28%, rgba(6,21,29,.18) 64%, #0a252d 100%); }
@@ -261,33 +262,30 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__control { display: grid; place-items: center; min-width: 42px; height: 42px; padding: 0 13px; border: 1px solid rgba(228,193,120,.25); border-radius: 999px; color: var(--ink); background: rgba(6,25,31,.7); cursor: pointer; font-size: .72rem; font-weight: 900; letter-spacing: .04em; transition: transform .2s, border-color .2s, background .2s; }
     .atlas__control:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(228,193,120,.66); background: rgba(25,54,58,.9); }
     .atlas__control:disabled { cursor: default; opacity: .28; }
-    .atlas__viewport { position: relative; z-index: 2; height: min(720px, 72vh); min-height: 540px; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; cursor: grab; touch-action: none; background: radial-gradient(circle at 50% 45%, rgba(67,130,132,.1), transparent 34rem); }
+    .atlas__viewport { position: relative; z-index: 2; height: min(720px, 72vh); min-height: 540px; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; cursor: grab; touch-action: none; contain: layout paint style; background: radial-gradient(circle at 50% 45%, rgba(67,130,132,.1), transparent 34rem); }
     .atlas__viewport::-webkit-scrollbar { display: none; }
     .atlas__viewport.is-dragging { cursor: grabbing; user-select: none; }
     .atlas__canvas { position: relative; width: calc(2240px * var(--atlas-zoom, .8)); height: calc(1080px * var(--atlas-zoom, .8)); }
-    .atlas__world { position: absolute; inset: 0 auto auto 0; width: 2240px; height: 1080px; transform: scale(var(--atlas-zoom, .8)); transform-origin: left top; background-image: radial-gradient(circle, rgba(244,230,196,.72) 0 1px, transparent 1.5px); background-size: 83px 83px; }
-    .atlas__world::after { content: ""; position: absolute; z-index: 0; inset: 22% 8% 12%; pointer-events: none; border-radius: 50%; background: rgba(67,130,132,.08); filter: blur(90px); }
+    .atlas__world { position: absolute; inset: 0 auto auto 0; width: 2240px; height: 1080px; transform: scale(var(--atlas-zoom, .8)); transform-origin: left top; contain: layout paint style; isolation: isolate; background-image: radial-gradient(ellipse at 52% 54%, rgba(67,130,132,.13), transparent 52%), radial-gradient(circle, rgba(244,230,196,.72) 0 1px, transparent 1.5px); background-size: 100% 100%, 83px 83px; }
     .sky-routes { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-    .sky-routes path { fill: none; stroke: rgba(228,193,120,.7); stroke-width: 3; stroke-dasharray: 4 14; stroke-linecap: round; filter: drop-shadow(0 0 8px rgba(228,193,120,.48)); animation: route-drift 16s linear infinite; }
+    .sky-routes path { fill: none; stroke: rgba(228,193,120,.78); stroke-width: 3; stroke-dasharray: 4 14; stroke-linecap: round; animation: route-drift 20s linear infinite; }
     .sky-routes path.is-hidden { display: none; }
-    .atlas__pegasus { position: absolute; z-index: 2; left: 1060px; top: 285px; width: 330px; opacity: .58; pointer-events: none; filter: drop-shadow(0 22px 12px rgba(0,0,0,.7)); animation: pegasus-map 9s ease-in-out infinite alternate; }
-    .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both, kingdom-node-float 7s calc(var(--order) * -1.3s) ease-in-out infinite alternate; }
+    .atlas__pegasus { position: absolute; z-index: 2; left: 1060px; top: 285px; width: 330px; opacity: .58; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
+    .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; contain: layout style; will-change: transform; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both, kingdom-node-float 9s calc(var(--order) * -1.3s) ease-in-out infinite alternate; }
     .kingdom-node[hidden] { display: none; }
-    .kingdom-node__island { position: absolute; inset: 0 0 auto; height: 175px; display: grid; place-items: center; text-decoration: none; transform: scale(var(--node-scale)); transform-origin: center bottom; transition: transform .3s, filter .3s; }
-    .kingdom-node:hover .kingdom-node__island, .kingdom-node:focus-within .kingdom-node__island { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); filter: brightness(1.12); }
-    .kingdom-node__island img { position: relative; z-index: 2; display: block; width: 230px; height: 175px; object-fit: contain; filter: drop-shadow(0 28px 12px rgba(0,7,11,.92)); }
+    .kingdom-node__island { position: absolute; inset: 0 0 auto; height: 175px; display: grid; place-items: center; text-decoration: none; transform: scale(var(--node-scale)); transform-origin: center bottom; transition: transform .3s, opacity .3s; }
+    .kingdom-node:hover .kingdom-node__island, .kingdom-node:focus-within .kingdom-node__island { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: .94; }
+    .kingdom-node__island img { position: relative; z-index: 2; display: block; width: 230px; height: 175px; object-fit: contain; }
     .kingdom-node--main .kingdom-node__island img { width: 265px; }
     .kingdom-node:nth-of-type(3n+2) .kingdom-node__island img { transform: scaleX(-1); }
-    .kingdom-node:nth-of-type(4n) .kingdom-node__island img { filter: sepia(.12) saturate(.82) drop-shadow(0 28px 12px rgba(0,7,11,.92)); }
-    .kingdom-node--private .kingdom-node__island img { filter: saturate(.72) sepia(.22) hue-rotate(325deg) drop-shadow(0 28px 12px rgba(0,7,11,.94)); }
-    .kingdom-node__halo { position: absolute; z-index: 1; width: 180px; height: 64px; border-radius: 50%; background: rgba(138,199,180,.14); filter: blur(22px); box-shadow: 0 0 70px rgba(138,199,180,.2); }
-    .kingdom-node--private .kingdom-node__halo { background: rgba(221,125,102,.14); box-shadow: 0 0 70px rgba(221,125,102,.18); }
+    .kingdom-node__halo { position: absolute; z-index: 1; width: 180px; height: 54px; border-radius: 50%; transform: translateY(48px) scaleY(.7); background: radial-gradient(ellipse, rgba(0,7,11,.9), rgba(15,47,49,.4) 48%, transparent 74%); box-shadow: 0 18px 32px rgba(0,0,0,.34); }
+    .kingdom-node--private .kingdom-node__halo { background: radial-gradient(ellipse, rgba(0,7,11,.92), rgba(81,45,39,.38) 48%, transparent 74%); }
     .kingdom-node__beacon { position: absolute; z-index: 4; left: 50%; top: 28px; display: grid; place-items: center; width: 52px; height: 52px; transform: translateX(-50%); border: 1px solid rgba(228,193,120,.7); border-radius: 50%; color: var(--gold); background: rgba(4,22,28,.9); box-shadow: 0 0 0 8px rgba(228,193,120,.06), 0 0 28px rgba(228,193,120,.42); }
     .kingdom-node__beacon svg { width: 21px; height: 21px; }
     .kingdom-node__beacon i { position: absolute; inset: -9px; border: 1px solid rgba(138,199,180,.28); border-radius: inherit; animation: beacon-pulse 2.8s ease-out infinite; }
     .kingdom-node--private .kingdom-node__beacon { border-color: rgba(221,125,102,.72); color: #e9b690; box-shadow: 0 0 0 8px rgba(221,125,102,.06), 0 0 28px rgba(221,125,102,.35); }
-    .kingdom-node__label { position: absolute; z-index: 5; left: 50%; bottom: 0; width: 255px; min-height: 96px; transform: translateX(-50%); display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 13px 14px; border: 1px solid rgba(228,193,120,.24); border-radius: 4px 20px 4px 20px; background: linear-gradient(145deg, rgba(17,49,54,.96), rgba(4,22,28,.94)); box-shadow: 0 20px 38px rgba(0,0,0,.38); backdrop-filter: blur(14px); }
-    .kingdom-node--private .kingdom-node__label { background: linear-gradient(145deg, rgba(50,42,43,.96), rgba(12,25,30,.95)); }
+    .kingdom-node__label { position: absolute; z-index: 5; left: 50%; bottom: 0; width: 255px; min-height: 96px; transform: translateX(-50%); display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 13px 14px; border: 1px solid rgba(228,193,120,.24); border-radius: 4px 20px 4px 20px; background: linear-gradient(145deg, #113136, #04161c); box-shadow: 0 20px 38px rgba(0,0,0,.38); }
+    .kingdom-node--private .kingdom-node__label { background: linear-gradient(145deg, #322a2b, #0c191e); }
     .kingdom-node__number { color: #7e9793; font-size: .58rem; font-weight: 900; letter-spacing: .1em; }
     .kingdom-node__category { color: var(--coral); font-size: .52rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
     .kingdom-node h2 { margin: 4px 0 0; font: 600 1.22rem/1 var(--serif); letter-spacing: -.02em; }
@@ -299,6 +297,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .badge-icon { width: 12px; height: 12px; }
     .atlas__progress { position: relative; z-index: 3; height: 3px; background: rgba(255,255,255,.06); }
     .atlas__progress span { display: block; width: 18%; height: 100%; transform: translateX(0); background: linear-gradient(90deg, var(--mint), var(--gold)); box-shadow: 0 0 16px rgba(228,193,120,.5); transition: width .2s ease-out, transform .2s ease-out; }
+    .atlas__viewport.is-interacting .kingdom-node, .atlas__viewport.is-interacting .atlas__pegasus, .atlas__viewport.is-interacting .sky-routes path, .atlas__viewport.is-interacting .kingdom-node__beacon i { animation-play-state: paused; }
+    .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus, .atlas.is-offscreen .kingdom-node, .atlas.is-offscreen .atlas__pegasus, .atlas.is-offscreen .sky-routes path, .atlas.is-offscreen .kingdom-node__beacon i { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
     .realm-list__bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 18px; color: #849c99; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
@@ -330,7 +330,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @keyframes beacon-pulse { 0% { opacity: .7; transform: scale(.82); } 75%, 100% { opacity: 0; transform: scale(1.38); } }
     @keyframes route-drift { to { stroke-dashoffset: -180; } }
     @keyframes kingdom-node-arrive { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes kingdom-node-float { from { margin-top: -5px; } to { margin-top: 9px; } }
+    @keyframes kingdom-node-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(0, 9px, 0); } }
     @keyframes pegasus-map { from { transform: translate3d(0, 8px, 0) rotate(-2deg); } to { transform: translate3d(28px, -13px, 0) rotate(1deg); } }
     @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
     @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
@@ -372,6 +372,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .atlas__bar { width: min(100% - 28px, 1180px); }
       .atlas__hint { display: none; }
       .atlas__viewport { min-height: 520px; height: 66vh; }
+      .atlas__viewport { touch-action: pan-x pan-y; cursor: auto; }
       .atlas__bar { align-items: flex-start; }
       .atlas__status { align-items: flex-start; flex-direction: column; gap: 7px; }
       .atlas__status::before { display: none; }
@@ -380,6 +381,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
       .realm-kind-filters { width: 100%; overflow-x: auto; }
       .realm-kind-filter { flex: 1; white-space: nowrap; }
+      .hero__kingdom, .hero__pegasus, .kingdom-node, .atlas__pegasus, .sky-routes path, .kingdom-node__beacon i { animation: none; }
+      .kingdom-node { will-change: auto; }
+      .shell::before { display: none; }
+      .brand__mark, .nav__status, .hero__count { backdrop-filter: none; }
       .realm-row { grid-template-columns: 34px 42px 1fr auto; gap: 12px; min-height: 112px; padding: 16px 2px; }
       .realm-row__identity { align-self: center; }
       .realm-row > p { grid-column: 3 / -1; }
@@ -397,10 +402,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   <div class="shell">
     <header class="hero">
       <div class="hero__art" aria-hidden="true"></div>
-      <div class="hero__kingdom hero__kingdom--main" aria-hidden="true"><img src="/assets/garden-kingdom.webp" alt="" /></div>
-      <div class="hero__kingdom hero__kingdom--observatory" aria-hidden="true"><img src="/assets/garden-kingdom-observatory.webp" alt="" /></div>
-      <div class="hero__kingdom hero__kingdom--outpost" aria-hidden="true"><img src="/assets/garden-kingdom-outpost.webp" alt="" /></div>
-      <div class="hero__pegasus" aria-hidden="true"><img src="/assets/garden-pegasus.webp" alt="" /></div>
+      <div class="hero__kingdom hero__kingdom--main" aria-hidden="true"><img src="/assets/garden-kingdom.webp" alt="" decoding="async" /></div>
+      <div class="hero__kingdom hero__kingdom--observatory" aria-hidden="true"><img src="/assets/garden-kingdom-observatory.webp" alt="" decoding="async" /></div>
+      <div class="hero__kingdom hero__kingdom--outpost" aria-hidden="true"><img src="/assets/garden-kingdom-outpost.webp" alt="" decoding="async" /></div>
+      <div class="hero__pegasus" aria-hidden="true"><img src="/assets/garden-pegasus.webp" alt="" decoding="async" /></div>
       <nav class="nav" aria-label="Primary navigation">
         <a class="brand" href="/"><span class="brand__mark">${icon("spark")}</span><span>Garden of Zo</span></a>
         <span class="nav__status">${escapeHtml(viewLabel)}</span>
@@ -453,7 +458,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
           <div class="atlas__canvas" data-atlas-canvas>
             <div class="atlas__world" data-atlas-world>
               <svg class="sky-routes" viewBox="0 0 2240 1080" preserveAspectRatio="none" aria-hidden="true">${routes}</svg>
-              <img class="atlas__pegasus" src="/assets/garden-pegasus.webp" alt="" aria-hidden="true" />
+              <img class="atlas__pegasus" src="/assets/garden-pegasus-atlas.webp" alt="" aria-hidden="true" decoding="async" draggable="false" width="520" height="293" />
               ${nodes}
             </div>
           </div>
@@ -491,6 +496,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const listCount = document.querySelector('[data-list-count]');
     const viewEyebrow = document.querySelector('[data-view-eyebrow]');
     const viewDescription = document.querySelector('[data-view-description]');
+    const hero = document.querySelector('.hero');
     const visibleNodes = () => atlasCards.filter((card) => !card.hidden);
     let accessFilter = 'all';
     let kindFilter = 'all';
@@ -556,6 +562,20 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       progress.style.width = Math.max(8, viewportRatio * 100) + '%';
       progress.style.transform = 'translateX(' + (atlas.scrollLeft / max * (100 / viewportRatio - 100)) + '%)';
     };
+    let atlasUpdateFrame = 0;
+    let interactionTimer = 0;
+    const scheduleAtlasUpdate = () => {
+      if (atlasUpdateFrame) return;
+      atlasUpdateFrame = requestAnimationFrame(() => {
+        atlasUpdateFrame = 0;
+        updateAtlas();
+      });
+    };
+    const markInteracting = () => {
+      atlas.classList.add('is-interacting');
+      clearTimeout(interactionTimer);
+      interactionTimer = setTimeout(() => atlas.classList.remove('is-interacting'), 140);
+    };
     const applyFilters = () => {
       [...atlasCards, ...listCards].forEach((card) => {
         const accessMismatch = accessFilter !== 'all' && card.dataset.access !== accessFilter;
@@ -579,7 +599,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     zoomOut.addEventListener('click', () => setZoom(zoom - .1));
     zoomIn.addEventListener('click', () => setZoom(zoom + .1));
     reset.addEventListener('click', () => centreMap());
-    atlas.addEventListener('scroll', updateAtlas, { passive: true });
+    atlas.addEventListener('scroll', () => {
+      markInteracting();
+      scheduleAtlasUpdate();
+    }, { passive: true });
     atlas.addEventListener('wheel', (event) => {
       if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
@@ -590,6 +613,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const canMoveY = atlas.scrollHeight > atlas.clientHeight;
       if (!canMoveX && !canMoveY) return;
       event.preventDefault();
+      markInteracting();
       atlas.scrollLeft += event.deltaX || event.deltaY;
       atlas.scrollTop += event.deltaX ? event.deltaY : 0;
     }, { passive: false });
@@ -604,24 +628,42 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let dragStartY = 0;
     let scrollStartX = 0;
     let scrollStartY = 0;
+    let pendingDragX = 0;
+    let pendingDragY = 0;
+    let dragFrame = 0;
     atlas.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'touch') return;
       if (event.target.closest('a, button')) return;
       dragStartX = event.clientX;
       dragStartY = event.clientY;
       scrollStartX = atlas.scrollLeft;
       scrollStartY = atlas.scrollTop;
       atlas.classList.add('is-dragging');
+      markInteracting();
       atlas.setPointerCapture(event.pointerId);
     });
     atlas.addEventListener('pointermove', (event) => {
       if (!atlas.classList.contains('is-dragging')) return;
-      atlas.scrollLeft = scrollStartX - (event.clientX - dragStartX);
-      atlas.scrollTop = scrollStartY - (event.clientY - dragStartY);
+      pendingDragX = event.clientX;
+      pendingDragY = event.clientY;
+      if (dragFrame) return;
+      dragFrame = requestAnimationFrame(() => {
+        dragFrame = 0;
+        atlas.scrollLeft = scrollStartX - (pendingDragX - dragStartX);
+        atlas.scrollTop = scrollStartY - (pendingDragY - dragStartY);
+      });
     });
     const endDrag = () => atlas.classList.remove('is-dragging');
     atlas.addEventListener('pointerup', endDrag);
     atlas.addEventListener('pointercancel', endDrag);
-    addEventListener('resize', () => { refreshRoute(); updateAtlas(); });
+    addEventListener('resize', () => requestAnimationFrame(() => { refreshRoute(); updateAtlas(); }));
+    if ('IntersectionObserver' in window) {
+      const visibilityObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));
+      }, { rootMargin: '120px' });
+      visibilityObserver.observe(hero);
+      visibilityObserver.observe(document.querySelector('.atlas'));
+    }
     let savedView = 'atlas';
     try { savedView = localStorage.getItem('garden-of-zo-view') || 'atlas'; } catch {}
     setZoom(zoom);
@@ -702,7 +744,11 @@ export function createHandler(configFile: string) {
       "/assets/garden-kingdom.webp": "garden-kingdom.webp",
       "/assets/garden-kingdom-observatory.webp": "garden-kingdom-observatory.webp",
       "/assets/garden-kingdom-outpost.webp": "garden-kingdom-outpost.webp",
-      "/assets/garden-pegasus.webp": "garden-pegasus.webp"
+      "/assets/garden-pegasus.webp": "garden-pegasus.webp",
+      "/assets/garden-kingdom-atlas.webp": "garden-kingdom-atlas.webp",
+      "/assets/garden-kingdom-observatory-atlas.webp": "garden-kingdom-observatory-atlas.webp",
+      "/assets/garden-kingdom-outpost-atlas.webp": "garden-kingdom-outpost-atlas.webp",
+      "/assets/garden-pegasus-atlas.webp": "garden-pegasus-atlas.webp"
     };
 
     if (heroAssets[url.pathname]) {

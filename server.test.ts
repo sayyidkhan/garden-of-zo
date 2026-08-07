@@ -56,7 +56,7 @@ describe("Garden of Zo catalogue", () => {
     expect(health.status).toBe(200);
     expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: 8 });
 
-    for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp"]) {
+    for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp", "garden-kingdom-atlas.webp", "garden-kingdom-observatory-atlas.webp", "garden-kingdom-outpost-atlas.webp", "garden-pegasus-atlas.webp"]) {
       const asset = await handler(new Request(`http://localhost/assets/${path}`));
       expect(asset.status).toBe(200);
       expect(asset.headers.get("content-type")).toBe("image/webp");
