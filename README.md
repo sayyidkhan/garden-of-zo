@@ -10,7 +10,7 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - the catalogue toggles between a pannable two-dimensional Sky Atlas graph and a compact list view, with the preference stored in the browser
 - the Atlas uses lightweight artwork variants, compositor-only motion, native mobile panning, and animation-frame-throttled interaction
 - Atlas routes and kingdom artwork share one canonical beacon coordinate per node, so graph paths remain attached while island art floats
-- Atlas navigation includes a fitted overview, active-kingdom stepping, a viewport mini-map, and spatial arrow/WASD movement
+- Atlas navigation includes a fitted overview, active-kingdom stepping, continuous focal zoom, a viewport mini-map, and spatial arrow/WASD movement
 - private app links always resolve through the authenticated private Zo service
 - catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
 

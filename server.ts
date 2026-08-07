@@ -327,7 +327,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__minimap circle { fill: var(--gold); stroke: #102c31; stroke-width: 12; }
     .atlas__minimap circle[data-access="private"] { fill: var(--coral); }
     .atlas__minimap rect { fill: rgba(138,199,180,.12); stroke: #b9e0d5; stroke-width: 9; vector-effect: non-scaling-stroke; }
-    .atlas__viewport.is-interacting .kingdom-node__art, .atlas__viewport.is-interacting .atlas__pegasus, .atlas__viewport.is-interacting .sky-routes path, .atlas__viewport.is-interacting .kingdom-node__beacon i { animation-play-state: paused; }
+    .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i { animation-play-state: paused; }
     .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
@@ -575,19 +575,67 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let kindFilter = 'all';
     let zoom = innerWidth < 620 ? .64 : innerWidth < 1000 ? .72 : .82;
     const minimumZoom = () => innerWidth < 620 ? .58 : .48;
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let zoomTarget = zoom;
+    let zoomAnimationFrame = 0;
     let mapInitialised = false;
     let activeNode = null;
+    const clampZoom = (value) => Math.max(minimumZoom(), Math.min(1.08, value));
+    const updateZoomControls = () => {
+      zoomOut.disabled = zoomTarget <= minimumZoom();
+      zoomIn.disabled = zoomTarget >= 1.08;
+    };
+    const cancelZoomAnimation = () => {
+      if (zoomAnimationFrame) cancelAnimationFrame(zoomAnimationFrame);
+      zoomAnimationFrame = 0;
+      atlas.classList.remove('is-zooming');
+    };
     const setZoom = (nextZoom, focusX = atlas.clientWidth / 2, focusY = atlas.clientHeight / 2) => {
+      cancelZoomAnimation();
       const oldZoom = zoom;
-      zoom = Math.max(minimumZoom(), Math.min(1.08, nextZoom));
+      zoom = clampZoom(nextZoom);
+      zoomTarget = zoom;
       const worldX = (atlas.scrollLeft + focusX) / oldZoom;
       const worldY = (atlas.scrollTop + focusY) / oldZoom;
       atlas.style.setProperty('--atlas-zoom', String(zoom));
       atlas.scrollLeft = worldX * zoom - focusX;
       atlas.scrollTop = worldY * zoom - focusY;
-      zoomOut.disabled = zoom <= minimumZoom();
-      zoomIn.disabled = zoom >= 1.08;
+      updateZoomControls();
       updateAtlas();
+    };
+    const animateZoom = (nextZoom, focusX = atlas.clientWidth / 2, focusY = atlas.clientHeight / 2) => {
+      const target = clampZoom(nextZoom);
+      if (reducedMotion || Math.abs(target - zoom) < .002) {
+        setZoom(target, focusX, focusY);
+        return;
+      }
+      cancelZoomAnimation();
+      const startZoom = zoom;
+      const worldX = (atlas.scrollLeft + focusX) / startZoom;
+      const worldY = (atlas.scrollTop + focusY) / startZoom;
+      const duration = 260 + Math.abs(target - startZoom) * 180;
+      const startedAt = performance.now();
+      zoomTarget = target;
+      updateZoomControls();
+      atlas.classList.add('is-zooming');
+      const tick = (now) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        zoom = startZoom + (target - startZoom) * eased;
+        atlas.style.setProperty('--atlas-zoom', String(zoom));
+        atlas.scrollLeft = worldX * zoom - focusX;
+        atlas.scrollTop = worldY * zoom - focusY;
+        updateAtlas();
+        if (progress < 1) {
+          zoomAnimationFrame = requestAnimationFrame(tick);
+          return;
+        }
+        zoom = target;
+        zoomAnimationFrame = 0;
+        atlas.classList.remove('is-zooming');
+        updateAtlas();
+      };
+      zoomAnimationFrame = requestAnimationFrame(tick);
     };
     const centreNode = (node, behavior = 'smooth') => {
       if (!node) return;
@@ -618,6 +666,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const fitMap = (behavior = 'smooth') => {
       const visible = visibleNodes();
       if (!visible.length) return;
+      cancelZoomAnimation();
       const padding = innerWidth < 620 ? 58 : 95;
       const left = Math.min(...visible.map((node) => node.offsetLeft));
       const top = Math.min(...visible.map((node) => node.offsetTop));
@@ -626,9 +675,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const contentWidth = right - left + padding * 2;
       const contentHeight = bottom - top + padding * 2;
       zoom = Math.max(minimumZoom(), Math.min(1.08, (atlas.clientWidth - 24) / contentWidth, (atlas.clientHeight - 24) / contentHeight));
+      zoomTarget = zoom;
       atlas.style.setProperty('--atlas-zoom', String(zoom));
-      zoomOut.disabled = zoom <= minimumZoom();
-      zoomIn.disabled = zoom >= 1.08;
+      updateZoomControls();
       const scaledWidth = (right - left) * zoom;
       const scaledHeight = (bottom - top) * zoom;
       atlas.scrollTo({
@@ -785,8 +834,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       applyFilters();
     }));
     viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
-    zoomOut.addEventListener('click', () => setZoom(zoom - .1));
-    zoomIn.addEventListener('click', () => setZoom(zoom + .1));
+    zoomOut.addEventListener('click', () => animateZoom(zoomTarget - .1));
+    zoomIn.addEventListener('click', () => animateZoom(zoomTarget + .1));
     reset.addEventListener('click', () => fitMap());
     previousNode.addEventListener('click', () => moveNode(-1));
     nextNode.addEventListener('click', () => moveNode(1));
