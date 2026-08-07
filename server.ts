@@ -132,7 +132,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
     const position = nodePositions[index];
     const artFile = position.art === "main" ? "garden-kingdom.webp" : `garden-kingdom-${position.art}.webp`;
-    return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" style="--order:${index};--node-x:${position.x}px;--node-y:${position.y}px;--node-scale:${position.scale}">
+    return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x}px;--node-y:${position.y}px;--node-scale:${position.scale}">
       <a class="kingdom-node__island" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
         <span class="kingdom-node__halo" aria-hidden="true"></span>
         <img src="/assets/${artFile}" alt="" aria-hidden="true" />
@@ -432,6 +432,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
             <button class="filter" type="button" data-filter="public" aria-pressed="false">Open ${publicCount}</button>
             <button class="filter" type="button" data-filter="private" aria-pressed="false">Private ${privateCount}</button>
           </div>
+          <div class="realm-kind-filters" role="group" aria-label="Filter realms by type">
+            <button class="realm-kind-filter" type="button" data-kind-filter="all" aria-pressed="true">All types</button>
+            <button class="realm-kind-filter" type="button" data-kind-filter="app" aria-pressed="false">Apps ${kindCounts.app}</button>
+            <button class="realm-kind-filter" type="button" data-kind-filter="workflow" aria-pressed="false">Workflows ${kindCounts.workflow}</button>
+            <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents ${kindCounts.agent}</button>
+          </div>
         </div>
       </div>
       <section class="atlas" id="atlas-view" data-view-panel="atlas" aria-label="Sky atlas">
@@ -457,12 +463,6 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       <section class="realm-list" id="list-view" data-view-panel="list" aria-label="Realm list" hidden>
         <div class="realm-list__bar">
           <span><strong data-list-count>${allApps.length}</strong> destinations in view</span>
-          <div class="realm-kind-filters" role="group" aria-label="Filter list by realm type">
-            <button class="realm-kind-filter" type="button" data-kind-filter="all" aria-pressed="true">All ${allApps.length}</button>
-            <button class="realm-kind-filter" type="button" data-kind-filter="app" aria-pressed="false">Apps ${kindCounts.app}</button>
-            <button class="realm-kind-filter" type="button" data-kind-filter="workflow" aria-pressed="false">Workflows ${kindCounts.workflow}</button>
-            <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents ${kindCounts.agent}</button>
-          </div>
         </div>
         <div class="realm-list__rows">${listCards}</div>
       </section>
@@ -544,7 +544,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     };
     const updateAtlas = () => {
       const visible = visibleNodes();
-      if (!visible.length) return;
+      if (!visible.length) {
+        status.textContent = '00 kingdoms charted · adjust filters to continue';
+        progress.style.width = '0';
+        progress.style.transform = 'translateX(0)';
+        return;
+      }
       status.textContent = String(visible.length).padStart(2, '0') + ' kingdoms charted · ' + Math.round(zoom * 100) + '% scale';
       const max = Math.max(1, atlas.scrollWidth - atlas.clientWidth);
       const viewportRatio = Math.min(1, atlas.clientWidth / atlas.scrollWidth);
@@ -552,8 +557,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       progress.style.transform = 'translateX(' + (atlas.scrollLeft / max * (100 / viewportRatio - 100)) + '%)';
     };
     const applyFilters = () => {
-      atlasCards.forEach((card) => { card.hidden = accessFilter !== 'all' && card.dataset.access !== accessFilter; });
-      listCards.forEach((card) => {
+      [...atlasCards, ...listCards].forEach((card) => {
         const accessMismatch = accessFilter !== 'all' && card.dataset.access !== accessFilter;
         const kindMismatch = kindFilter !== 'all' && card.dataset.kind !== kindFilter;
         card.hidden = accessMismatch || kindMismatch;

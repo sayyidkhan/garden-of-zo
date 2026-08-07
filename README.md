@@ -22,5 +22,5 @@ Current route plan:
 Set `stripPrefix` only for upstreams that must receive root-relative paths.
 Set `assetQuery` only when static assets need a versioned URL after a cache correction.
 
-Each route also carries the catalogue metadata `title`, `description`, `category`, `kind`, and `icon`. `kind` is one of `app`, `workflow`, or `agent` and powers the List-view type filter. Run `bun test` after changing either manifest.
+Each route also carries the catalogue metadata `title`, `description`, `category`, `kind`, and `icon`. `kind` is one of `app`, `workflow`, or `agent` and powers the shared Atlas/List type filter. Run `bun test` after changing either manifest.
 Use optional `entryPath` when a catalogue card should open below the route root, such as PocketBase's `/_/` admin shell.
