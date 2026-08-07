@@ -15,6 +15,11 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('data-view="atlas"');
     expect(html).toContain('data-view="list"');
     expect(html).toContain('data-view-panel="list"');
+    expect(html).toContain('data-screen="landing"');
+    expect(html).toContain('data-screen="catalogue" hidden');
+    expect(html).toContain('href="#atlas" aria-controls="realms"');
+    expect(html).toContain("Back to garden");
+    expect(html).toContain("addEventListener('hashchange', syncScreen)");
     expect(html).toContain('aria-label="Filter realms by type"');
     expect(html).toContain('data-kind-filter="app"');
     expect(html).toContain('data-kind-filter="workflow"');

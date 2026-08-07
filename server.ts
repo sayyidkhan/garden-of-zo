@@ -212,7 +212,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     button { font: inherit; }
     .shell { position: relative; overflow: hidden; min-height: 100vh; background: radial-gradient(circle at 20% 5%, #174b55 0, transparent 36rem), linear-gradient(180deg, #071721 0%, #0b2830 55%, #06151d 100%); }
     .shell::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .12; z-index: 10; background-image: radial-gradient(circle, rgba(255,255,255,.42) 0 .6px, transparent .8px); background-size: 5px 5px; }
-    .hero { position: relative; min-height: 760px; isolation: isolate; }
+    .hero { position: relative; min-height: 100svh; isolation: isolate; }
     .hero__art { position: absolute; inset: 0; background: url('/assets/garden-sky-v2.webp') center center / cover no-repeat; transform: scale(1.025); animation: reveal-art 1.6s cubic-bezier(.2,.7,.2,1) both; }
     .hero__art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3,16,22,.89) 0%, rgba(3,16,22,.57) 38%, rgba(3,16,22,.03) 72%), linear-gradient(180deg, rgba(4,18,25,.48) 0%, transparent 28%, rgba(6,21,29,.18) 64%, #0a252d 100%); }
     .hero__kingdom, .hero__pegasus { position: absolute; z-index: 2; pointer-events: none; }
@@ -228,7 +228,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; font-family: var(--serif); font-weight: 700; letter-spacing: .04em; font-size: 1.2rem; }
     .brand__mark { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(244,216,155,.5); border-radius: 50%; color: var(--gold); background: rgba(6,21,29,.46); backdrop-filter: blur(12px); }
     .brand__mark svg { width: 21px; }
-    .nav__status { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(5,20,27,.46); backdrop-filter: blur(12px); color: #e7eee8; font-size: .76rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .nav__status { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(5,20,27,.46); backdrop-filter: blur(12px); color: #e7eee8; font-size: .76rem; font-weight: 700; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
     .nav__status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 14px var(--mint); }
     .hero__content { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 132px 0 190px; }
     .eyebrow { margin: 0 0 22px; color: #f1d9a2; font-size: .76rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
@@ -240,8 +240,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .explore:hover { transform: translateY(-3px); background: #fffaf0; }
     .hero__count { color: #d9e3dd; font: 500 .78rem/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase; }
     .hero__count strong { color: var(--gold); }
-    .catalogue { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); margin: -42px auto 0; padding: 86px 0 110px; }
+    .hero[hidden], .catalogue[hidden], .footer[hidden] { display: none; }
+    .catalogue { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); min-height: 100svh; margin: 0 auto; padding: 28px 0 70px; }
+    .catalogue__nav { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid rgba(255,255,255,.14); }
+    .catalogue__return { display: inline-flex; align-items: center; gap: 9px; padding: 10px 14px; border: 1px solid rgba(228,193,120,.28); border-radius: 999px; color: #d5e1dc; background: rgba(3,18,23,.48); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; transition: transform .2s, border-color .2s; }
+    .catalogue__return:hover { transform: translateY(-2px); border-color: rgba(228,193,120,.65); }
     .catalogue__head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; margin-bottom: 28px; }
+    .catalogue__nav + .catalogue__head { margin-top: 54px; }
     .catalogue__head h2 { margin: 0; max-width: 720px; font: 500 clamp(2.8rem, 6vw, 5.2rem)/.94 var(--serif); letter-spacing: -.035em; }
     .catalogue__head p { max-width: 570px; margin: 18px 0 0; color: var(--muted); line-height: 1.65; }
     .catalogue__tools { display: grid; justify-items: end; gap: 12px; }
@@ -335,7 +340,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
     @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
     @media (max-width: 900px) {
-      .hero { min-height: 700px; }
+      .hero { min-height: 100svh; }
       .hero__art { background-position: 62% center; }
       .hero__art::after { background: linear-gradient(90deg, rgba(3,16,22,.9), rgba(3,16,22,.18)), linear-gradient(180deg, rgba(4,18,25,.35), transparent 35%, #0a252d 100%); }
       .hero__kingdom--main { top: 32px; right: -18%; width: min(67vw, 590px); opacity: .94; }
@@ -351,7 +356,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @media (max-width: 620px) {
       .nav { width: min(100% - 28px, 1180px); padding-top: 18px; }
       .nav__status { font-size: 0; padding: 11px; }
-      .hero { min-height: 650px; }
+      .hero { min-height: 100svh; }
       .hero__art { background-position: 67% center; }
       .hero__kingdom--main { top: 25px; right: -35%; width: 94vw; opacity: .78; }
       .hero__kingdom--observatory { top: 105px; right: 54%; width: 37vw; opacity: .8; }
@@ -363,6 +368,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .hero__footer { align-items: flex-start; flex-direction: column; gap: 18px; }
       .hero__count { padding: 6px 8px; margin-left: -8px; border-radius: 999px; background: rgba(3, 16, 22, .48); backdrop-filter: blur(8px); }
       .catalogue { width: min(100% - 28px, 1180px); padding-top: 72px; }
+      .catalogue__nav { margin-top: -48px; }
+      .catalogue__return { padding: 10px 12px; font-size: .62rem; }
       .catalogue__head h2 { font-size: 3.3rem; }
       .catalogue__tools { width: 100%; }
       .view-toggle { width: 100%; }
@@ -400,7 +407,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
 </head>
 <body>
   <div class="shell">
-    <header class="hero">
+    <header class="hero" data-screen="landing">
       <div class="hero__art" aria-hidden="true"></div>
       <div class="hero__kingdom hero__kingdom--main" aria-hidden="true"><img src="/assets/garden-kingdom.webp" alt="" decoding="async" /></div>
       <div class="hero__kingdom hero__kingdom--observatory" aria-hidden="true"><img src="/assets/garden-kingdom-observatory.webp" alt="" decoding="async" /></div>
@@ -408,19 +415,23 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       <div class="hero__pegasus" aria-hidden="true"><img src="/assets/garden-pegasus.webp" alt="" decoding="async" /></div>
       <nav class="nav" aria-label="Primary navigation">
         <a class="brand" href="/"><span class="brand__mark">${icon("spark")}</span><span>Garden of Zo</span></a>
-        <span class="nav__status">${escapeHtml(viewLabel)}</span>
+        <a class="nav__status" href="#atlas">${escapeHtml(viewLabel)}</a>
       </nav>
       <div class="hero__content">
         <p class="eyebrow">A personal cloud realm</p>
         <h1>Garden <em>of Zo</em></h1>
         <p class="hero__lede">${escapeHtml(heroCopy)}</p>
         <div class="hero__footer">
-          <a class="explore" href="#realms">Open the sky atlas <span aria-hidden="true">&darr;</span></a>
+          <a class="explore" href="#atlas" aria-controls="realms">Open the sky atlas <span aria-hidden="true">&rarr;</span></a>
           <span class="hero__count"><strong>${allApps.length}</strong> realms &nbsp; / &nbsp; ${publicCount} open &nbsp; / &nbsp; ${privateCount} owner-only</span>
         </div>
       </div>
     </header>
-    <main class="catalogue" id="realms">
+    <main class="catalogue" id="realms" data-screen="catalogue" hidden>
+      <nav class="catalogue__nav" aria-label="Catalogue navigation">
+        <a class="brand" href="/" data-close-catalogue><span class="brand__mark">${icon("spark")}</span><span>Garden of Zo</span></a>
+        <a class="catalogue__return" href="/" data-close-catalogue><span aria-hidden="true">&larr;</span> Back to garden</a>
+      </nav>
       <div class="catalogue__head">
         <div>
           <p class="eyebrow" data-view-eyebrow>The sky atlas</p>
@@ -476,13 +487,17 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <span class="legend__mark">Built on Zo Computer</span>
       </div>
     </main>
-    <footer class="footer"><span>Garden of Zo</span><span>One server. Many worlds.</span></footer>
+    <footer class="footer" data-screen="catalogue" hidden><span>Garden of Zo</span><span>One server. Many worlds.</span></footer>
   </div>
   <script>
     const accessFilters = [...document.querySelectorAll('[data-filter]')];
     const kindFilters = [...document.querySelectorAll('[data-kind-filter]')];
     const viewButtons = [...document.querySelectorAll('[data-view]')];
     const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
+    const landingScreen = document.querySelector('[data-screen="landing"]');
+    const catalogueScreen = document.querySelector('main[data-screen="catalogue"]');
+    const catalogueFooter = document.querySelector('footer[data-screen="catalogue"]');
+    const closeCatalogueLinks = [...document.querySelectorAll('[data-close-catalogue]')];
     const atlasCards = [...document.querySelectorAll('[data-atlas-card]')];
     const listCards = [...document.querySelectorAll('[data-list-card]')];
     const atlas = document.querySelector('[data-atlas]');
@@ -536,6 +551,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         try { localStorage.setItem('garden-of-zo-view', selected); } catch {}
       }
       if (selected === 'atlas') requestAnimationFrame(() => {
+        document.querySelector('.atlas').classList.remove('is-offscreen');
         refreshRoute();
         if (!mapInitialised) { centreMap('auto'); mapInitialised = true; }
         updateAtlas();
@@ -666,8 +682,30 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     }
     let savedView = 'atlas';
     try { savedView = localStorage.getItem('garden-of-zo-view') || 'atlas'; } catch {}
-    setZoom(zoom);
-    setView(savedView, false);
+    let catalogueInitialised = false;
+    const syncScreen = () => {
+      const showCatalogue = location.hash === '#atlas' || location.hash === '#realms';
+      landingScreen.hidden = showCatalogue;
+      catalogueScreen.hidden = !showCatalogue;
+      catalogueFooter.hidden = !showCatalogue;
+      document.body.classList.toggle('is-catalogue-open', showCatalogue);
+      if (showCatalogue) {
+        const activeView = catalogueInitialised
+          ? viewButtons.find((button) => button.getAttribute('aria-pressed') === 'true')?.dataset.view || savedView
+          : savedView;
+        setZoom(zoom);
+        setView(activeView, false);
+        catalogueInitialised = true;
+      }
+      requestAnimationFrame(() => scrollTo({ top: 0, behavior: 'auto' }));
+    };
+    closeCatalogueLinks.forEach((link) => link.addEventListener('click', (event) => {
+      event.preventDefault();
+      history.replaceState(null, '', location.pathname + location.search);
+      syncScreen();
+    }));
+    addEventListener('hashchange', syncScreen);
+    syncScreen();
   </script>
 </body>
 </html>`;
