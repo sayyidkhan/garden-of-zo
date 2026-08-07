@@ -64,6 +64,12 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("navigateSpatially");
     expect(html).toContain("fitMap");
     expect(html).toContain("animateZoom");
+    expect(html).toContain("animateCamera");
+    expect(html).toContain("Math.min(maximumZoom(), value)");
+    expect(html).toContain("innerWidth < 620 ? 1.6 : 1.8");
+    expect(html).toContain("innerWidth < 620 ? 1.05");
+    expect(html).toContain("world.animate([");
+    expect(html).toContain("DOMMatrixReadOnly");
     expect(html).toContain("zoomTarget");
     expect(html).toContain("is-zooming");
     expect(html).toContain("Relationship Mapper");
