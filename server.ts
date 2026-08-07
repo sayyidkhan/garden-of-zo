@@ -270,15 +270,15 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .commandbar__divider { flex: none; width: 1px; height: 24px; margin: 0 3px; background: rgba(228,193,120,.2); }
     body.is-atlas-view { overflow: hidden; }
     body.is-atlas-view .shell { height: 100svh; min-height: 0; overflow: hidden; }
-    body.is-atlas-view .catalogue { display: grid; grid-template-rows: auto auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); width: 100%; height: 100svh; min-height: 0; margin: 0; padding: 0; overflow: hidden; }
+    body.is-atlas-view .catalogue { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); width: 100%; height: 100svh; min-height: 0; margin: 0; padding: 0; overflow: hidden; }
     body.is-atlas-view .catalogue[hidden] { display: none; }
     body.is-atlas-view .catalogue__nav { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 14px 0; }
     body.is-atlas-view .catalogue__nav + .catalogue__head { margin-top: 0; }
-    body.is-atlas-view .catalogue__head { display: block; width: 100%; min-width: 0; margin: 0; padding: 9px max(20px, calc((100vw - 1180px) / 2)); border-bottom: 1px solid rgba(228,193,120,.13); overflow: hidden; }
+    body.is-atlas-view .catalogue__head { display: block; grid-row: 3; width: 100%; min-width: 0; margin: 0; padding: 9px max(20px, calc((100vw - 1180px) / 2)) max(9px, env(safe-area-inset-bottom)); border-top: 1px solid rgba(228,193,120,.13); background: linear-gradient(180deg, rgba(3,18,23,.9), rgba(3,18,23,.98)); box-shadow: 0 -16px 42px rgba(0,0,0,.24); overflow: hidden; }
     body.is-atlas-view .catalogue__intro { display: none; }
     body.is-atlas-view .catalogue__tools { display: flex; justify-content: center; width: 100%; }
     body.is-atlas-view .catalogue__commandbar { width: max-content; }
-    body.is-atlas-view .atlas { display: grid; grid-template-rows: auto minmax(0, 1fr) 3px; width: 100%; max-width: 100vw; min-height: 0; margin: 0; }
+    body.is-atlas-view .atlas { display: grid; grid-row: 2; grid-template-rows: auto minmax(0, 1fr) 3px; width: 100%; max-width: 100vw; min-height: 0; margin: 0; }
     body.is-atlas-view .atlas__bar { padding-block: 10px; }
     body.is-atlas-view .atlas__viewport { height: auto; min-height: 0; }
     body.is-atlas-view .legend, body.is-atlas-view .footer { display: none; }
@@ -444,7 +444,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .footer { width: min(100% - 28px, 1180px); }
       body.is-atlas-view .catalogue { width: 100%; padding: 0; }
       body.is-atlas-view .catalogue__nav { width: calc(100% - 28px); margin: 0 auto; padding: 10px 0; }
-      body.is-atlas-view .catalogue__head { padding: 8px 14px; }
+      body.is-atlas-view .catalogue__head { padding: 8px 14px max(8px, env(safe-area-inset-bottom)); }
       body.is-atlas-view .catalogue__commandbar { width: 100%; }
       body.is-atlas-view .atlas__bar { padding-block: 8px; }
       body.is-atlas-view .atlas__viewport { height: auto; min-height: 0; }

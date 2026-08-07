@@ -17,7 +17,9 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("Sky Atlas View");
     expect(html).toContain("catalogue__commandbar");
     expect(html).toContain("is-atlas-view");
-    expect(html).toContain("grid-template-rows: auto auto minmax(0, 1fr)");
+    expect(html).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
+    expect(html).toContain("grid-row: 3");
+    expect(html).toContain("env(safe-area-inset-bottom)");
     expect(html).toContain('data-view-panel="list"');
     expect(html).toContain('data-screen="landing"');
     expect(html).toContain('data-screen="catalogue" hidden');
