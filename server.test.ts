@@ -66,7 +66,8 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("animateZoom");
     expect(html).toContain("animateCamera");
     expect(html).toContain("Math.min(maximumZoom(), value)");
-    expect(html).toContain("innerWidth < 620 ? 1.6 : 1.8");
+    expect(html).toContain("innerWidth < 620 ? 2 : 2.4");
+    expect(html).not.toContain("refreshRoute(); fitMap('auto'); updateAtlas();");
     expect(html).toContain("innerWidth < 620 ? 1.05");
     expect(html).toContain("world.animate([");
     expect(html).toContain("DOMMatrixReadOnly");

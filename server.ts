@@ -620,7 +620,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let cameraStartOffset = 0;
     let mapInitialised = false;
     let activeNode = null;
-    const maximumZoom = () => innerWidth < 620 ? 1.6 : 1.8;
+    const maximumZoom = () => innerWidth < 620 ? 2 : 2.4;
     const clampZoom = (value) => Math.max(minimumZoom(), Math.min(maximumZoom(), value));
     const canvasOffsetForZoom = (value) => Math.max(0, (atlas.clientWidth - 2240 * value) / 2);
     const clampCameraScroll = (value, contentSize, viewportSize) => Math.max(0, Math.min(Math.max(0, contentSize - viewportSize), value));
@@ -1021,7 +1021,20 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const endDrag = () => atlas.classList.remove('is-dragging');
     atlas.addEventListener('pointerup', endDrag);
     atlas.addEventListener('pointercancel', endDrag);
-    addEventListener('resize', () => requestAnimationFrame(() => { refreshRoute(); fitMap('auto'); updateAtlas(); }));
+    let resizeFrame = 0;
+    addEventListener('resize', () => {
+      if (resizeFrame) cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = 0;
+        cancelZoomAnimation();
+        refreshRoute();
+        zoom = clampZoom(zoom);
+        zoomTarget = zoom;
+        atlas.style.setProperty('--atlas-zoom', String(zoom));
+        updateZoomControls();
+        updateAtlas();
+      });
+    });
     if ('IntersectionObserver' in window) {
       const visibilityObserver = new IntersectionObserver((entries) => {
         entries.forEach((entry) => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));
