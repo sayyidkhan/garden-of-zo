@@ -127,7 +127,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const routeHref = `${route.prefix}${route.entryPath ?? ""}`;
     const href = sameGateway ? routeHref : `${gateway.gatewayUrl}${routeHref}`;
     const accessLabel = restricted ? "Owner access" : "Open access";
-    const action = restricted ? "Unlock realm" : "Enter realm";
+    const action = "Enter realm";
 
     return { gateway, route, index, restricted, href, accessLabel, action };
   });
@@ -135,13 +135,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const position = nodePositions[index];
     const artFile = position.art === "main" ? "garden-kingdom-atlas.webp" : `garden-kingdom-${position.art}-atlas.webp`;
     return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
-      <a class="kingdom-node__island" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
+      <button class="kingdom-node__island" type="button" data-atlas-select aria-label="Focus on ${escapeHtml(route.title)}" aria-pressed="false">
         <span class="kingdom-node__art" aria-hidden="true">
           <span class="kingdom-node__halo"></span>
           <img src="/assets/${artFile}" alt="" decoding="async" draggable="false" />
         </span>
         <span class="kingdom-node__beacon" aria-hidden="true">${icon(route.icon)}<i></i></span>
-      </a>
+      </button>
       <div class="kingdom-node__label">
         <span class="kingdom-node__number">${String(index + 1).padStart(2, "0")}</span>
         <div><span class="kingdom-node__category">${escapeHtml(route.category)}</span><h2>${escapeHtml(route.title)}</h2></div>
@@ -307,7 +307,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__pegasus { position: absolute; z-index: 2; left: 1060px; top: 285px; width: 330px; height: auto; aspect-ratio: 520 / 293; object-fit: contain; opacity: .58; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
     .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; contain: layout style; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both; }
     .kingdom-node[hidden] { display: none; }
-    .kingdom-node__island { position: absolute; inset: 0 0 auto; height: 175px; display: grid; place-items: center; text-decoration: none; }
+    .kingdom-node__island { position: absolute; inset: 0 0 auto; width: 100%; height: 175px; display: grid; place-items: center; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
+    .kingdom-node__island:focus-visible { outline: none; }
+    .kingdom-node__island:focus-visible .kingdom-node__beacon { outline: 3px solid #fff3c9; outline-offset: 5px; }
     .kingdom-node__art { position: absolute; inset: 0; display: grid; place-items: center; transform: scale(var(--node-scale)); transform-origin: center bottom; will-change: transform; animation: kingdom-art-float 9s calc(var(--order) * -1.3s) ease-in-out infinite alternate; transition: transform .3s, opacity .3s; }
     .kingdom-node__art::before, .kingdom-node__art::after { content: ""; position: absolute; pointer-events: none; opacity: 0; }
     .kingdom-node__art::before { z-index: 3; inset: -18px -8px 8px; background: radial-gradient(circle at 12% 34%, #fff8d7 0 2px, transparent 3px), radial-gradient(circle at 26% 13%, #e4c178 0 2px, transparent 3.5px), radial-gradient(circle at 48% 4%, #fff8d7 0 1.5px, transparent 3px), radial-gradient(circle at 73% 17%, #fff0bd 0 2px, transparent 3.5px), radial-gradient(circle at 91% 40%, #e4c178 0 2px, transparent 3.5px), radial-gradient(circle at 78% 68%, #fff8d7 0 1.5px, transparent 3px), radial-gradient(circle at 18% 72%, #fff0bd 0 2px, transparent 3.5px); transform: scale(.72) rotate(-5deg); }
@@ -335,7 +337,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node h2 { margin: 4px 0 0; font: 600 1.22rem/1 var(--serif); letter-spacing: -.02em; }
     .kingdom-node__access { align-self: start; display: flex; align-items: center; gap: 4px; color: #a7d0c4; font-size: .5rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .kingdom-node--private .kingdom-node__access { color: #e7bd9c; }
-    .kingdom-node__label > a { grid-column: 2 / -1; display: flex; justify-content: space-between; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.08); color: #f4e6c9; font-size: .56rem; font-weight: 900; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+    .kingdom-node__label > a { position: relative; grid-column: 2 / -1; display: flex; justify-content: space-between; overflow: hidden; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.08); color: #f4e6c9; font-size: .56rem; font-weight: 900; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+    .kingdom-node__label > a::before { content: ""; position: absolute; inset: 4px -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
+    .kingdom-node.is-active .kingdom-node__label > a { margin: 0 -7px -6px; padding: 9px 7px 6px; border-radius: 7px; color: #fff8df; background: rgba(228,193,120,.1); }
+    .kingdom-node.is-active .kingdom-node__label > a::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
     .badge-icon { width: 12px; height: 12px; }
@@ -349,7 +354,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__minimap circle { fill: var(--gold); stroke: #102c31; stroke-width: 12; }
     .atlas__minimap circle[data-access="private"] { fill: var(--coral); }
     .atlas__minimap rect { fill: rgba(138,199,180,.12); stroke: #b9e0d5; stroke-width: 9; vector-effect: non-scaling-stroke; }
-    .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i { animation-play-state: paused; }
+    .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__label > a::before { animation-play-state: paused; }
     .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
@@ -383,6 +388,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @keyframes kingdom-node-arrive { from { opacity: 0; } to { opacity: 1; } }
     @keyframes kingdom-art-float { from { translate: 0 -5px; } to { translate: 0 9px; } }
     @keyframes kingdom-sparkle { 0% { opacity: 0; transform: scale(.72) rotate(-5deg); } 28% { opacity: 1; } 72% { opacity: .9; } 100% { opacity: 0; transform: scale(1.2) rotate(6deg); } }
+    @keyframes enter-realm-shimmer { 0%, 52% { transform: translateX(-100%); } 82%, 100% { transform: translateX(100%); } }
     @keyframes pegasus-map { from { transform: translate3d(0, 8px, 0) rotate(-2deg); } to { transform: translate3d(28px, -13px, 0) rotate(1deg); } }
     @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
     @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
@@ -680,9 +686,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       atlasCards.forEach((card) => {
         const selected = card === activeNode;
         card.classList.toggle('is-active', selected);
-        const link = card.querySelector('.kingdom-node__island');
-        if (selected) link?.setAttribute('aria-current', 'location');
-        else link?.removeAttribute('aria-current');
+        const selector = card.querySelector('[data-atlas-select]');
+        selector?.setAttribute('aria-pressed', String(selected));
       });
       const visibleIndex = Math.max(0, visible.indexOf(activeNode));
       currentNodeName.textContent = activeNode?.dataset.nodeTitle || 'No kingdom';
@@ -692,6 +697,47 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       previousNode.disabled = visible.length < 2;
       nextNode.disabled = visible.length < 2;
       if (shouldCentre && activeNode) centreNode(activeNode, behavior);
+    };
+    const focusNode = (node) => {
+      if (!node || node.hidden) return;
+      setActiveNode(node, false);
+      const targetZoom = clampZoom(innerWidth < 620 ? .9 : 1.02);
+      if (reducedMotion) {
+        setZoom(targetZoom);
+        centreNode(node, 'auto');
+        return;
+      }
+      cancelZoomAnimation();
+      const startZoom = zoom;
+      const startLeft = atlas.scrollLeft;
+      const startTop = atlas.scrollTop;
+      const nodeCentreX = node.offsetLeft + node.offsetWidth / 2;
+      const nodeCentreY = node.offsetTop + node.offsetHeight / 2;
+      const targetLeft = Math.max(0, nodeCentreX * targetZoom - atlas.clientWidth / 2);
+      const targetTop = Math.max(0, nodeCentreY * targetZoom - atlas.clientHeight / 2);
+      const startedAt = performance.now();
+      const duration = 520;
+      zoomTarget = targetZoom;
+      updateZoomControls();
+      atlas.classList.add('is-zooming');
+      const tick = (now) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        zoom = startZoom + (targetZoom - startZoom) * eased;
+        atlas.style.setProperty('--atlas-zoom', String(zoom));
+        atlas.scrollLeft = startLeft + (targetLeft - startLeft) * eased;
+        atlas.scrollTop = startTop + (targetTop - startTop) * eased;
+        updateAtlas();
+        if (progress < 1) {
+          zoomAnimationFrame = requestAnimationFrame(tick);
+          return;
+        }
+        zoom = targetZoom;
+        zoomAnimationFrame = 0;
+        atlas.classList.remove('is-zooming');
+        updateAtlas();
+      };
+      zoomAnimationFrame = requestAnimationFrame(tick);
     };
     const fitMap = (behavior = 'smooth') => {
       const visible = visibleNodes();
@@ -872,6 +918,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     reset.addEventListener('click', () => fitMap());
     previousNode.addEventListener('click', () => moveNode(-1));
     nextNode.addEventListener('click', () => moveNode(1));
+    atlasCards.forEach((card) => card.querySelector('[data-atlas-select]')?.addEventListener('click', () => focusNode(card)));
     atlasCards.forEach((card) => card.addEventListener('focusin', () => setActiveNode(card, false)));
     atlas.addEventListener('scroll', () => {
       markInteracting();
