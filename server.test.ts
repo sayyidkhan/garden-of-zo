@@ -27,9 +27,9 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("Apps 6");
     expect(html).toContain("Workflows 1");
     expect(html).toContain("Agents 1");
-    expect((html.match(/data-kind="app"/g) ?? []).length).toBe(12);
-    expect((html.match(/data-kind="workflow"/g) ?? []).length).toBe(2);
-    expect((html.match(/data-kind="agent"/g) ?? []).length).toBe(2);
+    expect((html.match(/<article[^>]+data-kind="app"/g) ?? []).length).toBe(12);
+    expect((html.match(/<article[^>]+data-kind="workflow"/g) ?? []).length).toBe(2);
+    expect((html.match(/<article[^>]+data-kind="agent"/g) ?? []).length).toBe(2);
     expect(html).toContain("garden-of-zo-view");
     expect((html.match(/<path data-sky-route/g) ?? []).length).toBe(11);
     expect(html).toContain('d="M 265 444 C');
@@ -38,6 +38,15 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("data-atlas-zoom-out");
     expect(html).toContain("data-atlas-zoom-in");
     expect(html).toContain("data-atlas-reset");
+    expect(html).toContain("data-atlas-previous");
+    expect(html).toContain("data-atlas-next");
+    expect(html).toContain("data-atlas-current");
+    expect(html).toContain("data-atlas-minimap");
+    expect(html).toContain("data-atlas-minimap-window");
+    expect((html.match(/<circle data-minimap-node/g) ?? []).length).toBe(8);
+    expect((html.match(/<path data-minimap-route/g) ?? []).length).toBe(11);
+    expect(html).toContain("navigateSpatially");
+    expect(html).toContain("fitMap");
     expect(html).toContain("Relationship Mapper");
     expect(html).toContain("Zo Usage");
     expect(html).toContain("6 open");

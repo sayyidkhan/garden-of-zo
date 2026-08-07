@@ -161,6 +161,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const midX = (x1 + x2) / 2;
     return `<path data-sky-route data-from="${fromIndex}" data-to="${toIndex}" d="M ${x1} ${y1} C ${midX} ${y1 + curve}, ${midX} ${y2 - curve}, ${x2} ${y2}" />`;
   }).join("");
+  const minimapRoutes = routes.replaceAll("data-sky-route", "data-minimap-route");
+  const minimapNodes = appEntries.map(({ gateway, route, index }) => {
+    const position = nodePositions[index];
+    return `<circle data-minimap-node data-node-index="${index}" data-access="${gateway.access}" data-kind="${route.kind}" cx="${position.x}" cy="${position.y}" r="26" />`;
+  }).join("");
   const listCards = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
     return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index}">
       <span class="realm-row__number">${String(index + 1).padStart(2, "0")}</span>
@@ -267,14 +272,18 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__status { display: flex; align-items: center; gap: 12px; color: #d6e3df; font-size: .76rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
     .atlas__status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 18px rgba(228,193,120,.9); }
     .atlas__hint { color: #849c99; font-weight: 500; letter-spacing: .04em; }
-    .atlas__controls { display: flex; gap: 8px; }
+    .atlas__controls { display: flex; align-items: center; gap: 8px; }
+    .atlas__node-controls, .atlas__zoom-controls { display: flex; align-items: center; gap: 8px; }
     .atlas__control { display: grid; place-items: center; min-width: 42px; height: 42px; padding: 0 13px; border: 1px solid rgba(228,193,120,.25); border-radius: 999px; color: var(--ink); background: rgba(6,25,31,.7); cursor: pointer; font-size: .72rem; font-weight: 900; letter-spacing: .04em; transition: transform .2s, border-color .2s, background .2s; }
     .atlas__control:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(228,193,120,.66); background: rgba(25,54,58,.9); }
     .atlas__control:disabled { cursor: default; opacity: .28; }
+    .atlas__location { display: grid; grid-template-columns: auto minmax(100px, 160px); align-items: center; gap: 9px; min-height: 42px; padding: 6px 12px; border: 1px solid rgba(138,199,180,.2); border-radius: 999px; background: rgba(4,22,28,.76); }
+    .atlas__location small { color: var(--gold); font-size: .56rem; font-weight: 900; letter-spacing: .12em; }
+    .atlas__location strong { overflow: hidden; color: #dce8e3; font: 700 .78rem/1.1 var(--serif); text-overflow: ellipsis; white-space: nowrap; }
     .atlas__viewport { position: relative; z-index: 2; height: min(720px, 72vh); min-height: 540px; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; cursor: grab; touch-action: none; contain: layout paint style; background: radial-gradient(circle at 50% 45%, rgba(67,130,132,.1), transparent 34rem); }
     .atlas__viewport::-webkit-scrollbar { display: none; }
     .atlas__viewport.is-dragging { cursor: grabbing; user-select: none; }
-    .atlas__canvas { position: relative; width: calc(2240px * var(--atlas-zoom, .8)); height: calc(1080px * var(--atlas-zoom, .8)); }
+    .atlas__canvas { position: relative; width: calc(2240px * var(--atlas-zoom, .8)); height: calc(1080px * var(--atlas-zoom, .8)); margin-inline: auto; }
     .atlas__world { position: absolute; inset: 0 auto auto 0; width: 2240px; height: 1080px; transform: scale(var(--atlas-zoom, .8)); transform-origin: left top; contain: layout paint style; isolation: isolate; background-image: radial-gradient(ellipse at 52% 54%, rgba(67,130,132,.13), transparent 52%), radial-gradient(circle, rgba(244,230,196,.72) 0 1px, transparent 1.5px); background-size: 100% 100%, 83px 83px; }
     .sky-routes { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
     .sky-routes path { fill: none; stroke: rgba(228,193,120,.78); stroke-width: 3; stroke-dasharray: 4 14; stroke-linecap: round; animation: route-drift 20s linear infinite; }
@@ -293,6 +302,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node__beacon { position: absolute; z-index: 4; left: 50%; top: 28px; display: grid; place-items: center; width: 52px; height: 52px; transform: translateX(-50%); border: 1px solid rgba(228,193,120,.7); border-radius: 50%; color: var(--gold); background: rgba(4,22,28,.9); box-shadow: 0 0 0 8px rgba(228,193,120,.06), 0 0 28px rgba(228,193,120,.42); }
     .kingdom-node__beacon svg { width: 21px; height: 21px; }
     .kingdom-node__beacon i { position: absolute; inset: -9px; border: 1px solid rgba(138,199,180,.28); border-radius: inherit; animation: beacon-pulse 2.8s ease-out infinite; }
+    .kingdom-node.is-active { z-index: 6; }
+    .kingdom-node.is-active .kingdom-node__beacon { border-color: #fff0bd; box-shadow: 0 0 0 10px rgba(228,193,120,.13), 0 0 42px rgba(228,193,120,.78); }
+    .kingdom-node.is-active .kingdom-node__label { border-color: rgba(228,193,120,.66); box-shadow: 0 22px 52px rgba(0,0,0,.52), 0 0 30px rgba(228,193,120,.1); }
     .kingdom-node--private .kingdom-node__beacon { border-color: rgba(221,125,102,.72); color: #e9b690; box-shadow: 0 0 0 8px rgba(221,125,102,.06), 0 0 28px rgba(221,125,102,.35); }
     .kingdom-node__label { position: absolute; z-index: 5; left: 50%; bottom: 0; width: 255px; min-height: 96px; transform: translateX(-50%); display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 13px 14px; border: 1px solid rgba(228,193,120,.24); border-radius: 4px 20px 4px 20px; background: linear-gradient(145deg, #113136, #04161c); box-shadow: 0 20px 38px rgba(0,0,0,.38); }
     .kingdom-node--private .kingdom-node__label { background: linear-gradient(145deg, #322a2b, #0c191e); }
@@ -307,6 +319,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .badge-icon { width: 12px; height: 12px; }
     .atlas__progress { position: relative; z-index: 3; height: 3px; background: rgba(255,255,255,.06); }
     .atlas__progress span { display: block; width: 18%; height: 100%; transform: translateX(0); background: linear-gradient(90deg, var(--mint), var(--gold)); box-shadow: 0 0 16px rgba(228,193,120,.5); transition: width .2s ease-out, transform .2s ease-out; }
+    .atlas__minimap { position: absolute; z-index: 7; right: 22px; bottom: 22px; width: 220px; height: 112px; padding: 8px; border: 1px solid rgba(228,193,120,.36); border-radius: 14px; background: rgba(3,18,23,.9); box-shadow: 0 18px 44px rgba(0,0,0,.42); cursor: crosshair; touch-action: none; }
+    .atlas__minimap:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+    .atlas__minimap svg { display: block; width: 100%; height: 100%; }
+    .atlas__minimap path { fill: none; stroke: rgba(228,193,120,.48); stroke-width: 10; stroke-linecap: round; }
+    .atlas__minimap path.is-hidden, .atlas__minimap circle.is-hidden { display: none; }
+    .atlas__minimap circle { fill: var(--gold); stroke: #102c31; stroke-width: 12; }
+    .atlas__minimap circle[data-access="private"] { fill: var(--coral); }
+    .atlas__minimap rect { fill: rgba(138,199,180,.12); stroke: #b9e0d5; stroke-width: 9; vector-effect: non-scaling-stroke; }
     .atlas__viewport.is-interacting .kingdom-node__art, .atlas__viewport.is-interacting .atlas__pegasus, .atlas__viewport.is-interacting .sky-routes path, .atlas__viewport.is-interacting .kingdom-node__beacon i { animation-play-state: paused; }
     .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
@@ -385,10 +405,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .atlas__hint { display: none; }
       .atlas__viewport { min-height: 520px; height: 66vh; }
       .atlas__viewport { touch-action: pan-x pan-y; cursor: auto; }
-      .atlas__bar { align-items: flex-start; }
+      .atlas__bar { align-items: stretch; flex-direction: column; gap: 12px; }
+      .atlas__controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
+      .atlas__node-controls { min-width: 0; }
+      .atlas__zoom-controls { justify-content: flex-end; }
       .atlas__status { align-items: flex-start; flex-direction: column; gap: 7px; }
       .atlas__status::before { display: none; }
       .atlas__control { min-width: 38px; height: 38px; padding-inline: 11px; }
+      .atlas__location { flex: 1; grid-template-columns: auto minmax(72px, 1fr); min-height: 38px; padding: 5px 9px; }
+      .atlas__location strong { font-size: .68rem; }
+      .atlas__minimap { right: 10px; bottom: 10px; width: 112px; height: 58px; padding: 5px; border-radius: 9px; }
       .realm-list { padding-inline: 14px; }
       .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
       .realm-kind-filters { width: 100%; overflow-x: auto; }
@@ -403,6 +429,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-row__link { grid-column: 3 / -1; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
       .legend, .footer { align-items: flex-start; flex-direction: column; }
       .footer { width: min(100% - 28px, 1180px); }
+    }
+    @media (max-width: 420px) {
+      .atlas__controls { grid-template-columns: 1fr; }
+      .atlas__node-controls, .atlas__zoom-controls { width: 100%; }
+      .atlas__zoom-controls { justify-content: flex-end; }
     }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
@@ -465,9 +496,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <div class="atlas__bar">
           <span class="atlas__status"><span data-atlas-status>${String(allApps.length).padStart(2, "0")} kingdoms charted</span><span class="atlas__hint">Drag the sky &middot; scroll to roam &middot; select a kingdom to enter</span></span>
           <div class="atlas__controls">
-            <button class="atlas__control" type="button" data-atlas-zoom-out aria-label="Zoom out">&minus;</button>
-            <button class="atlas__control" type="button" data-atlas-reset aria-label="Re-centre sky atlas">Centre</button>
-            <button class="atlas__control" type="button" data-atlas-zoom-in aria-label="Zoom in">&plus;</button>
+            <div class="atlas__node-controls">
+              <button class="atlas__control" type="button" data-atlas-previous aria-label="Previous kingdom">&larr;</button>
+              <span class="atlas__location" aria-live="polite"><small data-atlas-current-index>01 / ${String(allApps.length).padStart(2, "0")}</small><strong data-atlas-current>${escapeHtml(allApps[0]?.route.title ?? "No kingdom")}</strong></span>
+              <button class="atlas__control" type="button" data-atlas-next aria-label="Next kingdom">&rarr;</button>
+            </div>
+            <div class="atlas__zoom-controls">
+              <button class="atlas__control" type="button" data-atlas-zoom-out aria-label="Zoom out">&minus;</button>
+              <button class="atlas__control" type="button" data-atlas-reset aria-label="Fit the full sky atlas">Fit</button>
+              <button class="atlas__control" type="button" data-atlas-zoom-in aria-label="Zoom in">&plus;</button>
+            </div>
           </div>
         </div>
         <div class="atlas__viewport" data-atlas tabindex="0" aria-label="Pannable sky atlas. Drag, scroll, or use arrow keys to traverse the kingdom graph.">
@@ -478,6 +516,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
               ${nodes}
             </div>
           </div>
+        </div>
+        <div class="atlas__minimap" data-atlas-minimap role="button" tabindex="0" aria-label="Atlas overview. Select a position to move the map.">
+          <svg viewBox="0 0 2240 1080" preserveAspectRatio="none" aria-hidden="true">
+            ${minimapRoutes}
+            ${minimapNodes}
+            <rect data-atlas-minimap-window x="0" y="0" width="100" height="100" rx="18" />
+          </svg>
         </div>
         <div class="atlas__progress" aria-hidden="true"><span data-atlas-progress></span></div>
       </section>
@@ -511,6 +556,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const zoomOut = document.querySelector('[data-atlas-zoom-out]');
     const zoomIn = document.querySelector('[data-atlas-zoom-in]');
     const reset = document.querySelector('[data-atlas-reset]');
+    const previousNode = document.querySelector('[data-atlas-previous]');
+    const nextNode = document.querySelector('[data-atlas-next]');
+    const currentNodeName = document.querySelector('[data-atlas-current]');
+    const currentNodeIndex = document.querySelector('[data-atlas-current-index]');
+    const minimap = document.querySelector('[data-atlas-minimap]');
+    const minimapWindow = document.querySelector('[data-atlas-minimap-window]');
+    const minimapNodes = [...document.querySelectorAll('[data-minimap-node]')];
+    const minimapRoutes = [...document.querySelectorAll('[data-minimap-route]')];
     const world = document.querySelector('[data-atlas-world]');
     const routes = [...document.querySelectorAll('[data-sky-route]')];
     const listCount = document.querySelector('[data-list-count]');
@@ -521,16 +574,18 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let accessFilter = 'all';
     let kindFilter = 'all';
     let zoom = innerWidth < 620 ? .64 : innerWidth < 1000 ? .72 : .82;
+    const minimumZoom = () => innerWidth < 620 ? .58 : .48;
     let mapInitialised = false;
+    let activeNode = null;
     const setZoom = (nextZoom, focusX = atlas.clientWidth / 2, focusY = atlas.clientHeight / 2) => {
       const oldZoom = zoom;
-      zoom = Math.max(.58, Math.min(1.08, nextZoom));
+      zoom = Math.max(minimumZoom(), Math.min(1.08, nextZoom));
       const worldX = (atlas.scrollLeft + focusX) / oldZoom;
       const worldY = (atlas.scrollTop + focusY) / oldZoom;
       atlas.style.setProperty('--atlas-zoom', String(zoom));
       atlas.scrollLeft = worldX * zoom - focusX;
       atlas.scrollTop = worldY * zoom - focusY;
-      zoomOut.disabled = zoom <= .58;
+      zoomOut.disabled = zoom <= minimumZoom();
       zoomIn.disabled = zoom >= 1.08;
       updateAtlas();
     };
@@ -540,9 +595,81 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const y = node.offsetTop * zoom + node.offsetHeight * zoom / 2 - atlas.clientHeight / 2;
       atlas.scrollTo({ left: Math.max(0, x), top: Math.max(0, y), behavior });
     };
-    const centreMap = (behavior = 'smooth') => {
+    const setActiveNode = (node, shouldCentre = true, behavior = 'smooth') => {
       const visible = visibleNodes();
-      centreNode(visible[Math.floor((visible.length - 1) / 2)] || visible[0], behavior);
+      if (!node || node.hidden) node = visible[0] || null;
+      activeNode = node;
+      atlasCards.forEach((card) => {
+        const selected = card === activeNode;
+        card.classList.toggle('is-active', selected);
+        const link = card.querySelector('.kingdom-node__island');
+        if (selected) link?.setAttribute('aria-current', 'location');
+        else link?.removeAttribute('aria-current');
+      });
+      const visibleIndex = Math.max(0, visible.indexOf(activeNode));
+      currentNodeName.textContent = activeNode?.dataset.nodeTitle || 'No kingdom';
+      currentNodeIndex.textContent = activeNode
+        ? String(visibleIndex + 1).padStart(2, '0') + ' / ' + String(visible.length).padStart(2, '0')
+        : '00 / 00';
+      previousNode.disabled = visible.length < 2;
+      nextNode.disabled = visible.length < 2;
+      if (shouldCentre && activeNode) centreNode(activeNode, behavior);
+    };
+    const fitMap = (behavior = 'smooth') => {
+      const visible = visibleNodes();
+      if (!visible.length) return;
+      const padding = innerWidth < 620 ? 58 : 95;
+      const left = Math.min(...visible.map((node) => node.offsetLeft));
+      const top = Math.min(...visible.map((node) => node.offsetTop));
+      const right = Math.max(...visible.map((node) => node.offsetLeft + node.offsetWidth));
+      const bottom = Math.max(...visible.map((node) => node.offsetTop + node.offsetHeight));
+      const contentWidth = right - left + padding * 2;
+      const contentHeight = bottom - top + padding * 2;
+      zoom = Math.max(minimumZoom(), Math.min(1.08, (atlas.clientWidth - 24) / contentWidth, (atlas.clientHeight - 24) / contentHeight));
+      atlas.style.setProperty('--atlas-zoom', String(zoom));
+      zoomOut.disabled = zoom <= minimumZoom();
+      zoomIn.disabled = zoom >= 1.08;
+      const scaledWidth = (right - left) * zoom;
+      const scaledHeight = (bottom - top) * zoom;
+      atlas.scrollTo({
+        left: Math.max(0, left * zoom - (atlas.clientWidth - scaledWidth) / 2),
+        top: Math.max(0, top * zoom - (atlas.clientHeight - scaledHeight) / 2),
+        behavior
+      });
+      updateAtlas();
+    };
+    const moveNode = (step) => {
+      const visible = visibleNodes();
+      if (!visible.length) return;
+      const index = Math.max(0, visible.indexOf(activeNode));
+      setActiveNode(visible[(index + step + visible.length) % visible.length]);
+    };
+    const navigateSpatially = (direction) => {
+      const visible = visibleNodes();
+      if (!visible.length) return;
+      const origin = activeNode && !activeNode.hidden ? activeNode : visible[0];
+      const originX = origin.offsetLeft + origin.offsetWidth / 2;
+      const originY = origin.offsetTop + 54;
+      const candidates = visible.filter((node) => {
+        if (node === origin) return false;
+        const dx = node.offsetLeft + node.offsetWidth / 2 - originX;
+        const dy = node.offsetTop + 54 - originY;
+        if (direction === 'left') return dx < -10;
+        if (direction === 'right') return dx > 10;
+        if (direction === 'up') return dy < -10;
+        return dy > 10;
+      });
+      const target = candidates.sort((a, b) => {
+        const score = (node) => {
+          const dx = node.offsetLeft + node.offsetWidth / 2 - originX;
+          const dy = node.offsetTop + 54 - originY;
+          const primary = direction === 'left' || direction === 'right' ? Math.abs(dx) : Math.abs(dy);
+          const secondary = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
+          return primary + secondary * 1.7;
+        };
+        return score(a) - score(b);
+      })[0];
+      if (target) setActiveNode(target);
     };
     const setView = (view, remember = true) => {
       const selected = view === 'list' ? 'list' : 'atlas';
@@ -558,7 +685,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       if (selected === 'atlas') requestAnimationFrame(() => {
         document.querySelector('.atlas').classList.remove('is-offscreen');
         refreshRoute();
-        if (!mapInitialised) { centreMap('auto'); mapInitialised = true; }
+        if (!mapInitialised) {
+          setActiveNode(visibleNodes()[0], false);
+          fitMap('auto');
+          if (innerWidth < 620) centreNode(activeNode, 'auto');
+          mapInitialised = true;
+        }
         updateAtlas();
       });
     };
@@ -567,6 +699,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         const from = atlasCards[Number(route.dataset.from)];
         const to = atlasCards[Number(route.dataset.to)];
         route.classList.toggle('is-hidden', from.hidden || to.hidden);
+      });
+      minimapRoutes.forEach((route) => {
+        const from = atlasCards[Number(route.dataset.from)];
+        const to = atlasCards[Number(route.dataset.to)];
+        route.classList.toggle('is-hidden', from.hidden || to.hidden);
+      });
+      minimapNodes.forEach((node) => {
+        node.classList.toggle('is-hidden', atlasCards[Number(node.dataset.nodeIndex)].hidden);
       });
     };
     const updateAtlas = () => {
@@ -582,6 +722,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const viewportRatio = Math.min(1, atlas.clientWidth / atlas.scrollWidth);
       progress.style.width = Math.max(8, viewportRatio * 100) + '%';
       progress.style.transform = 'translateX(' + (atlas.scrollLeft / max * (100 / viewportRatio - 100)) + '%)';
+      minimapWindow.setAttribute('x', String(atlas.scrollLeft / zoom));
+      minimapWindow.setAttribute('y', String(atlas.scrollTop / zoom));
+      minimapWindow.setAttribute('width', String(Math.min(2240, atlas.clientWidth / zoom)));
+      minimapWindow.setAttribute('height', String(Math.min(1080, atlas.clientHeight / zoom)));
     };
     let atlasUpdateFrame = 0;
     let interactionTimer = 0;
@@ -592,10 +736,28 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         updateAtlas();
       });
     };
+    const syncActiveToViewport = () => {
+      const visible = visibleNodes();
+      if (!visible.length) return;
+      const centreX = (atlas.scrollLeft + atlas.clientWidth / 2) / zoom;
+      const centreY = (atlas.scrollTop + atlas.clientHeight / 2) / zoom;
+      const nearest = visible.sort((a, b) => {
+        const distance = (node) => {
+          const dx = node.offsetLeft + node.offsetWidth / 2 - centreX;
+          const dy = node.offsetTop + 54 - centreY;
+          return dx * dx + dy * dy;
+        };
+        return distance(a) - distance(b);
+      })[0];
+      setActiveNode(nearest, false);
+    };
     const markInteracting = () => {
       atlas.classList.add('is-interacting');
       clearTimeout(interactionTimer);
-      interactionTimer = setTimeout(() => atlas.classList.remove('is-interacting'), 140);
+      interactionTimer = setTimeout(() => {
+        atlas.classList.remove('is-interacting');
+        syncActiveToViewport();
+      }, 140);
     };
     const applyFilters = () => {
       [...atlasCards, ...listCards].forEach((card) => {
@@ -604,7 +766,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         card.hidden = accessMismatch || kindMismatch;
       });
       listCount.textContent = String(listCards.filter((card) => !card.hidden).length);
-      requestAnimationFrame(() => { refreshRoute(); centreMap(); updateAtlas(); });
+      requestAnimationFrame(() => {
+        refreshRoute();
+        setActiveNode(activeNode && !activeNode.hidden ? activeNode : visibleNodes()[0], false);
+        fitMap();
+        if (innerWidth < 620) centreNode(activeNode);
+        updateAtlas();
+      });
     };
     accessFilters.forEach((button) => button.addEventListener('click', () => {
       accessFilter = button.dataset.filter;
@@ -619,7 +787,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
     zoomOut.addEventListener('click', () => setZoom(zoom - .1));
     zoomIn.addEventListener('click', () => setZoom(zoom + .1));
-    reset.addEventListener('click', () => centreMap());
+    reset.addEventListener('click', () => fitMap());
+    previousNode.addEventListener('click', () => moveNode(-1));
+    nextNode.addEventListener('click', () => moveNode(1));
+    atlasCards.forEach((card) => card.addEventListener('focusin', () => setActiveNode(card, false)));
     atlas.addEventListener('scroll', () => {
       markInteracting();
       scheduleAtlasUpdate();
@@ -635,15 +806,40 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       if (!canMoveX && !canMoveY) return;
       event.preventDefault();
       markInteracting();
-      atlas.scrollLeft += event.deltaX || event.deltaY;
-      atlas.scrollTop += event.deltaX ? event.deltaY : 0;
+      atlas.scrollLeft += event.deltaX + (event.shiftKey ? event.deltaY : 0);
+      atlas.scrollTop += event.shiftKey ? 0 : event.deltaY;
     }, { passive: false });
     atlas.addEventListener('keydown', (event) => {
-      const distance = event.shiftKey ? 260 : 90;
-      if (event.key === 'ArrowLeft') { event.preventDefault(); atlas.scrollBy({ left: -distance, behavior: 'smooth' }); }
-      if (event.key === 'ArrowRight') { event.preventDefault(); atlas.scrollBy({ left: distance, behavior: 'smooth' }); }
-      if (event.key === 'ArrowUp') { event.preventDefault(); atlas.scrollBy({ top: -distance, behavior: 'smooth' }); }
-      if (event.key === 'ArrowDown') { event.preventDefault(); atlas.scrollBy({ top: distance, behavior: 'smooth' }); }
+      const direction = ({ ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down' })[event.key];
+      if (!direction) return;
+      event.preventDefault();
+      if (event.shiftKey) {
+        const distance = 220;
+        atlas.scrollBy({
+          left: direction === 'left' ? -distance : direction === 'right' ? distance : 0,
+          top: direction === 'up' ? -distance : direction === 'down' ? distance : 0,
+          behavior: 'smooth'
+        });
+        return;
+      }
+      navigateSpatially(direction);
+    });
+    const moveFromMinimap = (event) => {
+      const bounds = minimap.getBoundingClientRect();
+      const worldX = (event.clientX - bounds.left) / bounds.width * 2240;
+      const worldY = (event.clientY - bounds.top) / bounds.height * 1080;
+      atlas.scrollTo({
+        left: Math.max(0, worldX * zoom - atlas.clientWidth / 2),
+        top: Math.max(0, worldY * zoom - atlas.clientHeight / 2),
+        behavior: 'smooth'
+      });
+    };
+    minimap.addEventListener('pointerdown', moveFromMinimap);
+    minimap.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        fitMap();
+      }
     });
     let dragStartX = 0;
     let dragStartY = 0;
@@ -677,7 +873,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const endDrag = () => atlas.classList.remove('is-dragging');
     atlas.addEventListener('pointerup', endDrag);
     atlas.addEventListener('pointercancel', endDrag);
-    addEventListener('resize', () => requestAnimationFrame(() => { refreshRoute(); updateAtlas(); }));
+    addEventListener('resize', () => requestAnimationFrame(() => { refreshRoute(); fitMap('auto'); updateAtlas(); }));
     if ('IntersectionObserver' in window) {
       const visibilityObserver = new IntersectionObserver((entries) => {
         entries.forEach((entry) => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));
