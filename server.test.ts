@@ -14,12 +14,18 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("Pannable sky atlas");
     expect(html).toContain('data-view="atlas"');
     expect(html).toContain('data-view="list"');
+    expect(html).toContain("Sky Atlas View");
+    expect(html).toContain("catalogue__commandbar");
+    expect(html).toContain("is-atlas-view");
+    expect(html).toContain("grid-template-rows: auto auto minmax(0, 1fr)");
     expect(html).toContain('data-view-panel="list"');
     expect(html).toContain('data-screen="landing"');
     expect(html).toContain('data-screen="catalogue" hidden');
     expect(html).toContain('href="#atlas" aria-controls="realms"');
     expect(html).toContain("Back to garden");
     expect(html).toContain("addEventListener('hashchange', syncScreen)");
+    expect(html).toContain("selected === 'list' ? '#list' : '#atlas'");
+    expect(html).toContain("location.hash === '#list'");
     expect(html).toContain('aria-label="Filter realms by type"');
     expect(html).toContain('data-kind-filter="app"');
     expect(html).toContain('data-kind-filter="workflow"');

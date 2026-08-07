@@ -8,6 +8,7 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - both gateway homepages render the complete catalogue from both manifests
 - the landing realm and catalogue are separate full-screen states; `#atlas` opens the catalogue and browser Back returns to the landing screen
 - the catalogue toggles between a pannable two-dimensional Sky Atlas graph and a compact list view, with the preference stored in the browser
+- Sky Atlas View is a full-viewport workspace with one unified, horizontally scrollable view-and-filter command bar; List View uses `#list`
 - the Atlas uses lightweight artwork variants, compositor-only motion, native mobile panning, and animation-frame-throttled interaction
 - Atlas routes and kingdom artwork share one canonical beacon coordinate per node, so graph paths remain attached while island art floats
 - Atlas navigation includes a fitted overview, active-kingdom stepping, continuous focal zoom, a viewport mini-map, and spatial arrow/WASD movement

@@ -254,18 +254,34 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .catalogue__nav { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid rgba(255,255,255,.14); }
     .catalogue__return { display: inline-flex; align-items: center; gap: 9px; padding: 10px 14px; border: 1px solid rgba(228,193,120,.28); border-radius: 999px; color: #d5e1dc; background: rgba(3,18,23,.48); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; transition: transform .2s, border-color .2s; }
     .catalogue__return:hover { transform: translateY(-2px); border-color: rgba(228,193,120,.65); }
-    .catalogue__head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; margin-bottom: 28px; }
+    .catalogue__head { display: grid; grid-template-columns: 1fr; align-items: start; gap: 24px; margin-bottom: 28px; }
     .catalogue__nav + .catalogue__head { margin-top: 54px; }
     .catalogue__head h2 { margin: 0; max-width: 720px; font: 500 clamp(2.8rem, 6vw, 5.2rem)/.94 var(--serif); letter-spacing: -.035em; }
     .catalogue__head p { max-width: 570px; margin: 18px 0 0; color: var(--muted); line-height: 1.65; }
-    .catalogue__tools { display: grid; justify-items: end; gap: 12px; }
-    .view-toggle { display: flex; gap: 5px; padding: 5px; border: 1px solid rgba(228,193,120,.28); border-radius: 999px; background: rgba(3,18,23,.72); box-shadow: 0 14px 34px rgba(0,0,0,.18); }
-    .view-toggle__button { display: inline-flex; align-items: center; gap: 8px; border: 0; border-radius: 999px; padding: 10px 14px; color: #94aaa6; background: transparent; cursor: pointer; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; transition: color .2s, background .2s, box-shadow .2s; }
+    .catalogue__tools { display: flex; justify-content: flex-end; min-width: 0; width: 100%; }
+    .catalogue__commandbar { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; max-width: 100%; padding: 5px; border: 1px solid rgba(228,193,120,.24); border-radius: 18px; background: rgba(3,18,23,.78); box-shadow: 0 14px 34px rgba(0,0,0,.2); overflow-x: auto; scrollbar-width: none; }
+    .catalogue__commandbar::-webkit-scrollbar { display: none; }
+    .view-toggle, .filters, .realm-kind-filters { display: flex; flex: none; gap: 3px; }
+    .view-toggle__button { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 12px; padding: 9px 11px; color: #94aaa6; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: color .2s, background .2s, box-shadow .2s; }
     .view-toggle__button svg { width: 16px; height: 16px; }
     .view-toggle__button[aria-pressed="true"] { color: #172328; background: var(--gold); box-shadow: 0 6px 18px rgba(228,193,120,.2); }
-    .filters { display: flex; gap: 5px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(3,18,23,.5); }
-    .filter { border: 0; border-radius: 999px; padding: 10px 15px; color: #aebfbb; background: transparent; cursor: pointer; font-size: .77rem; font-weight: 800; letter-spacing: .04em; transition: color .2s, background .2s; }
+    .filter { border: 0; border-radius: 10px; padding: 9px 10px; color: #aebfbb; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap; transition: color .2s, background .2s; }
     .filter[aria-pressed="true"] { color: #162027; background: var(--ink); }
+    .commandbar__divider { flex: none; width: 1px; height: 24px; margin: 0 3px; background: rgba(228,193,120,.2); }
+    body.is-atlas-view { overflow: hidden; }
+    body.is-atlas-view .shell { height: 100svh; min-height: 0; overflow: hidden; }
+    body.is-atlas-view .catalogue { display: grid; grid-template-rows: auto auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); width: 100%; height: 100svh; min-height: 0; margin: 0; padding: 0; overflow: hidden; }
+    body.is-atlas-view .catalogue[hidden] { display: none; }
+    body.is-atlas-view .catalogue__nav { width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 14px 0; }
+    body.is-atlas-view .catalogue__nav + .catalogue__head { margin-top: 0; }
+    body.is-atlas-view .catalogue__head { display: block; width: 100%; min-width: 0; margin: 0; padding: 9px max(20px, calc((100vw - 1180px) / 2)); border-bottom: 1px solid rgba(228,193,120,.13); overflow: hidden; }
+    body.is-atlas-view .catalogue__intro { display: none; }
+    body.is-atlas-view .catalogue__tools { display: flex; justify-content: center; width: 100%; }
+    body.is-atlas-view .catalogue__commandbar { width: max-content; }
+    body.is-atlas-view .atlas { display: grid; grid-template-rows: auto minmax(0, 1fr) 3px; width: 100%; max-width: 100vw; min-height: 0; margin: 0; }
+    body.is-atlas-view .atlas__bar { padding-block: 10px; }
+    body.is-atlas-view .atlas__viewport { height: auto; min-height: 0; }
+    body.is-atlas-view .legend, body.is-atlas-view .footer { display: none; }
     .atlas { position: relative; width: 100vw; margin-left: calc(50% - 50vw); border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 16% 18%, rgba(58,111,115,.18), transparent 24rem), radial-gradient(circle at 78% 64%, rgba(221,125,102,.09), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.64), rgba(6,29,35,.94)); overflow: hidden; }
     .atlas::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .3; background-image: radial-gradient(circle, rgba(244,230,196,.8) 0 1px, transparent 1.5px); background-size: 67px 67px; mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent); }
     .atlas__bar { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 20px; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 20px 0; }
@@ -333,8 +349,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
     .realm-list__bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 18px; color: #849c99; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     .realm-list__bar strong { color: var(--gold); }
-    .realm-kind-filters { display: flex; gap: 5px; padding: 4px; border: 1px solid rgba(228,193,120,.18); border-radius: 999px; background: rgba(3,18,23,.54); }
-    .realm-kind-filter { border: 0; border-radius: 999px; padding: 8px 12px; color: #91aaa6; background: transparent; cursor: pointer; font: inherit; letter-spacing: .08em; text-transform: uppercase; transition: color .2s, background .2s; }
+    .realm-kind-filter { border: 0; border-radius: 10px; padding: 9px 10px; color: #91aaa6; background: transparent; cursor: pointer; font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: color .2s, background .2s; }
     .realm-kind-filter[aria-pressed="true"] { color: #172328; background: var(--gold); }
     .realm-list__rows { border-top: 1px solid rgba(228,193,120,.18); }
     .realm-row { display: grid; grid-template-columns: 42px 48px minmax(150px, .85fr) minmax(240px, 1.5fr) auto 132px; align-items: center; gap: 18px; min-height: 116px; border-bottom: 1px solid rgba(228,193,120,.14); animation: rise .55s calc(var(--order) * 45ms) both; transition: background .2s, transform .2s; }
@@ -397,10 +412,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .catalogue__return { padding: 10px 12px; font-size: .62rem; }
       .catalogue__head h2 { font-size: 3.3rem; }
       .catalogue__tools { width: 100%; }
-      .view-toggle { width: 100%; }
-      .view-toggle__button { flex: 1; justify-content: center; }
-      .filters { width: 100%; overflow-x: auto; }
-      .filter { flex: 1; }
+      .catalogue__commandbar { justify-content: flex-start; border-radius: 14px; }
+      .view-toggle__button { justify-content: center; }
+      .filter { flex: none; }
       .atlas__bar { width: min(100% - 28px, 1180px); }
       .atlas__hint { display: none; }
       .atlas__viewport { min-height: 520px; height: 66vh; }
@@ -417,8 +431,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .atlas__minimap { right: 10px; bottom: 10px; width: 112px; height: 58px; padding: 5px; border-radius: 9px; }
       .realm-list { padding-inline: 14px; }
       .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
-      .realm-kind-filters { width: 100%; overflow-x: auto; }
-      .realm-kind-filter { flex: 1; white-space: nowrap; }
+      .realm-kind-filter { flex: none; }
       .hero__kingdom, .hero__pegasus, .kingdom-node, .kingdom-node__art, .atlas__pegasus, .sky-routes path, .kingdom-node__beacon i { animation: none; }
       .kingdom-node__art { will-change: auto; }
       .shell::before { display: none; }
@@ -429,6 +442,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-row__link { grid-column: 3 / -1; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
       .legend, .footer { align-items: flex-start; flex-direction: column; }
       .footer { width: min(100% - 28px, 1180px); }
+      body.is-atlas-view .catalogue { width: 100%; padding: 0; }
+      body.is-atlas-view .catalogue__nav { width: calc(100% - 28px); margin: 0 auto; padding: 10px 0; }
+      body.is-atlas-view .catalogue__head { padding: 8px 14px; }
+      body.is-atlas-view .catalogue__commandbar { width: 100%; }
+      body.is-atlas-view .atlas__bar { padding-block: 8px; }
+      body.is-atlas-view .atlas__viewport { height: auto; min-height: 0; }
     }
     @media (max-width: 420px) {
       .atlas__controls { grid-template-columns: 1fr; }
@@ -469,26 +488,30 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <a class="catalogue__return" href="/" data-close-catalogue><span aria-hidden="true">&larr;</span> Back to garden</a>
       </nav>
       <div class="catalogue__head">
-        <div>
+        <div class="catalogue__intro">
           <p class="eyebrow" data-view-eyebrow>The sky atlas</p>
           <h2>Choose the next<br />horizon.</h2>
           <p data-view-description>Travel from node to node across your apps, workflows and agents. Every stop is a live destination in the Garden of Zo.</p>
         </div>
         <div class="catalogue__tools">
-          <div class="view-toggle" role="group" aria-label="Choose catalogue view">
-            <button class="view-toggle__button" type="button" data-view="atlas" aria-pressed="true" aria-controls="atlas-view">${icon("compass")}Sky atlas</button>
-            <button class="view-toggle__button" type="button" data-view="list" aria-pressed="false" aria-controls="list-view">${icon("list")}List view</button>
-          </div>
-          <div class="filters" role="group" aria-label="Filter realms">
-            <button class="filter" type="button" data-filter="all" aria-pressed="true">All ${allApps.length}</button>
-            <button class="filter" type="button" data-filter="public" aria-pressed="false">Open ${publicCount}</button>
-            <button class="filter" type="button" data-filter="private" aria-pressed="false">Private ${privateCount}</button>
-          </div>
-          <div class="realm-kind-filters" role="group" aria-label="Filter realms by type">
-            <button class="realm-kind-filter" type="button" data-kind-filter="all" aria-pressed="true">All types</button>
-            <button class="realm-kind-filter" type="button" data-kind-filter="app" aria-pressed="false">Apps ${kindCounts.app}</button>
-            <button class="realm-kind-filter" type="button" data-kind-filter="workflow" aria-pressed="false">Workflows ${kindCounts.workflow}</button>
-            <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents ${kindCounts.agent}</button>
+          <div class="catalogue__commandbar" aria-label="Catalogue view and filters">
+            <div class="view-toggle" role="group" aria-label="Choose catalogue view">
+              <button class="view-toggle__button" type="button" data-view="atlas" aria-pressed="true" aria-controls="atlas-view">${icon("compass")}Sky Atlas View</button>
+              <button class="view-toggle__button" type="button" data-view="list" aria-pressed="false" aria-controls="list-view">${icon("list")}List View</button>
+            </div>
+            <span class="commandbar__divider" aria-hidden="true"></span>
+            <div class="filters" role="group" aria-label="Filter realms">
+              <button class="filter" type="button" data-filter="all" aria-pressed="true">All ${allApps.length}</button>
+              <button class="filter" type="button" data-filter="public" aria-pressed="false">Open ${publicCount}</button>
+              <button class="filter" type="button" data-filter="private" aria-pressed="false">Private ${privateCount}</button>
+            </div>
+            <span class="commandbar__divider" aria-hidden="true"></span>
+            <div class="realm-kind-filters" role="group" aria-label="Filter realms by type">
+              <button class="realm-kind-filter" type="button" data-kind-filter="all" aria-pressed="true">All types</button>
+              <button class="realm-kind-filter" type="button" data-kind-filter="app" aria-pressed="false">Apps ${kindCounts.app}</button>
+              <button class="realm-kind-filter" type="button" data-kind-filter="workflow" aria-pressed="false">Workflows ${kindCounts.workflow}</button>
+              <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents ${kindCounts.agent}</button>
+            </div>
           </div>
         </div>
       </div>
@@ -722,6 +745,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     };
     const setView = (view, remember = true) => {
       const selected = view === 'list' ? 'list' : 'atlas';
+      document.body.classList.toggle('is-atlas-view', selected === 'atlas');
       viewButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.view === selected)));
       viewPanels.forEach((panel) => { panel.hidden = panel.dataset.viewPanel !== selected; });
       viewEyebrow.textContent = selected === 'list' ? 'The realm directory' : 'The sky atlas';
@@ -730,6 +754,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         : 'Travel from node to node across your apps, workflows and agents. Every stop is a live destination in the Garden of Zo.';
       if (remember) {
         try { localStorage.setItem('garden-of-zo-view', selected); } catch {}
+        const nextHash = selected === 'list' ? '#list' : '#atlas';
+        history.replaceState(null, '', location.pathname + location.search + nextHash);
       }
       if (selected === 'atlas') requestAnimationFrame(() => {
         document.querySelector('.atlas').classList.remove('is-offscreen');
@@ -933,15 +959,17 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     try { savedView = localStorage.getItem('garden-of-zo-view') || 'atlas'; } catch {}
     let catalogueInitialised = false;
     const syncScreen = () => {
-      const showCatalogue = location.hash === '#atlas' || location.hash === '#realms';
+      const showCatalogue = location.hash === '#atlas' || location.hash === '#list' || location.hash === '#realms';
       landingScreen.hidden = showCatalogue;
       catalogueScreen.hidden = !showCatalogue;
       catalogueFooter.hidden = !showCatalogue;
       document.body.classList.toggle('is-catalogue-open', showCatalogue);
+      if (!showCatalogue) document.body.classList.remove('is-atlas-view');
       if (showCatalogue) {
-        const activeView = catalogueInitialised
+        const requestedView = location.hash === '#atlas' ? 'atlas' : location.hash === '#list' ? 'list' : null;
+        const activeView = requestedView || (catalogueInitialised
           ? viewButtons.find((button) => button.getAttribute('aria-pressed') === 'true')?.dataset.view || savedView
-          : savedView;
+          : savedView);
         setZoom(zoom);
         setView(activeView, false);
         catalogueInitialised = true;
