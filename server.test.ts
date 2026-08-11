@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { createHandler, loadCatalogConfigs, loadConfig, renderIndex } from "./server";
+import { createHandler, loadCatalogConfigs, loadConfig, renderIndex, validateAtlasGraph } from "./server";
 
 const publicFile = join(import.meta.dir, "public.routes.json");
 const privateFile = join(import.meta.dir, "private.routes.json");
@@ -49,8 +49,10 @@ describe("Garden of Zo catalogue", () => {
     expect((html.match(/<article[^>]+data-kind="workflow"/g) ?? []).length).toBe(2);
     expect((html.match(/<article[^>]+data-kind="agent"/g) ?? []).length).toBe(2);
     expect(html).toContain("garden-of-zo-view");
-    expect((html.match(/<path data-sky-route/g) ?? []).length).toBe(11);
+    expect((html.match(/<path data-sky-route /g) ?? []).length).toBe(11);
+    expect((html.match(/<path data-sky-route-terminal/g) ?? []).length).toBe(22);
     expect(html).toContain('d="M 265 444 C');
+    expect(html).toContain('class="sky-route-terminals"');
     expect(html).toContain('class="kingdom-node__art"');
     expect(html).toContain("height: auto; aspect-ratio: 520 / 293");
     expect(html).toContain("data-atlas-zoom-out");
@@ -79,6 +81,24 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("Zo Usage");
     expect(html).toContain("6 open");
     expect(html).toContain("2 owner-only");
+  });
+
+  test("loads Atlas placement and graph links from the route manifests", () => {
+    const catalog = loadCatalogConfigs(publicFile);
+    const routes = catalog.flatMap((gateway) => gateway.routes);
+    const mapper = routes.find((route) => route.label === "zo-relationship-mapper");
+    const usage = routes.find((route) => route.label === "zo-usage");
+
+    expect(mapper?.atlas).toMatchObject({ x: 265, y: 444, art: "outpost", scale: 0.88 });
+    expect(mapper?.atlas.links?.map((link) => link.to)).toEqual(["zo-expert", "zo-pocketbase"]);
+    expect(usage?.atlas).toMatchObject({ x: 2015, y: 334, art: "outpost", scale: 1.12 });
+    expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(11);
+  });
+
+  test("rejects Atlas links that cannot resolve to a manifest realm", () => {
+    const catalog = structuredClone(loadCatalogConfigs(publicFile));
+    catalog[0].routes[0].atlas.links = [{ to: "missing-realm" }];
+    expect(() => validateAtlasGraph(catalog)).toThrow("Unknown atlas link from zo-relationship-mapper to missing-realm");
   });
 
   test("public view sends private apps through the authenticated gateway", () => {

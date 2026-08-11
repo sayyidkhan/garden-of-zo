@@ -12,6 +12,15 @@
       "category": "Operations",
       "kind": "app",
       "icon": "compass",
+      "atlas": {
+        "x": 1645,
+        "y": 574,
+        "art": "main",
+        "scale": 1.06,
+        "links": [
+          { "to": "zo-usage", "bend": -46 }
+        ]
+      },
       "targetOrigin": "http://127.0.0.1:3000"
     },
     {
@@ -22,6 +31,12 @@
       "category": "Observatory",
       "kind": "app",
       "icon": "pulse",
+      "atlas": {
+        "x": 2015,
+        "y": 334,
+        "art": "outpost",
+        "scale": 1.12
+      },
       "targetOrigin": "http://127.0.0.1:8791"
     }
   ]

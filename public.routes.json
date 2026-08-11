@@ -12,6 +12,16 @@
       "category": "Insight",
       "kind": "workflow",
       "icon": "network",
+      "atlas": {
+        "x": 265,
+        "y": 444,
+        "art": "outpost",
+        "scale": 0.88,
+        "links": [
+          { "to": "zo-expert", "bend": -36 },
+          { "to": "zo-pocketbase", "bend": 38 }
+        ]
+      },
       "targetOrigin": "http://127.0.0.1:8000"
     },
     {
@@ -22,6 +32,15 @@
       "category": "AI Agent",
       "kind": "agent",
       "icon": "spark",
+      "atlas": {
+        "x": 605,
+        "y": 164,
+        "art": "observatory",
+        "scale": 1.08,
+        "links": [
+          { "to": "zo-drive", "bend": -54 }
+        ]
+      },
       "targetOrigin": "http://127.0.0.1:8001"
     },
     {
@@ -32,6 +51,16 @@
       "category": "Infrastructure",
       "kind": "app",
       "icon": "database",
+      "atlas": {
+        "x": 635,
+        "y": 744,
+        "art": "main",
+        "scale": 0.9,
+        "links": [
+          { "to": "zo-drive", "bend": 42 },
+          { "to": "zotube", "bend": 30 }
+        ]
+      },
       "targetOrigin": "http://127.0.0.1:8090",
       "entryPath": "/_/",
       "stripPrefix": true,
@@ -45,6 +74,16 @@
       "category": "Workspace",
       "kind": "app",
       "icon": "folder",
+      "atlas": {
+        "x": 985,
+        "y": 404,
+        "art": "main",
+        "scale": 1.18,
+        "links": [
+          { "to": "zo-moments", "bend": 62 },
+          { "to": "zo-backlog", "bend": -72 }
+        ]
+      },
       "targetOrigin": "http://127.0.0.1:43071",
       "stripPrefix": true,
       "assetQuery": "zo-drive-20260719a"
@@ -57,6 +96,15 @@
       "category": "Media",
       "kind": "app",
       "icon": "play",
+      "atlas": {
+        "x": 1245,
+        "y": 794,
+        "art": "outpost",
+        "scale": 0.96,
+        "links": [
+          { "to": "zo-backlog", "bend": 38 }
+        ]
+      },
       "targetOrigin": "http://127.0.0.1:8788",
       "stripPrefix": true
     },
@@ -68,6 +116,16 @@
       "category": "Social",
       "kind": "app",
       "icon": "image",
+      "atlas": {
+        "x": 1505,
+        "y": 144,
+        "art": "observatory",
+        "scale": 1.02,
+        "links": [
+          { "to": "zo-backlog", "bend": -42 },
+          { "to": "zo-usage", "bend": 46 }
+        ]
+      },
       "targetOrigin": "http://127.0.0.1:8790",
       "stripPrefix": true
     }

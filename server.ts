@@ -3,6 +3,20 @@ import { readFileSync } from "node:fs";
 
 export type Access = "public" | "private";
 export type RealmKind = "app" | "workflow" | "agent";
+export type AtlasArt = "main" | "observatory" | "outpost";
+
+export type AtlasLink = {
+  to: string;
+  bend?: number;
+};
+
+export type AtlasNode = {
+  x: number;
+  y: number;
+  art: AtlasArt;
+  scale: number;
+  links?: AtlasLink[];
+};
 
 export type RouteConfig = {
   prefix: string;
@@ -16,6 +30,7 @@ export type RouteConfig = {
   entryPath?: string;
   stripPrefix?: boolean;
   assetQuery?: string;
+  atlas: AtlasNode;
 };
 
 export type RouterConfig = {
@@ -85,13 +100,65 @@ export function loadConfig(file: string): RouterConfig {
     if (!(["app", "workflow", "agent"] as string[]).includes(route.kind)) {
       throw new Error(`Invalid realm kind for ${route.label}: ${route.kind}`);
     }
+    if (!route.label || !route.atlas || !Number.isFinite(route.atlas.x) || !Number.isFinite(route.atlas.y)) {
+      throw new Error(`Invalid atlas placement for ${route.label || route.prefix}`);
+    }
+    if (!(route.atlas.scale > 0) || !(["main", "observatory", "outpost"] as string[]).includes(route.atlas.art)) {
+      throw new Error(`Invalid atlas artwork for ${route.label}`);
+    }
   }
   return parsed;
 }
 
 export function loadCatalogConfigs(configFile: string): RouterConfig[] {
   const root = dirname(configFile);
-  return ["public.routes.json", "private.routes.json"].map((file) => loadConfig(join(root, file)));
+  const configs = ["public.routes.json", "private.routes.json"].map((file) => loadConfig(join(root, file)));
+  validateAtlasGraph(configs);
+  return configs;
+}
+
+export function validateAtlasGraph(configs: RouterConfig[]): void {
+  const routes = configs.flatMap((config) => config.routes);
+  const ids = new Set<string>();
+  for (const route of routes) {
+    if (ids.has(route.label)) throw new Error(`Duplicate realm label: ${route.label}`);
+    ids.add(route.label);
+  }
+  const edges = new Set<string>();
+  for (const route of routes) {
+    for (const link of route.atlas.links ?? []) {
+      if (!ids.has(link.to)) throw new Error(`Unknown atlas link from ${route.label} to ${link.to}`);
+      if (link.to === route.label) throw new Error(`Atlas realm cannot link to itself: ${route.label}`);
+      const edge = [route.label, link.to].sort().join("::");
+      if (edges.has(edge)) throw new Error(`Duplicate atlas link: ${edge}`);
+      edges.add(edge);
+    }
+  }
+}
+
+type Point = { x: number; y: number };
+
+function atlasRouteGeometry(from: Point, to: Point, bend = 0) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.max(1, Math.hypot(dx, dy));
+  const normalX = -dy / distance;
+  const normalY = dx / distance;
+  const c1 = { x: from.x + dx / 3 + normalX * bend, y: from.y + dy / 3 + normalY * bend };
+  const c2 = { x: from.x + dx * 2 / 3 + normalX * bend, y: from.y + dy * 2 / 3 + normalY * bend };
+  const terminal = (anchor: Point, control: Point) => {
+    const tx = control.x - anchor.x;
+    const ty = control.y - anchor.y;
+    const length = Math.max(1, Math.hypot(tx, ty));
+    const ux = tx / length;
+    const uy = ty / length;
+    return `M ${Math.round(anchor.x + ux * 27)} ${Math.round(anchor.y + uy * 27)} L ${Math.round(anchor.x + ux * 76)} ${Math.round(anchor.y + uy * 76)}`;
+  };
+  return {
+    path: `M ${from.x} ${from.y} C ${Math.round(c1.x)} ${Math.round(c1.y)}, ${Math.round(c2.x)} ${Math.round(c2.y)}, ${to.x} ${to.y}`,
+    fromTerminal: terminal(from, c1),
+    toTerminal: terminal(to, c2)
+  };
 }
 
 function icon(name: string, className = "icon"): string {
@@ -110,17 +177,6 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   };
   const nodeHalfWidth = 135;
   const nodeBeaconOffset = 54;
-  const nodePositions = [
-    { x: 265, y: 444, art: "outpost", scale: .88 },
-    { x: 605, y: 164, art: "observatory", scale: 1.08 },
-    { x: 635, y: 744, art: "main", scale: .9 },
-    { x: 985, y: 404, art: "main", scale: 1.18 },
-    { x: 1245, y: 794, art: "outpost", scale: .96 },
-    { x: 1505, y: 144, art: "observatory", scale: 1.02 },
-    { x: 1645, y: 574, art: "main", scale: 1.06 },
-    { x: 2015, y: 334, art: "outpost", scale: 1.12 }
-  ];
-  const graphLinks = [[0, 1], [0, 2], [1, 3], [2, 3], [2, 4], [3, 5], [3, 6], [4, 6], [5, 6], [5, 7], [6, 7]];
   const appEntries = allApps.map(({ gateway, route }, index) => {
     const restricted = gateway.access === "private";
     const sameGateway = gateway.access === current.access;
@@ -132,7 +188,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     return { gateway, route, index, restricted, href, accessLabel, action };
   });
   const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
-    const position = nodePositions[index];
+    const position = route.atlas;
     const artFile = position.art === "main" ? "garden-kingdom-atlas.webp" : `garden-kingdom-${position.art}-atlas.webp`;
     return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
       <button class="kingdom-node__island" type="button" data-atlas-select aria-label="Focus on ${escapeHtml(route.title)}" aria-pressed="false">
@@ -150,20 +206,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       </div>
     </article>`;
   }).join("");
-  const routes = graphLinks.map(([fromIndex, toIndex], index) => {
-    const from = nodePositions[fromIndex];
-    const to = nodePositions[toIndex];
-    const x1 = from.x;
-    const y1 = from.y;
-    const x2 = to.x;
-    const y2 = to.y;
-    const curve = index % 2 === 0 ? -90 : 90;
-    const midX = (x1 + x2) / 2;
-    return `<path data-sky-route data-from="${fromIndex}" data-to="${toIndex}" d="M ${x1} ${y1} C ${midX} ${y1 + curve}, ${midX} ${y2 - curve}, ${x2} ${y2}" />`;
-  }).join("");
-  const minimapRoutes = routes.replaceAll("data-sky-route", "data-minimap-route");
+  const entryById = new Map(appEntries.map((entry) => [entry.route.label, entry]));
+  const graphLinks = appEntries.flatMap((from) => (from.route.atlas.links ?? []).map((link) => {
+    const to = entryById.get(link.to)!;
+    return { from, to, geometry: atlasRouteGeometry(from.route.atlas, to.route.atlas, link.bend) };
+  }));
+  const routes = graphLinks.map(({ from, to, geometry }) => `<path data-sky-route data-from="${from.index}" data-to="${to.index}" d="${geometry.path}" />`).join("");
+  const routeTerminals = graphLinks.map(({ from, to, geometry }) => `<path data-sky-route-terminal data-from="${from.index}" data-to="${to.index}" d="${geometry.fromTerminal}" /><path data-sky-route-terminal data-from="${from.index}" data-to="${to.index}" d="${geometry.toTerminal}" />`).join("");
+  const minimapRoutes = graphLinks.map(({ from, to, geometry }) => `<path data-minimap-route data-from="${from.index}" data-to="${to.index}" d="${geometry.path}" />`).join("");
   const minimapNodes = appEntries.map(({ gateway, route, index }) => {
-    const position = nodePositions[index];
+    const position = route.atlas;
     return `<circle data-minimap-node data-node-index="${index}" data-access="${gateway.access}" data-kind="${route.kind}" cx="${position.x}" cy="${position.y}" r="26" />`;
   }).join("");
   const listCards = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
@@ -302,9 +354,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__canvas { position: relative; width: calc(2240px * var(--atlas-zoom, .8)); height: calc(1080px * var(--atlas-zoom, .8)); margin-inline: auto; }
     .atlas__world { position: absolute; inset: 0 auto auto 0; width: 2240px; height: 1080px; transform: scale(var(--atlas-zoom, .8)); transform-origin: left top; contain: layout paint style; isolation: isolate; background-image: radial-gradient(ellipse at 52% 54%, rgba(67,130,132,.13), transparent 52%), radial-gradient(circle, rgba(244,230,196,.72) 0 1px, transparent 1.5px); background-size: 100% 100%, 83px 83px; }
     .atlas__viewport.is-zooming .atlas__world { will-change: transform; }
-    .sky-routes { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-    .sky-routes path { fill: none; stroke: rgba(228,193,120,.78); stroke-width: 3; stroke-dasharray: 4 14; stroke-linecap: round; animation: route-drift 20s linear infinite; }
-    .sky-routes path.is-hidden { display: none; }
+    .sky-routes, .sky-route-terminals { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+    .sky-routes { z-index: 1; }
+    .sky-route-terminals { z-index: 4; }
+    .sky-routes path, .sky-route-terminals path { fill: none; stroke: rgba(228,193,120,.78); stroke-width: 3; stroke-dasharray: 4 14; stroke-linecap: round; animation: route-drift 20s linear infinite; }
+    .sky-route-terminals path { stroke: rgba(255,225,157,.94); }
+    .sky-routes path.is-hidden, .sky-route-terminals path.is-hidden { display: none; }
     .atlas__pegasus { position: absolute; z-index: 2; left: 1060px; top: 285px; width: 330px; height: auto; aspect-ratio: 520 / 293; object-fit: contain; opacity: .58; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
     .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; contain: layout style; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both; }
     .kingdom-node[hidden] { display: none; }
@@ -355,7 +410,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__minimap circle { fill: var(--gold); stroke: #102c31; stroke-width: 12; }
     .atlas__minimap circle[data-access="private"] { fill: var(--coral); }
     .atlas__minimap rect { fill: rgba(138,199,180,.12); stroke: #b9e0d5; stroke-width: 9; vector-effect: non-scaling-stroke; }
-    .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__label > a::before { animation-play-state: paused; }
+    .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-route-terminals path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__label > a::before { animation-play-state: paused; }
     .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
@@ -446,7 +501,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-list { padding-inline: 14px; }
       .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
       .realm-kind-filter { flex: none; }
-      .hero__kingdom, .hero__pegasus, .kingdom-node, .kingdom-node__art, .atlas__pegasus, .sky-routes path, .kingdom-node__beacon i { animation: none; }
+      .hero__kingdom, .hero__pegasus, .kingdom-node, .kingdom-node__art, .atlas__pegasus, .sky-routes path, .sky-route-terminals path, .kingdom-node__beacon i { animation: none; }
       .kingdom-node__art { will-change: auto; }
       .shell::before { display: none; }
       .brand__mark, .nav__status, .hero__count { backdrop-filter: none; }
@@ -551,6 +606,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
               <svg class="sky-routes" viewBox="0 0 2240 1080" preserveAspectRatio="none" aria-hidden="true">${routes}</svg>
               <img class="atlas__pegasus" src="/assets/garden-pegasus-atlas.webp" alt="" aria-hidden="true" decoding="async" draggable="false" width="520" height="293" />
               ${nodes}
+              <svg class="sky-route-terminals" viewBox="0 0 2240 1080" preserveAspectRatio="none" aria-hidden="true">${routeTerminals}</svg>
             </div>
           </div>
         </div>
@@ -603,6 +659,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const minimapRoutes = [...document.querySelectorAll('[data-minimap-route]')];
     const world = document.querySelector('[data-atlas-world]');
     const routes = [...document.querySelectorAll('[data-sky-route]')];
+    const routeTerminals = [...document.querySelectorAll('[data-sky-route-terminal]')];
     const listCount = document.querySelector('[data-list-count]');
     const viewEyebrow = document.querySelector('[data-view-eyebrow]');
     const viewDescription = document.querySelector('[data-view-description]');
@@ -854,7 +911,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       });
     };
     const refreshRoute = () => {
-      routes.forEach((route) => {
+      [...routes, ...routeTerminals].forEach((route) => {
         const from = atlasCards[Number(route.dataset.from)];
         const to = atlasCards[Number(route.dataset.to)];
         route.classList.toggle('is-hidden', from.hidden || to.hidden);
