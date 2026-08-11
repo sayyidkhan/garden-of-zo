@@ -80,6 +80,8 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("zoomTarget");
     expect(html).toContain("is-zooming");
     expect(html).toContain("Relationship Mapper");
+    expect(html).toContain("Zo Tube");
+    expect(html).not.toContain(">ZoTube<");
     expect(html).toContain("Zo Usage");
     expect(html).toContain("6 open");
     expect(html).toContain("2 owner-only");
