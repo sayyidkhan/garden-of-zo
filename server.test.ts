@@ -10,6 +10,8 @@ describe("Garden of Zo catalogue", () => {
     const html = renderIndex(loadConfig(publicFile), loadCatalogConfigs(publicFile));
     expect((html.match(/<article[^>]+data-atlas-card/g) ?? []).length).toBe(8);
     expect((html.match(/<article[^>]+data-list-card/g) ?? []).length).toBe(8);
+    expect((html.match(/class="realm-row__kingdom"/g) ?? []).length).toBe(8);
+    expect(html).toContain("realm-row__visual--outpost");
     expect((html.match(/data-sky-node/g) ?? []).length).toBe(8);
     expect(html).toContain("Pannable sky atlas");
     expect(html).toContain('data-view="atlas"');

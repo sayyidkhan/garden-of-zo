@@ -219,9 +219,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     return `<circle data-minimap-node data-node-index="${index}" data-access="${gateway.access}" data-kind="${route.kind}" cx="${position.x}" cy="${position.y}" r="26" />`;
   }).join("");
   const listCards = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
+    const artFile = route.atlas.art === "main" ? "garden-kingdom-atlas.webp" : `garden-kingdom-${route.atlas.art}-atlas.webp`;
     return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index}">
       <span class="realm-row__number">${String(index + 1).padStart(2, "0")}</span>
-      <span class="realm-row__icon" aria-hidden="true">${icon(route.icon)}</span>
+      <span class="realm-row__visual realm-row__visual--${route.atlas.art}" aria-hidden="true">
+        <img class="realm-row__kingdom" src="/assets/${artFile}" alt="" loading="lazy" decoding="async" />
+        <span class="realm-row__icon">${icon(route.icon)}</span>
+      </span>
       <div class="realm-row__identity">
         <span class="realm-row__category">${escapeHtml(route.category)}</span>
         <h3>${escapeHtml(route.title)}</h3>
@@ -419,12 +423,15 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-kind-filter { border: 0; border-radius: 10px; padding: 9px 10px; color: #91aaa6; background: transparent; cursor: pointer; font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: color .2s, background .2s; }
     .realm-kind-filter[aria-pressed="true"] { color: #101b20; background: linear-gradient(135deg, #fff0bd, var(--gold)); box-shadow: 0 0 0 1px rgba(255,240,189,.72), 0 5px 16px rgba(228,193,120,.3); }
     .realm-list__rows { border-top: 1px solid rgba(228,193,120,.18); }
-    .realm-row { display: grid; grid-template-columns: 42px 48px minmax(150px, .85fr) minmax(240px, 1.5fr) auto 132px; align-items: center; gap: 18px; min-height: 116px; border-bottom: 1px solid rgba(228,193,120,.14); animation: rise .55s calc(var(--order) * 45ms) both; transition: background .2s, transform .2s; }
+    .realm-row { display: grid; grid-template-columns: 42px 104px minmax(150px, .85fr) minmax(240px, 1.5fr) auto 132px; align-items: center; gap: 18px; min-height: 144px; border-bottom: 1px solid rgba(228,193,120,.14); animation: rise .55s calc(var(--order) * 45ms) both; transition: background .2s, transform .2s; }
     .realm-row[hidden] { display: none; }
     .realm-row:hover { background: linear-gradient(90deg, rgba(138,199,180,.07), transparent); transform: translateX(5px); }
     .realm-row--private:hover { background: linear-gradient(90deg, rgba(221,125,102,.07), transparent); }
     .realm-row__number { color: #6f8784; font: 700 .66rem/1 var(--sans); letter-spacing: .12em; }
-    .realm-row__icon { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid rgba(228,193,120,.42); border-radius: 50%; color: var(--gold); background: rgba(10,39,44,.84); box-shadow: 0 10px 22px rgba(0,0,0,.3); }
+    .realm-row__visual { position: relative; display: block; width: 104px; height: 104px; }
+    .realm-row__kingdom { position: absolute; left: 50%; top: 28px; display: block; width: 100px; height: 76px; transform: translateX(-50%); object-fit: contain; filter: drop-shadow(0 12px 8px rgba(0,0,0,.62)); }
+    .realm-row__visual--main .realm-row__kingdom { width: 112px; }
+    .realm-row__icon { position: absolute; z-index: 2; top: 0; left: 50%; display: grid; place-items: center; width: 44px; height: 44px; transform: translateX(-50%); border: 1px solid rgba(228,193,120,.6); border-radius: 50%; color: var(--gold); background: rgba(6,25,31,.96); box-shadow: 0 0 0 6px rgba(228,193,120,.06), 0 10px 22px rgba(0,0,0,.36); }
     .realm-row--private .realm-row__icon { border-color: rgba(221,125,102,.52); color: #e9b690; }
     .realm-row__icon svg { width: 20px; height: 20px; }
     .realm-row__category { color: var(--coral); font-size: .6rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
@@ -506,7 +513,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .kingdom-node__art { will-change: auto; }
       .shell::before { display: none; }
       .brand__mark, .nav__status, .hero__count { backdrop-filter: none; }
-      .realm-row { grid-template-columns: 34px 42px 1fr auto; gap: 12px; min-height: 112px; padding: 16px 2px; }
+      .realm-row { grid-template-columns: 34px 78px 1fr auto; gap: 12px; min-height: 132px; padding: 16px 2px; }
+      .realm-row__visual { width: 78px; height: 88px; }
+      .realm-row__kingdom { top: 26px; width: 78px; height: 62px; }
+      .realm-row__visual--main .realm-row__kingdom { width: 86px; }
+      .realm-row__icon { width: 40px; height: 40px; }
       .realm-row__identity { align-self: center; }
       .realm-row > p { grid-column: 3 / -1; }
       .realm-row__link { grid-column: 3 / -1; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
