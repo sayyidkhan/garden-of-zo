@@ -21,6 +21,8 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("grid-row: 3");
     expect(html).toContain("env(safe-area-inset-bottom)");
     expect(html).toContain('data-view-panel="list"');
+    expect(html).toContain("Choose the next horizon.");
+    expect(html).not.toContain("Choose the next<br />horizon.");
     expect(html).toContain('data-screen="landing"');
     expect(html).toContain('data-screen="catalogue" hidden');
     expect(html).toContain('href="#atlas" aria-controls="realms"');

@@ -308,8 +308,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .catalogue__return:hover { transform: translateY(-2px); border-color: rgba(228,193,120,.65); }
     .catalogue__head { display: grid; grid-template-columns: 1fr; align-items: start; gap: 24px; margin-bottom: 28px; }
     .catalogue__nav + .catalogue__head { margin-top: 54px; }
-    .catalogue__head h2 { margin: 0; max-width: 720px; font: 500 clamp(2.8rem, 6vw, 5.2rem)/.94 var(--serif); letter-spacing: -.035em; }
-    .catalogue__head p { max-width: 570px; margin: 18px 0 0; color: var(--muted); line-height: 1.65; }
+    .catalogue__head h2 { margin: 0; max-width: none; font: 500 clamp(2.8rem, 6vw, 5.2rem)/.94 var(--serif); letter-spacing: -.035em; white-space: nowrap; }
+    .catalogue__head p { max-width: none; margin: 18px 0 0; color: var(--muted); line-height: 1.65; white-space: nowrap; }
     .catalogue__tools { display: flex; justify-content: flex-end; min-width: 0; width: 100%; }
     .catalogue__commandbar { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; max-width: 100%; padding: 5px; border: 1px solid rgba(228,193,120,.24); border-radius: 18px; background: rgba(3,18,23,.78); box-shadow: 0 14px 34px rgba(0,0,0,.2); overflow-x: auto; scrollbar-width: none; }
     .catalogue__commandbar::-webkit-scrollbar { display: none; }
@@ -480,6 +480,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .catalogue__nav { margin-top: -48px; }
       .catalogue__return { padding: 10px 12px; font-size: .62rem; }
       .catalogue__head h2 { font-size: 3.3rem; }
+      .catalogue__head h2, .catalogue__head p { white-space: normal; }
       .catalogue__tools { width: 100%; }
       .catalogue__commandbar { justify-content: flex-start; border-radius: 14px; }
       .view-toggle__button { justify-content: center; }
@@ -559,7 +560,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       <div class="catalogue__head">
         <div class="catalogue__intro">
           <p class="eyebrow" data-view-eyebrow>The sky atlas</p>
-          <h2>Choose the next<br />horizon.</h2>
+          <h2>Choose the next horizon.</h2>
           <p data-view-description>Travel from node to node across your apps, workflows and agents. Every stop is a live destination in the Garden of Zo.</p>
         </div>
         <div class="catalogue__tools">
