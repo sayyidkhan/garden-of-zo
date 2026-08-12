@@ -14,7 +14,7 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - Atlas placement and graph links live in each route's manifest entry; routes, beacon terminals, kingdom artwork and the mini-map all derive from the same canonical coordinates
 - Atlas navigation includes a fitted overview, active-kingdom stepping, continuous focal zoom, a viewport mini-map, and spatial arrow/WASD movement
 - selecting kingdom artwork uses a Web Animations compositor camera to zoom and centre the map without navigating; the selected kingdom sparkles and starts its `Enter realm` shimmer only after the camera arrives, desktop focus reaches 138%, manual zoom reaches 240% on desktop and 200% on mobile, and viewport resizing preserves the current zoom while only the card's `Enter realm` action opens the destination
-- private app entry actions are disabled on the public catalogue and enabled only on the owner-authenticated private catalogue, while each realm's public GitHub repository remains directly visible
+- private app links always resolve through the authenticated private Zo service, while each realm's public GitHub repository remains directly visible
 - catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
 
 Current route plan:

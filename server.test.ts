@@ -36,7 +36,7 @@ describe("Garden of Zo catalogue", () => {
     expect(html.indexOf("Back to home")).toBeLessThan(html.lastIndexOf("Garden of Zo</span></a>"));
     expect(html).toContain("kingdom-sparkle");
     expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__art::before");
-    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__enter:not(.kingdom-node__enter--disabled)::before");
+    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__enter::before");
     expect(html).toContain("if (activeNode === node) node.classList.add('is-arrived')");
     expect((html.match(/<button[^>]+data-atlas-select/g) ?? []).length).toBe(8);
     expect(html).toContain("focusNode");
@@ -115,14 +115,9 @@ describe("Garden of Zo catalogue", () => {
     expect(() => validateAtlasGraph(catalog)).toThrow("Unknown atlas link from zo-relationship-mapper to missing-realm");
   });
 
-  test("public view disables private realm entry while keeping source public", () => {
+  test("public view sends private apps through the authenticated gateway", () => {
     const html = renderIndex(loadConfig(publicFile), loadCatalogConfigs(publicFile));
-    expect(html).not.toContain('href="https://private-apps-sayyidkhan.zo.computer/backlog"');
-    expect(html).not.toContain('href="https://private-apps-sayyidkhan.zo.computer/usage"');
-    expect((html.match(/aria-disabled="true"/g) ?? []).length).toBe(4);
-    expect((html.match(/<span class="kingdom-node__enter kingdom-node__enter--disabled"/g) ?? []).length).toBe(2);
-    expect((html.match(/<span class="realm-row__link realm-row__link--enter realm-row__link--disabled"/g) ?? []).length).toBe(2);
-    expect(html).toContain("Available only in the owner's catalogue");
+    expect(html).toContain('href="https://private-apps-sayyidkhan.zo.computer/backlog"');
     expect(html).toContain('href="/pocketbase/_/"');
     expect(html).toContain('data-access="private"');
     expect(html).toContain("Owner access");
@@ -133,8 +128,6 @@ describe("Garden of Zo catalogue", () => {
   test("private view keeps private routes local and public routes on the public gateway", () => {
     const html = renderIndex(loadConfig(privateFile), loadCatalogConfigs(privateFile));
     expect(html).toContain('href="/backlog"');
-    expect(html).toContain('href="/usage"');
-    expect(html).not.toContain('aria-disabled="true"');
     expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/mapper"');
   });
 
