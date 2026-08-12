@@ -183,15 +183,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   const nodeBeaconOffset = 54;
   const appEntries = allApps.map(({ gateway, route }, index) => {
     const restricted = gateway.access === "private";
+    const canEnter = !restricted || current.access === "private";
     const sameGateway = gateway.access === current.access;
     const routeHref = `${route.prefix}${route.entryPath ?? ""}`;
     const href = sameGateway ? routeHref : `${gateway.gatewayUrl}${routeHref}`;
     const accessLabel = restricted ? "Owner access" : "Open access";
-    const action = "Enter realm";
+    const action = canEnter ? "Enter realm" : "Private realm";
 
-    return { gateway, route, index, restricted, href, accessLabel, action };
+    return { gateway, route, index, restricted, canEnter, href, accessLabel, action };
   });
-  const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
+  const nodes = appEntries.map(({ gateway, route, index, restricted, canEnter, href, accessLabel, action }) => {
     const position = route.atlas;
     const artFile = `garden-realm-${position.art}.webp`;
     return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
@@ -207,7 +208,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <div><span class="kingdom-node__category">${escapeHtml(route.category)}</span><h2>${escapeHtml(route.title)}</h2></div>
         <span class="kingdom-node__access">${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}</span>
         <div class="kingdom-node__actions">
-          <a class="kingdom-node__enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}"><span>${action}</span><span aria-hidden="true">&nearr;</span></a>
+          ${canEnter
+            ? `<a class="kingdom-node__enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}"><span>${action}</span><span aria-hidden="true">&nearr;</span></a>`
+            : `<span class="kingdom-node__enter kingdom-node__enter--disabled" aria-disabled="true" aria-label="Private realm: ${escapeHtml(route.title)}. Available only in the owner's catalogue" title="Available only in the owner's catalogue"><span>${icon("lock", "badge-icon")}Private realm</span><span>Owner only</span></span>`}
           <a class="kingdom-node__github" href="${escapeHtml(route.repositoryUrl)}" target="_blank" rel="noreferrer" aria-label="View ${escapeHtml(route.title)} on GitHub"><span>GitHub</span><span aria-hidden="true">&nearr;</span></a>
         </div>
       </div>
@@ -225,7 +228,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const position = route.atlas;
     return `<circle data-minimap-node data-node-index="${index}" data-access="${gateway.access}" data-kind="${route.kind}" cx="${position.x}" cy="${position.y}" r="26" />`;
   }).join("");
-  const listCards = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
+  const listCards = appEntries.map(({ gateway, route, index, restricted, canEnter, href, accessLabel, action }) => {
     const artFile = `garden-realm-${route.atlas.art}.webp`;
     return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index}">
       <span class="realm-row__number">${String(index + 1).padStart(2, "0")}</span>
@@ -242,9 +245,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         ${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}
       </span>
       <div class="realm-row__actions">
-        <a class="realm-row__link realm-row__link--enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
-          <span>${action}</span><span aria-hidden="true">&nearr;</span>
-        </a>
+        ${canEnter
+          ? `<a class="realm-row__link realm-row__link--enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}"><span>${action}</span><span aria-hidden="true">&nearr;</span></a>`
+          : `<span class="realm-row__link realm-row__link--enter realm-row__link--disabled" aria-disabled="true" aria-label="Private realm: ${escapeHtml(route.title)}. Available only in the owner's catalogue" title="Available only in the owner's catalogue"><span>${icon("lock", "badge-icon")}Private realm</span><span>Owner only</span></span>`}
         <a class="realm-row__link realm-row__link--github" href="${escapeHtml(route.repositoryUrl)}" target="_blank" rel="noreferrer" aria-label="View ${escapeHtml(route.title)} on GitHub">
           <span>View GitHub</span><span aria-hidden="true">&nearr;</span>
         </a>
@@ -410,11 +413,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node__access { align-self: start; display: flex; align-items: center; gap: 4px; color: #a7d0c4; font-size: .5rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .kingdom-node--private .kingdom-node__access { color: #e7bd9c; }
     .kingdom-node__actions { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
-    .kingdom-node__actions a { position: relative; display: flex; justify-content: space-between; gap: 8px; overflow: hidden; padding: 5px 6px; border-radius: 6px; color: #f4e6c9; font-size: .5rem; font-weight: 900; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
+    .kingdom-node__actions > * { position: relative; display: flex; justify-content: space-between; gap: 8px; overflow: hidden; padding: 5px 6px; border-radius: 6px; color: #f4e6c9; font-size: .5rem; font-weight: 900; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
     .kingdom-node__github { color: #9fb8b3 !important; }
-    .kingdom-node__enter::before { content: ""; position: absolute; inset: 0 -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
-    .kingdom-node.is-active .kingdom-node__enter { color: #fff8df; background: rgba(228,193,120,.12); }
-    .kingdom-node.is-active.is-arrived .kingdom-node__enter::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
+    .kingdom-node__enter:not(.kingdom-node__enter--disabled)::before { content: ""; position: absolute; inset: 0 -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
+    .kingdom-node.is-active .kingdom-node__enter:not(.kingdom-node__enter--disabled) { color: #fff8df; background: rgba(228,193,120,.12); }
+    .kingdom-node.is-active.is-arrived .kingdom-node__enter:not(.kingdom-node__enter--disabled)::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
+    .kingdom-node__enter--disabled { cursor: not-allowed; color: #c9a98e !important; background: rgba(221,125,102,.1); opacity: .72; }
+    .kingdom-node__enter--disabled > span { display: inline-flex; align-items: center; gap: 4px; }
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
     .badge-icon { width: 12px; height: 12px; }
@@ -454,8 +459,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-row__actions { display: grid; gap: 7px; min-width: 132px; }
     .realm-row__link { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #f4e6c9; font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
     .realm-row__link--github { padding-top: 7px; border-top: 1px solid rgba(255,255,255,.08); color: #8fa8a3; }
+    .realm-row__link--disabled { cursor: not-allowed; color: #c9a98e; opacity: .68; }
+    .realm-row__link--disabled > span { display: inline-flex; align-items: center; gap: 5px; }
     .realm-row__link span:last-child { color: var(--gold); font-size: 1.05rem; transition: transform .2s; }
-    .realm-row__link:hover span:last-child { transform: translate(3px,-3px); }
+    .realm-row__link:not(.realm-row__link--disabled):hover span:last-child { transform: translate(3px,-3px); }
     .legend { display: flex; justify-content: space-between; gap: 24px; margin-top: 34px; padding: 22px 0; border-top: 1px solid var(--line); color: #8fa5a2; font-size: .73rem; line-height: 1.6; }
     .legend strong { color: #d6e3df; }
     .legend__mark { color: var(--gold); text-transform: uppercase; letter-spacing: .14em; }
