@@ -12,6 +12,7 @@
       "category": "Insight",
       "kind": "workflow",
       "icon": "network",
+      "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-relationship-mapper",
       "atlas": {
         "x": 265,
@@ -33,6 +34,7 @@
       "category": "AI Agent",
       "kind": "agent",
       "icon": "spark",
+      "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-expert",
       "atlas": {
         "x": 605,
@@ -53,6 +55,7 @@
       "category": "Infrastructure",
       "kind": "app",
       "icon": "database",
+      "authorId": "pocketbase",
       "repositoryUrl": "https://github.com/pocketbase/pocketbase",
       "atlas": {
         "x": 635,
@@ -77,6 +80,7 @@
       "category": "Workspace",
       "kind": "app",
       "icon": "folder",
+      "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-drive",
       "atlas": {
         "x": 985,
@@ -100,6 +104,7 @@
       "category": "Media",
       "kind": "app",
       "icon": "play",
+      "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-tube",
       "atlas": {
         "x": 1245,
@@ -121,6 +126,7 @@
       "category": "Social",
       "kind": "app",
       "icon": "image",
+      "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-memories",
       "atlas": {
         "x": 1505,

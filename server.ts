@@ -5,6 +5,12 @@ export type Access = "public" | "private";
 export type RealmKind = "app" | "workflow" | "agent";
 export type AtlasArt = string;
 
+export type AuthorProfile = {
+  name: string;
+  handle: string;
+  profileUrl: string;
+};
+
 export type AtlasLink = {
   to: string;
   bend?: number;
@@ -26,6 +32,7 @@ export type RouteConfig = {
   category: string;
   kind: RealmKind;
   icon: string;
+  authorId: string;
   repositoryUrl: string;
   targetOrigin: string;
   entryPath?: string;
@@ -39,6 +46,7 @@ export type RouterConfig = {
   description?: string;
   access: Access;
   gatewayUrl: string;
+  authors: Record<string, AuthorProfile>;
   routes: RouteConfig[];
 };
 
@@ -85,18 +93,34 @@ function escapeHtml(value: string): string {
   })[character] as string);
 }
 
+export function validateAuthors(routes: RouteConfig[], authors: Record<string, AuthorProfile>): void {
+  for (const [id, author] of Object.entries(authors)) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id) || !author.name || !author.handle || !/^https:\/\//.test(author.profileUrl)) {
+      throw new Error(`Invalid author profile: ${id}`);
+    }
+  }
+  for (const route of routes) {
+    if (!route.authorId || !authors[route.authorId]) {
+      throw new Error(`Unknown author for ${route.label}: ${route.authorId || "missing"}`);
+    }
+  }
+}
+
 export function loadConfig(file: string): RouterConfig {
   const parsed = JSON.parse(readFileSync(file, "utf8")) as RouterConfig;
+  const authors = JSON.parse(readFileSync(join(dirname(file), "authors.json"), "utf8")) as Record<string, AuthorProfile>;
   if (!parsed.routes?.length) throw new Error(`No routes defined in ${file}`);
   if (parsed.access !== "public" && parsed.access !== "private") {
     throw new Error(`Invalid access level in ${file}`);
   }
   parsed.gatewayUrl = parsed.gatewayUrl.replace(/\/+$/, "");
+  parsed.authors = authors;
   parsed.routes = parsed.routes.map((route) => ({
     ...route,
     prefix: normalizePrefix(route.prefix),
     targetOrigin: route.targetOrigin.replace(/\/+$/, "")
   }));
+  validateAuthors(parsed.routes, authors);
   for (const route of parsed.routes) {
     if (!(["app", "workflow", "agent"] as string[]).includes(route.kind)) {
       throw new Error(`Invalid realm kind for ${route.label}: ${route.kind}`);
@@ -193,8 +217,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   });
   const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
     const position = route.atlas;
+    const author = gateway.authors[route.authorId];
     const artFile = `garden-realm-${position.art}.webp`;
-    return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
+    return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" data-author="${escapeHtml(route.authorId)}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
       <button class="kingdom-node__island" type="button" data-atlas-select aria-label="Focus on ${escapeHtml(route.title)}" aria-pressed="false">
         <span class="kingdom-node__art" aria-hidden="true">
           <span class="kingdom-node__halo"></span>
@@ -204,7 +229,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       </button>
       <div class="kingdom-node__label">
         <span class="kingdom-node__number">${String(index + 1).padStart(2, "0")}</span>
-        <div><span class="kingdom-node__category">${escapeHtml(route.category)}</span><h2>${escapeHtml(route.title)}</h2></div>
+        <div><span class="kingdom-node__category">${escapeHtml(route.category)}</span><h2>${escapeHtml(route.title)}</h2><a class="kingdom-node__author" href="${escapeHtml(author.profileUrl)}" target="_blank" rel="noreferrer">By ${escapeHtml(author.name)}</a></div>
         <span class="kingdom-node__access">${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}</span>
         <div class="kingdom-node__actions">
           <a class="kingdom-node__enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}"><span>${action}</span><span aria-hidden="true">&nearr;</span></a>
@@ -226,8 +251,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     return `<circle data-minimap-node data-node-index="${index}" data-access="${gateway.access}" data-kind="${route.kind}" cx="${position.x}" cy="${position.y}" r="26" />`;
   }).join("");
   const listCards = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
+    const author = gateway.authors[route.authorId];
     const artFile = `garden-realm-${route.atlas.art}.webp`;
-    return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index}">
+    return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" data-author="${escapeHtml(route.authorId)}" style="--order:${index}">
       <span class="realm-row__number">${String(index + 1).padStart(2, "0")}</span>
       <span class="realm-row__visual realm-row__visual--${route.atlas.art}" aria-hidden="true">
         <img class="realm-row__kingdom" src="/assets/${artFile}" alt="" loading="lazy" decoding="async" />
@@ -236,6 +262,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       <div class="realm-row__identity">
         <span class="realm-row__category">${escapeHtml(route.category)}</span>
         <h3>${escapeHtml(route.title)}</h3>
+        <a class="realm-row__author" href="${escapeHtml(author.profileUrl)}" target="_blank" rel="noreferrer">By ${escapeHtml(author.name)} <span>${escapeHtml(author.handle)}</span></a>
       </div>
       <p>${escapeHtml(route.description)}</p>
       <span class="access-badge ${restricted ? "access-badge--private" : ""}">
@@ -412,6 +439,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node__actions { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
     .kingdom-node__actions a { position: relative; display: flex; justify-content: space-between; gap: 8px; overflow: hidden; padding: 5px 6px; border-radius: 6px; color: #f4e6c9; font-size: .5rem; font-weight: 900; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
     .kingdom-node__github { color: #9fb8b3 !important; }
+    .kingdom-node__author { display: inline-block; margin-top: 3px; color: #9fb8b3; font-size: .58rem; font-weight: 700; letter-spacing: .03em; text-decoration: none; }
+    .kingdom-node__author:hover { color: var(--gold); }
     .kingdom-node__enter::before { content: ""; position: absolute; inset: 0 -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
     .kingdom-node.is-active .kingdom-node__enter { color: #fff8df; background: rgba(228,193,120,.12); }
     .kingdom-node.is-active.is-arrived .kingdom-node__enter::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
@@ -454,6 +483,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-row__actions { display: grid; gap: 7px; min-width: 132px; }
     .realm-row__link { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #f4e6c9; font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
     .realm-row__link--github { padding-top: 7px; border-top: 1px solid rgba(255,255,255,.08); color: #8fa8a3; }
+    .realm-row__author { display: inline-flex; gap: 5px; margin-top: 4px; color: #9fb8b3; font-size: .68rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+    .realm-row__author span { color: #6f8986; font-weight: 600; }
+    .realm-row__author:hover { color: var(--gold); }
     .realm-row__link span:last-child { color: var(--gold); font-size: 1.05rem; transition: transform .2s; }
     .realm-row__link:hover span:last-child { transform: translate(3px,-3px); }
     .legend { display: flex; justify-content: space-between; gap: 24px; margin-top: 34px; padding: 22px 0; border-top: 1px solid var(--line); color: #8fa5a2; font-size: .73rem; line-height: 1.6; }

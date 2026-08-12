@@ -11,6 +11,7 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - Sky Atlas View is a full-viewport workspace with one unified, horizontally scrollable view-and-filter command bar docked below the map; List View uses `#list`
 - the Atlas uses lightweight artwork variants, compositor-only motion, native mobile panning, and animation-frame-throttled interaction
 - every realm uses its own lightweight transparent kingdom asset in both Atlas and List views
+- authors live in `authors.json`; every realm references one reusable `authorId`, and both views link that attribution to the author's profile
 - Atlas placement and graph links live in each route's manifest entry; routes, beacon terminals, kingdom artwork and the mini-map all derive from the same canonical coordinates
 - Atlas navigation includes a fitted overview, active-kingdom stepping, continuous focal zoom, a viewport mini-map, and spatial arrow/WASD movement
 - selecting kingdom artwork uses a Web Animations compositor camera to zoom and centre the map without navigating; the selected kingdom sparkles and starts its `Enter realm` shimmer only after the camera arrives, desktop focus reaches 138%, manual zoom reaches 240% on desktop and 200% on mobile, and viewport resizing preserves the current zoom while only the card's `Enter realm` action opens the destination
@@ -29,12 +30,18 @@ Current route plan:
 Set `stripPrefix` only for upstreams that must receive root-relative paths.
 Set `assetQuery` only when static assets need a versioned URL after a cache correction.
 
-Each route also carries the catalogue metadata `title`, `description`, `category`, `kind`, `icon`, `repositoryUrl`, and `atlas`. `kind` is one of `app`, `workflow`, or `agent` and powers the shared Atlas/List type filter. `repositoryUrl` must be a public GitHub repository and powers the source action in both views. Run `bun test` after changing either manifest.
+Each route also carries the catalogue metadata `title`, `description`, `category`, `kind`, `icon`, `authorId`, `repositoryUrl`, and `atlas`. `kind` is one of `app`, `workflow`, or `agent` and powers the shared Atlas/List type filter. `authorId` must resolve to a profile in `authors.json`. `repositoryUrl` must be a public GitHub repository and powers the source action in both views. Run `bun test` after changing a manifest or the author registry.
 Use optional `entryPath` when a catalogue card should open below the route root, such as PocketBase's `/_/` admin shell.
 
 ## Add a realm
 
 Add the route to `public.routes.json` or `private.routes.json`; there is no separate Atlas list in `server.ts`.
+
+Add a contributor once to `authors.json`, then reference that stable key from every realm they own:
+
+```json
+"authorId": "contributor-handle"
+```
 
 ```json
 "atlas": {

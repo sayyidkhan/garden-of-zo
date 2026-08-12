@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { createHandler, loadCatalogConfigs, loadConfig, renderIndex, validateAtlasGraph } from "./server";
+import { createHandler, loadCatalogConfigs, loadConfig, renderIndex, validateAtlasGraph, validateAuthors } from "./server";
 
 const publicFile = join(import.meta.dir, "public.routes.json");
 const privateFile = join(import.meta.dir, "private.routes.json");
@@ -93,7 +93,13 @@ describe("Garden of Zo catalogue", () => {
     expect((html.match(/class="kingdom-node__github"/g) ?? []).length).toBe(8);
     expect((html.match(/class="realm-row__link realm-row__link--github"/g) ?? []).length).toBe(8);
     expect((html.match(/>View GitHub</g) ?? []).length).toBe(8);
-    expect((html.match(/target="_blank" rel="noreferrer"/g) ?? []).length).toBe(16);
+    expect((html.match(/target="_blank" rel="noreferrer"/g) ?? []).length).toBe(32);
+    expect((html.match(/class="kingdom-node__author"/g) ?? []).length).toBe(8);
+    expect((html.match(/class="realm-row__author"/g) ?? []).length).toBe(8);
+    expect((html.match(/By Sayyid Khan/g) ?? []).length).toBe(14);
+    expect((html.match(/By PocketBase/g) ?? []).length).toBe(2);
+    expect(html).toContain('data-author="sayyidkhan"');
+    expect(html).toContain('data-author="pocketbase"');
   });
 
   test("loads Atlas placement and graph links from the route manifests", () => {
@@ -105,6 +111,9 @@ describe("Garden of Zo catalogue", () => {
     expect(mapper?.atlas).toMatchObject({ x: 265, y: 444, art: "relationship-mapper", scale: 0.88 });
     expect(mapper?.atlas.links?.map((link) => link.to)).toEqual(["zo-expert", "zo-pocketbase"]);
     expect(mapper?.repositoryUrl).toBe("https://github.com/sayyidkhan/zo-relationship-mapper");
+    expect(mapper?.authorId).toBe("sayyidkhan");
+    expect(catalog[0].authors.sayyidkhan).toMatchObject({ name: "Sayyid Khan", handle: "@sayyidkhan" });
+    expect(catalog[0].authors.pocketbase).toMatchObject({ name: "PocketBase", handle: "@pocketbase" });
     expect(usage?.atlas).toMatchObject({ x: 2015, y: 334, art: "zo-usage", scale: 1.12 });
     expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(11);
   });
@@ -113,6 +122,12 @@ describe("Garden of Zo catalogue", () => {
     const catalog = structuredClone(loadCatalogConfigs(publicFile));
     catalog[0].routes[0].atlas.links = [{ to: "missing-realm" }];
     expect(() => validateAtlasGraph(catalog)).toThrow("Unknown atlas link from zo-relationship-mapper to missing-realm");
+  });
+
+  test("rejects realms whose author is missing from the registry", () => {
+    const config = structuredClone(loadConfig(publicFile));
+    config.routes[0].authorId = "missing-author";
+    expect(() => validateAuthors(config.routes, config.authors)).toThrow("Unknown author for zo-relationship-mapper: missing-author");
   });
 
   test("public view sends private apps through the authenticated gateway", () => {

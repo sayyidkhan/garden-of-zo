@@ -1,0 +1,12 @@
+{
+  "sayyidkhan": {
+    "name": "Sayyid Khan",
+    "handle": "@sayyidkhan",
+    "profileUrl": "https://github.com/sayyidkhan"
+  },
+  "pocketbase": {
+    "name": "PocketBase",
+    "handle": "@pocketbase",
+    "profileUrl": "https://github.com/pocketbase"
+  }
+}
