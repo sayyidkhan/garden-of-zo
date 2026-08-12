@@ -12,6 +12,7 @@
       "category": "Operations",
       "kind": "app",
       "icon": "compass",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-backlog",
       "atlas": {
         "x": 1645,
         "y": 574,
@@ -31,6 +32,7 @@
       "category": "Observatory",
       "kind": "app",
       "icon": "pulse",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-usage",
       "atlas": {
         "x": 2015,
         "y": 334,

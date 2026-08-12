@@ -26,6 +26,7 @@ export type RouteConfig = {
   category: string;
   kind: RealmKind;
   icon: string;
+  repositoryUrl: string;
   targetOrigin: string;
   entryPath?: string;
   stripPrefix?: boolean;
@@ -105,6 +106,9 @@ export function loadConfig(file: string): RouterConfig {
     }
     if (!(route.atlas.scale > 0) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(route.atlas.art)) {
       throw new Error(`Invalid atlas artwork for ${route.label}`);
+    }
+    if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/.test(route.repositoryUrl)) {
+      throw new Error(`Invalid GitHub repository URL for ${route.label}`);
     }
   }
   return parsed;
@@ -202,7 +206,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <span class="kingdom-node__number">${String(index + 1).padStart(2, "0")}</span>
         <div><span class="kingdom-node__category">${escapeHtml(route.category)}</span><h2>${escapeHtml(route.title)}</h2></div>
         <span class="kingdom-node__access">${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}</span>
-        <a href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}"><span>${action}</span><span aria-hidden="true">&nearr;</span></a>
+        <div class="kingdom-node__actions">
+          <a class="kingdom-node__enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}"><span>${action}</span><span aria-hidden="true">&nearr;</span></a>
+          <a class="kingdom-node__github" href="${escapeHtml(route.repositoryUrl)}" target="_blank" rel="noreferrer" aria-label="View ${escapeHtml(route.title)} on GitHub"><span>GitHub</span><span aria-hidden="true">&nearr;</span></a>
+        </div>
       </div>
     </article>`;
   }).join("");
@@ -234,9 +241,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       <span class="access-badge ${restricted ? "access-badge--private" : ""}">
         ${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}
       </span>
-      <a class="realm-row__link" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
-        <span>${action}</span><span aria-hidden="true">&nearr;</span>
-      </a>
+      <div class="realm-row__actions">
+        <a class="realm-row__link realm-row__link--enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}">
+          <span>${action}</span><span aria-hidden="true">&nearr;</span>
+        </a>
+        <a class="realm-row__link realm-row__link--github" href="${escapeHtml(route.repositoryUrl)}" target="_blank" rel="noreferrer" aria-label="View ${escapeHtml(route.title)} on GitHub">
+          <span>View GitHub</span><span aria-hidden="true">&nearr;</span>
+        </a>
+      </div>
     </article>`;
   }).join("");
 
@@ -397,10 +409,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node h2 { margin: 4px 0 0; font: 600 1.22rem/1 var(--serif); letter-spacing: -.02em; }
     .kingdom-node__access { align-self: start; display: flex; align-items: center; gap: 4px; color: #a7d0c4; font-size: .5rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
     .kingdom-node--private .kingdom-node__access { color: #e7bd9c; }
-    .kingdom-node__label > a { position: relative; grid-column: 2 / -1; display: flex; justify-content: space-between; overflow: hidden; padding-top: 9px; border-top: 1px solid rgba(255,255,255,.08); color: #f4e6c9; font-size: .56rem; font-weight: 900; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
-    .kingdom-node__label > a::before { content: ""; position: absolute; inset: 4px -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
-    .kingdom-node.is-active .kingdom-node__label > a { margin: 0 -7px -6px; padding: 9px 7px 6px; border-radius: 7px; color: #fff8df; background: rgba(228,193,120,.1); }
-    .kingdom-node.is-active.is-arrived .kingdom-node__label > a::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
+    .kingdom-node__actions { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
+    .kingdom-node__actions a { position: relative; display: flex; justify-content: space-between; gap: 8px; overflow: hidden; padding: 5px 6px; border-radius: 6px; color: #f4e6c9; font-size: .5rem; font-weight: 900; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
+    .kingdom-node__github { color: #9fb8b3 !important; }
+    .kingdom-node__enter::before { content: ""; position: absolute; inset: 0 -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
+    .kingdom-node.is-active .kingdom-node__enter { color: #fff8df; background: rgba(228,193,120,.12); }
+    .kingdom-node.is-active.is-arrived .kingdom-node__enter::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
     .badge-icon { width: 12px; height: 12px; }
@@ -414,7 +428,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__minimap circle { fill: var(--gold); stroke: #102c31; stroke-width: 12; }
     .atlas__minimap circle[data-access="private"] { fill: var(--coral); }
     .atlas__minimap rect { fill: rgba(138,199,180,.12); stroke: #b9e0d5; stroke-width: 9; vector-effect: non-scaling-stroke; }
-    .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-route-terminals path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__label > a::before { animation-play-state: paused; }
+    .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-route-terminals path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__enter::before { animation-play-state: paused; }
     .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
@@ -437,7 +451,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-row__category { color: var(--coral); font-size: .6rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
     .realm-row h3 { margin: 7px 0 0; font: 600 1.45rem/1 var(--serif); letter-spacing: -.02em; }
     .realm-row > p { margin: 0; color: #a9bbb7; font-size: .78rem; line-height: 1.55; }
-    .realm-row__link { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #f4e6c9; font-size: .65rem; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+    .realm-row__actions { display: grid; gap: 7px; min-width: 132px; }
+    .realm-row__link { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #f4e6c9; font-size: .62rem; font-weight: 800; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
+    .realm-row__link--github { padding-top: 7px; border-top: 1px solid rgba(255,255,255,.08); color: #8fa8a3; }
     .realm-row__link span:last-child { color: var(--gold); font-size: 1.05rem; transition: transform .2s; }
     .realm-row__link:hover span:last-child { transform: translate(3px,-3px); }
     .legend { display: flex; justify-content: space-between; gap: 24px; margin-top: 34px; padding: 22px 0; border-top: 1px solid var(--line); color: #8fa5a2; font-size: .73rem; line-height: 1.6; }
@@ -520,7 +536,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-row__icon { width: 40px; height: 40px; }
       .realm-row__identity { align-self: center; }
       .realm-row > p { grid-column: 3 / -1; }
-      .realm-row__link { grid-column: 3 / -1; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
+      .realm-row__actions { grid-column: 3 / -1; grid-template-columns: 1fr 1fr; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
+      .realm-row__link--github { padding-top: 0; border-top: 0; }
       .legend, .footer { align-items: flex-start; flex-direction: column; }
       .footer { width: min(100% - 28px, 1180px); }
       body.is-atlas-view .catalogue { width: 100%; padding: 0; }

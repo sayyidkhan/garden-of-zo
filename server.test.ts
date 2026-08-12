@@ -36,7 +36,7 @@ describe("Garden of Zo catalogue", () => {
     expect(html.indexOf("Back to home")).toBeLessThan(html.lastIndexOf("Garden of Zo</span></a>"));
     expect(html).toContain("kingdom-sparkle");
     expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__art::before");
-    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__label > a::before");
+    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__enter::before");
     expect(html).toContain("if (activeNode === node) node.classList.add('is-arrived')");
     expect((html.match(/<button[^>]+data-atlas-select/g) ?? []).length).toBe(8);
     expect(html).toContain("focusNode");
@@ -90,6 +90,10 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("Zo Usage");
     expect(html).toContain("6 open");
     expect(html).toContain("2 owner-only");
+    expect((html.match(/class="kingdom-node__github"/g) ?? []).length).toBe(8);
+    expect((html.match(/class="realm-row__link realm-row__link--github"/g) ?? []).length).toBe(8);
+    expect((html.match(/>View GitHub</g) ?? []).length).toBe(8);
+    expect((html.match(/target="_blank" rel="noreferrer"/g) ?? []).length).toBe(16);
   });
 
   test("loads Atlas placement and graph links from the route manifests", () => {
@@ -100,6 +104,7 @@ describe("Garden of Zo catalogue", () => {
 
     expect(mapper?.atlas).toMatchObject({ x: 265, y: 444, art: "relationship-mapper", scale: 0.88 });
     expect(mapper?.atlas.links?.map((link) => link.to)).toEqual(["zo-expert", "zo-pocketbase"]);
+    expect(mapper?.repositoryUrl).toBe("https://github.com/sayyidkhan/zo-relationship-mapper");
     expect(usage?.atlas).toMatchObject({ x: 2015, y: 334, art: "zo-usage", scale: 1.12 });
     expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(11);
   });
@@ -116,6 +121,8 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('href="/pocketbase/_/"');
     expect(html).toContain('data-access="private"');
     expect(html).toContain("Owner access");
+    expect(html).toContain('href="https://github.com/sayyidkhan/zo-backlog"');
+    expect(html).toContain('href="https://github.com/sayyidkhan/zo-usage"');
   });
 
   test("private view keeps private routes local and public routes on the public gateway", () => {
