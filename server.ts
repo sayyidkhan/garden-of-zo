@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 export type Access = "public" | "private";
 export type RealmKind = "app" | "workflow" | "agent";
-export type AtlasArt = "main" | "observatory" | "outpost";
+export type AtlasArt = string;
 
 export type AtlasLink = {
   to: string;
@@ -103,7 +103,7 @@ export function loadConfig(file: string): RouterConfig {
     if (!route.label || !route.atlas || !Number.isFinite(route.atlas.x) || !Number.isFinite(route.atlas.y)) {
       throw new Error(`Invalid atlas placement for ${route.label || route.prefix}`);
     }
-    if (!(route.atlas.scale > 0) || !(["main", "observatory", "outpost"] as string[]).includes(route.atlas.art)) {
+    if (!(route.atlas.scale > 0) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(route.atlas.art)) {
       throw new Error(`Invalid atlas artwork for ${route.label}`);
     }
   }
@@ -189,7 +189,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   });
   const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
     const position = route.atlas;
-    const artFile = position.art === "main" ? "garden-kingdom-atlas.webp" : `garden-kingdom-${position.art}-atlas.webp`;
+    const artFile = `garden-realm-${position.art}.webp`;
     return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
       <button class="kingdom-node__island" type="button" data-atlas-select aria-label="Focus on ${escapeHtml(route.title)}" aria-pressed="false">
         <span class="kingdom-node__art" aria-hidden="true">
@@ -219,7 +219,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     return `<circle data-minimap-node data-node-index="${index}" data-access="${gateway.access}" data-kind="${route.kind}" cx="${position.x}" cy="${position.y}" r="26" />`;
   }).join("");
   const listCards = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
-    const artFile = route.atlas.art === "main" ? "garden-kingdom-atlas.webp" : `garden-kingdom-${route.atlas.art}-atlas.webp`;
+    const artFile = `garden-realm-${route.atlas.art}.webp`;
     return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" style="--order:${index}">
       <span class="realm-row__number">${String(index + 1).padStart(2, "0")}</span>
       <span class="realm-row__visual realm-row__visual--${route.atlas.art}" aria-hidden="true">
@@ -1167,6 +1167,10 @@ function contentLength(headers: Headers): number {
 export function createHandler(configFile: string) {
   const config = loadConfig(configFile);
   const catalog = loadCatalogConfigs(configFile);
+  const realmArtFiles = new Map(catalog.flatMap((gateway) => gateway.routes.map((route) => {
+    const file = `garden-realm-${route.atlas.art}.webp`;
+    return [`/assets/${file}`, file] as const;
+  })));
   const trafficEndpoint = process.env.USAGE_TRAFFIC_ENDPOINT || "http://127.0.0.1:8791/usage/api/application-traffic";
   let pendingTraffic = new Map<string, TrafficSample>();
 
@@ -1233,8 +1237,9 @@ export function createHandler(configFile: string) {
       "/assets/garden-pegasus-atlas.webp": "garden-pegasus-atlas.webp"
     };
 
-    if (heroAssets[url.pathname]) {
-      return new Response(Bun.file(join(dirname(configFile), "assets", heroAssets[url.pathname])), {
+    const assetFile = heroAssets[url.pathname] ?? realmArtFiles.get(url.pathname);
+    if (assetFile) {
+      return new Response(Bun.file(join(dirname(configFile), "assets", assetFile)), {
         headers: { "content-type": "image/webp", "cache-control": "public, max-age=604800, immutable" }
       });
     }

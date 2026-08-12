@@ -15,7 +15,7 @@
       "atlas": {
         "x": 1645,
         "y": 574,
-        "art": "main",
+        "art": "zo-backlog",
         "scale": 1.06,
         "links": [
           { "to": "zo-usage", "bend": -46 }
@@ -34,7 +34,7 @@
       "atlas": {
         "x": 2015,
         "y": 334,
-        "art": "outpost",
+        "art": "zo-usage",
         "scale": 1.12
       },
       "targetOrigin": "http://127.0.0.1:8791"

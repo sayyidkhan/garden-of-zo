@@ -11,7 +11,10 @@ describe("Garden of Zo catalogue", () => {
     expect((html.match(/<article[^>]+data-atlas-card/g) ?? []).length).toBe(8);
     expect((html.match(/<article[^>]+data-list-card/g) ?? []).length).toBe(8);
     expect((html.match(/class="realm-row__kingdom"/g) ?? []).length).toBe(8);
-    expect(html).toContain("realm-row__visual--outpost");
+    expect(html).toContain("realm-row__visual--relationship-mapper");
+    for (const art of ["relationship-mapper", "zo-expert", "pocketbase", "zo-drive", "zo-tube", "zo-moments", "zo-backlog", "zo-usage"]) {
+      expect((html.match(new RegExp(`garden-realm-${art}\\.webp`, "g")) ?? []).length).toBe(2);
+    }
     expect((html.match(/data-sky-node/g) ?? []).length).toBe(8);
     expect(html).toContain("Pannable sky atlas");
     expect(html).toContain('data-view="atlas"');
@@ -95,9 +98,9 @@ describe("Garden of Zo catalogue", () => {
     const mapper = routes.find((route) => route.label === "zo-relationship-mapper");
     const usage = routes.find((route) => route.label === "zo-usage");
 
-    expect(mapper?.atlas).toMatchObject({ x: 265, y: 444, art: "outpost", scale: 0.88 });
+    expect(mapper?.atlas).toMatchObject({ x: 265, y: 444, art: "relationship-mapper", scale: 0.88 });
     expect(mapper?.atlas.links?.map((link) => link.to)).toEqual(["zo-expert", "zo-pocketbase"]);
-    expect(usage?.atlas).toMatchObject({ x: 2015, y: 334, art: "outpost", scale: 1.12 });
+    expect(usage?.atlas).toMatchObject({ x: 2015, y: 334, art: "zo-usage", scale: 1.12 });
     expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(11);
   });
 
@@ -127,7 +130,7 @@ describe("Garden of Zo catalogue", () => {
     expect(health.status).toBe(200);
     expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: 8 });
 
-    for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp", "garden-kingdom-atlas.webp", "garden-kingdom-observatory-atlas.webp", "garden-kingdom-outpost-atlas.webp", "garden-pegasus-atlas.webp"]) {
+    for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp", "garden-pegasus-atlas.webp", "garden-realm-relationship-mapper.webp", "garden-realm-zo-expert.webp", "garden-realm-pocketbase.webp", "garden-realm-zo-drive.webp", "garden-realm-zo-tube.webp", "garden-realm-zo-moments.webp", "garden-realm-zo-backlog.webp", "garden-realm-zo-usage.webp"]) {
       const asset = await handler(new Request(`http://localhost/assets/${path}`));
       expect(asset.status).toBe(200);
       expect(asset.headers.get("content-type")).toBe("image/webp");

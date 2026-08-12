@@ -15,7 +15,7 @@
       "atlas": {
         "x": 265,
         "y": 444,
-        "art": "outpost",
+        "art": "relationship-mapper",
         "scale": 0.88,
         "links": [
           { "to": "zo-expert", "bend": -36 },
@@ -35,7 +35,7 @@
       "atlas": {
         "x": 605,
         "y": 164,
-        "art": "observatory",
+        "art": "zo-expert",
         "scale": 1.08,
         "links": [
           { "to": "zo-drive", "bend": -54 }
@@ -54,7 +54,7 @@
       "atlas": {
         "x": 635,
         "y": 744,
-        "art": "main",
+        "art": "pocketbase",
         "scale": 0.9,
         "links": [
           { "to": "zo-drive", "bend": 42 },
@@ -77,7 +77,7 @@
       "atlas": {
         "x": 985,
         "y": 404,
-        "art": "main",
+        "art": "zo-drive",
         "scale": 1.18,
         "links": [
           { "to": "zo-moments", "bend": 62 },
@@ -99,7 +99,7 @@
       "atlas": {
         "x": 1245,
         "y": 794,
-        "art": "outpost",
+        "art": "zo-tube",
         "scale": 0.96,
         "links": [
           { "to": "zo-backlog", "bend": 38 }
@@ -119,7 +119,7 @@
       "atlas": {
         "x": 1505,
         "y": 144,
-        "art": "observatory",
+        "art": "zo-moments",
         "scale": 1.02,
         "links": [
           { "to": "zo-backlog", "bend": -42 },
