@@ -74,6 +74,8 @@ describe("Garden of Zo catalogue", () => {
     expect((html.match(/<path data-minimap-route/g) ?? []).length).toBe(11);
     expect(html).toContain("navigateSpatially");
     expect(html).toContain("fitMap");
+    expect(html).toContain("Math.hypot(pendingDragX - dragStartX, pendingDragY - dragStartY) < 5");
+    expect(html).toContain("if (!dragMoved) {");
     expect(html).toContain("animateZoom");
     expect(html).toContain("animateCamera");
     expect(html).toContain("Math.min(maximumZoom(), value)");

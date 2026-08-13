@@ -1126,6 +1126,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let pendingDragX = 0;
     let pendingDragY = 0;
     let dragFrame = 0;
+    let dragMoved = false;
     atlas.addEventListener('pointerdown', (event) => {
       if (event.pointerType === 'touch') return;
       if (event.target.closest('a, button')) return;
@@ -1133,14 +1134,19 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       dragStartY = event.clientY;
       scrollStartX = atlas.scrollLeft;
       scrollStartY = atlas.scrollTop;
+      dragMoved = false;
       atlas.classList.add('is-dragging');
-      markInteracting();
       atlas.setPointerCapture(event.pointerId);
     });
     atlas.addEventListener('pointermove', (event) => {
       if (!atlas.classList.contains('is-dragging')) return;
       pendingDragX = event.clientX;
       pendingDragY = event.clientY;
+      if (!dragMoved && Math.hypot(pendingDragX - dragStartX, pendingDragY - dragStartY) < 5) return;
+      if (!dragMoved) {
+        dragMoved = true;
+        markInteracting();
+      }
       if (dragFrame) return;
       dragFrame = requestAnimationFrame(() => {
         dragFrame = 0;
