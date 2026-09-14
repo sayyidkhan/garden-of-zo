@@ -27,6 +27,26 @@
       "targetOrigin": "http://127.0.0.1:8000"
     },
     {
+      "prefix": "/crow",
+      "label": "itachiscrow",
+      "title": "Itachi’s Crow",
+      "description": "Explore a living 3D city with an embedded flying crow, place discovery and AI-guided journeys.",
+      "category": "3D Explorer",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/itachiscrow",
+      "atlas": {
+        "x": 1235,
+        "y": 372,
+        "art": "itachis-crow",
+        "scale": 1.02
+      },
+      "targetOrigin": "http://127.0.0.1:8806",
+      "entryPath": "/explore.html",
+      "stripPrefix": true
+    },
+    {
       "prefix": "/expert",
       "label": "zo-expert",
       "title": "Zo Expert",

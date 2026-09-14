@@ -8,14 +8,14 @@ const privateFile = join(import.meta.dir, "private.routes.json");
 describe("Garden of Zo catalogue", () => {
   test("catalogues all public and private router apps", () => {
     const html = renderIndex(loadConfig(publicFile), loadCatalogConfigs(publicFile));
-    expect((html.match(/<article[^>]+data-atlas-card/g) ?? []).length).toBe(8);
-    expect((html.match(/<article[^>]+data-list-card/g) ?? []).length).toBe(8);
-    expect((html.match(/class="realm-row__kingdom"/g) ?? []).length).toBe(8);
+    expect((html.match(/<article[^>]+data-atlas-card/g) ?? []).length).toBe(9);
+    expect((html.match(/<article[^>]+data-list-card/g) ?? []).length).toBe(9);
+    expect((html.match(/class="realm-row__kingdom"/g) ?? []).length).toBe(9);
     expect(html).toContain("realm-row__visual--relationship-mapper");
-    for (const art of ["relationship-mapper", "zo-expert", "pocketbase", "zo-drive", "zo-tube", "zo-moments", "zo-backlog", "zo-usage"]) {
+    for (const art of ["relationship-mapper", "itachis-crow", "zo-expert", "pocketbase", "zo-drive", "zo-tube", "zo-moments", "zo-backlog", "zo-usage"]) {
       expect((html.match(new RegExp(`garden-realm-${art}\\.webp`, "g")) ?? []).length).toBe(2);
     }
-    expect((html.match(/data-sky-node/g) ?? []).length).toBe(8);
+    expect((html.match(/data-sky-node/g) ?? []).length).toBe(9);
     expect(html).toContain("Pannable sky atlas");
     expect(html).toContain('data-view="atlas"');
     expect(html).toContain('data-view="list"');
@@ -38,7 +38,7 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__art::before");
     expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__enter::before");
     expect(html).toContain("if (activeNode === node) node.classList.add('is-arrived')");
-    expect((html.match(/<button[^>]+data-atlas-select/g) ?? []).length).toBe(8);
+    expect((html.match(/<button[^>]+data-atlas-select/g) ?? []).length).toBe(9);
     expect(html).toContain("focusNode");
     expect(html).toContain("enter-realm-shimmer");
     expect(html).not.toContain('class="kingdom-node__island" href=');
@@ -49,10 +49,10 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('data-kind-filter="app"');
     expect(html).toContain('data-kind-filter="workflow"');
     expect(html).toContain('data-kind-filter="agent"');
-    expect(html).toContain("Apps 6");
+    expect(html).toContain("Apps 7");
     expect(html).toContain("Workflows 1");
     expect(html).toContain("Agents 1");
-    expect((html.match(/<article[^>]+data-kind="app"/g) ?? []).length).toBe(12);
+    expect((html.match(/<article[^>]+data-kind="app"/g) ?? []).length).toBe(14);
     expect((html.match(/<article[^>]+data-kind="workflow"/g) ?? []).length).toBe(2);
     expect((html.match(/<article[^>]+data-kind="agent"/g) ?? []).length).toBe(2);
     expect(html).toContain("garden-of-zo-view");
@@ -70,7 +70,7 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("data-atlas-current");
     expect(html).toContain("data-atlas-minimap");
     expect(html).toContain("data-atlas-minimap-window");
-    expect((html.match(/<circle data-minimap-node/g) ?? []).length).toBe(8);
+    expect((html.match(/<circle data-minimap-node/g) ?? []).length).toBe(9);
     expect((html.match(/<path data-minimap-route/g) ?? []).length).toBe(11);
     expect(html).toContain("navigateSpatially");
     expect(html).toContain("fitMap");
@@ -90,15 +90,15 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("Zo Tube");
     expect(html).not.toContain(">ZoTube<");
     expect(html).toContain("Zo Usage");
-    expect(html).toContain("6 open");
+    expect(html).toContain("7 open");
     expect(html).toContain("2 owner-only");
-    expect((html.match(/class="kingdom-node__github"/g) ?? []).length).toBe(8);
-    expect((html.match(/class="realm-row__link realm-row__link--github"/g) ?? []).length).toBe(8);
-    expect((html.match(/>View GitHub</g) ?? []).length).toBe(8);
-    expect((html.match(/target="_blank" rel="noreferrer"/g) ?? []).length).toBe(32);
-    expect((html.match(/class="kingdom-node__author"/g) ?? []).length).toBe(8);
-    expect((html.match(/class="realm-row__author"/g) ?? []).length).toBe(8);
-    expect((html.match(/By Sayyid Khan/g) ?? []).length).toBe(14);
+    expect((html.match(/class="kingdom-node__github"/g) ?? []).length).toBe(9);
+    expect((html.match(/class="realm-row__link realm-row__link--github"/g) ?? []).length).toBe(9);
+    expect((html.match(/>View GitHub</g) ?? []).length).toBe(9);
+    expect((html.match(/target="_blank" rel="noreferrer"/g) ?? []).length).toBe(36);
+    expect((html.match(/class="kingdom-node__author"/g) ?? []).length).toBe(9);
+    expect((html.match(/class="realm-row__author"/g) ?? []).length).toBe(9);
+    expect((html.match(/By Sayyid Khan/g) ?? []).length).toBe(16);
     expect((html.match(/By PocketBase/g) ?? []).length).toBe(2);
     expect(html).toContain('data-author="sayyidkhan"');
     expect(html).toContain('data-author="pocketbase"');
@@ -109,6 +109,7 @@ describe("Garden of Zo catalogue", () => {
     const routes = catalog.flatMap((gateway) => gateway.routes);
     const mapper = routes.find((route) => route.label === "zo-relationship-mapper");
     const usage = routes.find((route) => route.label === "zo-usage");
+    const crow = routes.find((route) => route.label === "itachiscrow");
 
     expect(mapper?.atlas).toMatchObject({ x: 265, y: 444, art: "relationship-mapper", scale: 0.88 });
     expect(mapper?.atlas.links?.map((link) => link.to)).toEqual(["zo-expert", "zo-pocketbase"]);
@@ -117,6 +118,8 @@ describe("Garden of Zo catalogue", () => {
     expect(catalog[0].authors.sayyidkhan).toMatchObject({ name: "Sayyid Khan", handle: "@sayyidkhan" });
     expect(catalog[0].authors.pocketbase).toMatchObject({ name: "PocketBase", handle: "@pocketbase" });
     expect(usage?.atlas).toMatchObject({ x: 2015, y: 334, art: "zo-usage", scale: 1.12 });
+    expect(crow).toMatchObject({ prefix: "/crow", targetOrigin: "http://127.0.0.1:8806", stripPrefix: true });
+    expect(crow?.atlas).toMatchObject({ x: 1235, y: 372, art: "itachis-crow", scale: 1.02 });
     expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(11);
   });
 
@@ -146,15 +149,16 @@ describe("Garden of Zo catalogue", () => {
     const html = renderIndex(loadConfig(privateFile), loadCatalogConfigs(privateFile));
     expect(html).toContain('href="/backlog"');
     expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/mapper"');
+    expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/crow/explore.html"');
   });
 
   test("serves catalogue metadata and the layered hero assets", async () => {
     const handler = createHandler(publicFile);
     const health = await handler(new Request("http://localhost/health"));
     expect(health.status).toBe(200);
-    expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: 8 });
+    expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: 9 });
 
-    for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp", "garden-pegasus-atlas.webp", "garden-realm-relationship-mapper.webp", "garden-realm-zo-expert.webp", "garden-realm-pocketbase.webp", "garden-realm-zo-drive.webp", "garden-realm-zo-tube.webp", "garden-realm-zo-moments.webp", "garden-realm-zo-backlog.webp", "garden-realm-zo-usage.webp"]) {
+    for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp", "garden-pegasus-atlas.webp", "garden-realm-relationship-mapper.webp", "garden-realm-itachis-crow.webp", "garden-realm-zo-expert.webp", "garden-realm-pocketbase.webp", "garden-realm-zo-drive.webp", "garden-realm-zo-tube.webp", "garden-realm-zo-moments.webp", "garden-realm-zo-backlog.webp", "garden-realm-zo-usage.webp"]) {
       const asset = await handler(new Request(`http://localhost/assets/${path}`));
       expect(asset.status).toBe(200);
       expect(asset.headers.get("content-type")).toBe("image/webp");
