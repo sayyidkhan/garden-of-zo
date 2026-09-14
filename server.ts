@@ -1308,10 +1308,11 @@ export function createHandler(configFile: string) {
 
     const upstreamPath = route.stripPrefix ? url.pathname.slice(route.prefix.length) || "/" : url.pathname;
     const upstreamUrl = new URL(upstreamPath + url.search, route.targetOrigin);
+    const gatewayUrl = new URL(config.gatewayUrl);
     const headers = new Headers(request.headers);
     headers.delete("accept-encoding");
-    headers.set("x-forwarded-host", url.host);
-    headers.set("x-forwarded-proto", url.protocol.replace(":", ""));
+    headers.set("x-forwarded-host", gatewayUrl.host);
+    headers.set("x-forwarded-proto", gatewayUrl.protocol.replace(":", ""));
     headers.set("x-forwarded-prefix", route.prefix);
 
     try {
