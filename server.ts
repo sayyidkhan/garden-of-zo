@@ -1306,6 +1306,13 @@ export function createHandler(configFile: string) {
     const route = config.routes.find((item) => url.pathname === item.prefix || url.pathname.startsWith(`${item.prefix}/`));
     if (!route) return Response.json({ error: "not found" }, { status: 404 });
 
+    if (route.stripPrefix && url.pathname === route.prefix) {
+      return new Response(null, {
+        status: 308,
+        headers: { location: `${route.prefix}/${url.search}` }
+      });
+    }
+
     const upstreamPath = route.stripPrefix ? url.pathname.slice(route.prefix.length) || "/" : url.pathname;
     const upstreamUrl = new URL(upstreamPath + url.search, route.targetOrigin);
     const gatewayUrl = new URL(config.gatewayUrl);
