@@ -1321,6 +1321,7 @@ export function createHandler(configFile: string) {
     headers.set("x-forwarded-host", gatewayUrl.host);
     headers.set("x-forwarded-proto", gatewayUrl.protocol.replace(":", ""));
     headers.set("x-forwarded-prefix", route.prefix);
+    headers.set("x-zo-gateway-access", config.access);
 
     try {
       const upstream = await fetch(new Request(upstreamUrl.toString(), {
