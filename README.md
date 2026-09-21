@@ -7,18 +7,17 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - backend apps should be started with matching `APP_BASE_PATH` values
 - both gateway homepages render the complete catalogue from both manifests
 - the landing realm and catalogue are separate full-screen states; `#atlas` opens the catalogue and browser Back returns to the landing screen
-- the catalogue toggles between a pannable two-dimensional Sky Atlas graph and a compact list view, with the preference stored in the browser
-- Sky Atlas View is a full-viewport workspace with one unified, horizontally scrollable view-and-filter command bar docked below the map; List View uses `#list`
-- the Atlas uses lightweight artwork variants, a transform-based camera, touch drag/pinch controls, and animation-frame-throttled interaction
-- every realm uses its own lightweight transparent kingdom asset in both Atlas and List views
-- authors live in `authors.json`; every realm references one reusable `authorId`, and both views link that attribution to the author's profile
-- Atlas placement and graph links live in each route's manifest entry; routes, beacon terminals, kingdom artwork and the mini-map all derive from the same canonical coordinates
-- The existing Sky Atlas View at `/#atlas` opens at a readable exploration scale centred on Zo Drive, with widely spaced kingdoms and four geographical labels. Overview explicitly fits the world; Explore returns to reading scale. Filters preserve exploration instead of fitting every result. The mini-map jumps to a location at reading scale; active-kingdom stepping, focal zoom and arrow/WASD movement remain available. Atlas improvements belong in this existing view; there is no separate `/map` route.
-- Map labels show the title, category and access level; selection, hover or keyboard focus reveals attribution and destination/source actions. Paths connected to the active kingdom are highlighted.
-- Dragging anywhere on the map, including kingdom artwork, moves the camera with a short release glide. Plain wheel zoom anchors under the pointer; Shift+wheel pans horizontally. Touch supports one-finger drag and two-finger pinch with a stable handover when one finger lifts. Hold WASD/arrows for continuous travel, Shift for faster travel, `0` for Overview and Escape to stop. Selection stays fixed during manual exploration. The mini-map supports continuous drag-to-travel, and Map controls explains the gestures.
-- Wheel, drag, touch and keyboard input interrupt camera travel at its current position. Button zoom takes 180ms, kingdom stepping 240ms and focus travel 300ms; reduced-motion settings skip these transitions and release glide. Camera and mini-map positions use transforms so continuous panning avoids per-frame layout. Losing focus, hiding the page or switching views stops motion.
-- clicking kingdom artwork zooms and centres the map without navigating; dragging it suppresses the click. The selected kingdom sparkles and starts its `Enter realm` shimmer only after the camera arrives, desktop focus reaches 138%, manual zoom reaches 240% on desktop and 200% on mobile, and viewport resizing preserves the current zoom while only the card's `Enter realm` action opens the destination
-- private app links always resolve through the authenticated private Zo service, while each realm's public GitHub repository remains directly visible
+- the Atlas renders its world through PixiJS 8 and pixi-viewport 6 in one WebGL canvas; client source lives in `client/atlas.ts`, bundled by Bun and served locally at `/atlas-client.js` (no runtime CDN dependency)
+- the existing `/#atlas` route keeps the floating-kingdom artwork, teal/gold palette, authors, realm destinations, access boundaries and List View; there is no separate `/map` page
+- route manifests supply canonical world coordinates, artwork and links; the browser receives only catalogue metadata, never backend target addresses
+- camera input uses direct drag, pointer-anchored wheel zoom, touch drag/pinch and a short release glide; WASD/arrows move continuously, Shift moves faster, `0` opens Overview and Escape stops travel
+- the starting regional view is centred on Zo Drive at 72% desktop / 64% mobile scale; Overview fits the world, Explore returns to the selected kingdom at that reading scale, and the mini-map supports click/drag travel
+- labels render at a stable screen size with collision suppression and reduced detail when zoomed out; offscreen islands are culled, idle frames skip rendering, and hidden Atlas tabs stop their ticker
+- clicking a kingdom opens a fixed details panel without moving or zooming the camera; only Locate, the kingdom chooser, previous/next and Explore initiate travel; only Enter realm opens the destination
+- access/type filters preserve camera position; List View and the native kingdom chooser retain keyboard access to every destination
+- reduced motion disables camera transitions and release glide; graphics initialisation/context failure explains how to use List View
+- private links continue through the authenticated private gateway; source and author links remain public
+- dependencies are pinned in `package.json` and `bun.lock`; install with `bun install --frozen-lockfile` before starting the gateway
 - catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
 
 Current route plan:

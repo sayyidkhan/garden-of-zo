@@ -5,5 +5,9 @@
   "scripts": {
     "start": "bun run server.ts",
     "test": "bun test"
+  },
+  "dependencies": {
+    "pixi-viewport": "6.0.3",
+    "pixi.js": "8.21.0"
   }
 }

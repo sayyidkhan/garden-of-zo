@@ -6,102 +6,37 @@ const publicFile = join(import.meta.dir, "public.routes.json");
 const privateFile = join(import.meta.dir, "private.routes.json");
 
 describe("Garden of Zo catalogue", () => {
-  test("catalogues all public and private router apps", () => {
-    const html = renderIndex(loadConfig(publicFile), loadCatalogConfigs(publicFile));
-    expect((html.match(/<article[^>]+data-atlas-card/g) ?? []).length).toBe(13);
-    expect((html.match(/<article[^>]+data-list-card/g) ?? []).length).toBe(13);
-    expect((html.match(/class="realm-row__kingdom"/g) ?? []).length).toBe(13);
-    expect(html).toContain("realm-row__visual--relationship-mapper");
-    for (const art of ["itachis-crow", "zo-expert", "pocketbase", "zo-drive", "zo-tube", "zo-moments", "zo-backlog", "zo-usage", "mailhub", "riven-proj-tracker"]) {
-      expect((html.match(new RegExp(`garden-realm-${art}\\.webp`, "g")) ?? []).length).toBe(2);
+  test("catalogues every realm in canvas data and the accessible list", () => {
+    const catalog = loadCatalogConfigs(publicFile);
+    const expected = catalog.flatMap(gateway => gateway.routes);
+    const html = renderIndex(loadConfig(publicFile), catalog);
+    const data = JSON.parse(html.match(/id="atlas-data">([\s\S]*?)<\/script>/)![1]);
+    expect(data.realms).toHaveLength(expected.length);
+    expect((html.match(/<article[^>]+data-list-card/g) ?? [])).toHaveLength(expected.length);
+    expect((html.match(/class="realm-row__kingdom"/g) ?? [])).toHaveLength(expected.length);
+    expect((html.match(/<circle data-minimap-node/g) ?? [])).toHaveLength(expected.length);
+    for (const route of expected) {
+      const realm = data.realms.find((entry: any) => entry.id === route.label);
+      expect(realm).toMatchObject({ title: route.title, x: route.atlas.x, y: route.atlas.y, repositoryUrl: route.repositoryUrl });
+      expect(realm.author.name).toBeTruthy();
+      expect(realm.href).toBeTruthy();
     }
-    expect((html.match(/garden-realm-relationship-mapper\.webp/g) ?? []).length).toBe(6);
-    expect((html.match(/data-sky-node/g) ?? []).length).toBe(13);
-    expect(html).toContain("Pannable sky atlas");
-    expect(html).toContain('data-view="atlas"');
-    expect(html).toContain('data-view="list"');
-    expect(html).toContain("Sky Atlas View");
-    expect(html).toContain("catalogue__commandbar");
-    expect(html).toContain("is-atlas-view");
-    expect(html).toContain("grid-template-rows: auto minmax(0, 1fr) auto");
-    expect(html).toContain("grid-row: 3");
-    expect(html).toContain("env(safe-area-inset-bottom)");
-    expect(html).toContain('data-view-panel="list"');
-    expect(html).toContain("Choose the next horizon.");
-    expect(html).not.toContain("Choose the next<br />horizon.");
-    expect(html).toContain('data-screen="landing"');
-    expect(html).toContain('data-screen="catalogue" hidden');
-    expect(html).toContain('href="#atlas" aria-controls="realms"');
-    expect(html).toContain("Back to home");
-    expect(html).not.toContain("Back to garden");
-    expect(html.indexOf("Back to home")).toBeLessThan(html.lastIndexOf("Garden of Zo</span></a>"));
-    expect(html).toContain("kingdom-sparkle");
-    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__art::before");
-    expect(html).toContain("kingdom-node.is-active.is-arrived .kingdom-node__enter::before");
-    expect(html).toContain("if (activeNode === node) node.classList.add('is-arrived')");
-    expect((html.match(/<button[^>]+data-atlas-select/g) ?? []).length).toBe(13);
-    expect(html).toContain("focusNode");
-    expect(html).toContain("enter-realm-shimmer");
-    expect(html).not.toContain('class="kingdom-node__island" href=');
-    expect(html).toContain("addEventListener('hashchange', syncScreen)");
-    expect(html).toContain("selected === 'list' ? '#list' : '#atlas'");
-    expect(html).toContain("location.hash === '#list'");
-    expect(html).toContain('aria-label="Filter realms by type"');
-    expect(html).toContain('data-kind-filter="app"');
-    expect(html).toContain('data-kind-filter="workflow"');
-    expect(html).toContain('data-kind-filter="agent"');
-    expect(html).toContain("Apps 11");
-    expect(html).toContain("Workflows 1");
-    expect(html).toContain("Agents 1");
-    expect((html.match(/<article[^>]+data-kind="app"/g) ?? []).length).toBe(22);
-    expect((html.match(/<article[^>]+data-kind="workflow"/g) ?? []).length).toBe(2);
-    expect((html.match(/<article[^>]+data-kind="agent"/g) ?? []).length).toBe(2);
-    expect(html).toContain("garden-of-zo-view");
-    expect((html.match(/<path data-sky-route /g) ?? []).length).toBe(13);
-    expect((html.match(/<path data-sky-route-terminal/g) ?? []).length).toBe(26);
-    expect(html).toContain('d="M 650 620 C');
-    expect(html).toContain('class="sky-route-terminals"');
-    expect(html).toContain('class="kingdom-node__art"');
-    expect(html).toContain("height: auto; aspect-ratio: 520 / 293");
-    expect(html).toContain("data-atlas-zoom-out");
-    expect(html).toContain("data-atlas-zoom-in");
-    expect(html).toContain("data-atlas-reset");
-    expect(html).toContain("data-atlas-previous");
-    expect(html).toContain("data-atlas-next");
-    expect(html).toContain("data-atlas-current");
-    expect(html).toContain("data-atlas-minimap");
-    expect(html).toContain("data-atlas-minimap-window");
-    expect((html.match(/<circle data-minimap-node/g) ?? []).length).toBe(13);
-    expect((html.match(/<path data-minimap-route/g) ?? []).length).toBe(13);
-    expect(html).toContain("navigateSpatially");
-    expect(html).toContain("fitMap");
-    expect(html).toContain("Math.hypot(pendingDragX - dragStartX, pendingDragY - dragStartY) < 5");
-    expect(html).toContain("animateZoom");
-    expect(html).toContain("animateCamera");
-    expect(html).toContain("Math.min(maximumZoom(), value)");
-    expect(html).toContain("innerWidth < 620 ? 2 : 2.4");
-    expect(html).not.toContain("refreshRoute(); fitMap('auto'); updateAtlas();");
-    expect(html).toContain("innerWidth < 620 ? 1.05");
-    expect(html).toContain("Map controls");
-    expect(html).toContain("scroll to zoom");
-    expect(html).toContain("zoomTarget");
-    expect(html).toContain("is-zooming");
-    expect(html).toContain("Relationship Mapper");
-    expect(html).toContain("Zo Tube");
-    expect(html).not.toContain(">ZoTube<");
-    expect(html).toContain("Zo Usage");
-    expect(html).toContain("9 open");
-    expect(html).toContain("4 owner-only");
-    expect((html.match(/class="kingdom-node__github"/g) ?? []).length).toBe(13);
-    expect((html.match(/class="realm-row__link realm-row__link--github"/g) ?? []).length).toBe(13);
-    expect((html.match(/>View GitHub</g) ?? []).length).toBe(13);
-    expect((html.match(/target="_blank" rel="noreferrer"/g) ?? []).length).toBe(52);
-    expect((html.match(/class="kingdom-node__author"/g) ?? []).length).toBe(13);
-    expect((html.match(/class="realm-row__author"/g) ?? []).length).toBe(13);
-    expect((html.match(/By Sayyid Khan/g) ?? []).length).toBe(24);
-    expect((html.match(/By PocketBase/g) ?? []).length).toBe(2);
-    expect(html).toContain('data-author="sayyidkhan"');
-    expect(html).toContain('data-author="pocketbase"');
+    expect(data.links).toHaveLength(expected.flatMap(route => route.atlas.links ?? []).length);
+    for (const marker of ['data-realm-panel', 'data-realm-chooser', 'data-realm-enter', 'data-realm-source', 'data-panel-close', 'data-atlas-minimap', 'data-filter="private"', 'data-kind-filter="workflow"', 'data-view="list"', 'data-view="atlas"', '/atlas-client.js']) expect(html).toContain(marker);
+    expect(html).not.toContain('data-atlas-world');
+    expect(html).toContain('href="#atlas"');
+    expect(html).toContain('Back to home');
+  });
+
+  test("escapes embedded map data without exposing internal routing targets", () => {
+    const catalog = structuredClone(loadCatalogConfigs(publicFile));
+    catalog[0].routes[0].title = '</script><script>alert(1)</script>';
+    const html = renderIndex(catalog[0], catalog);
+    const dataText = html.match(/id="atlas-data">([\s\S]*?)<\/script>/)![1];
+    expect(JSON.parse(dataText).realms[0].title).toBe(catalog[0].routes[0].title);
+    expect(dataText).not.toContain('</script>');
+    expect(dataText).not.toContain('targetOrigin');
+    expect(dataText).not.toContain('127.0.0.1');
   });
 
   test("loads Atlas placement and graph links from the route manifests", () => {
@@ -196,7 +131,7 @@ describe("Garden of Zo catalogue", () => {
     const handler = createHandler(publicFile);
     const health = await handler(new Request("http://localhost/health"));
     expect(health.status).toBe(200);
-    expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: 13 });
+    expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: loadCatalogConfigs(publicFile).flatMap(gateway => gateway.routes).length });
 
     for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp", "garden-pegasus-atlas.webp", "garden-realm-relationship-mapper.webp", "garden-realm-itachis-crow.webp", "garden-realm-zo-expert.webp", "garden-realm-pocketbase.webp", "garden-realm-zo-drive.webp", "garden-realm-zo-tube.webp", "garden-realm-zo-moments.webp", "garden-realm-zo-backlog.webp", "garden-realm-zo-usage.webp", "garden-realm-mailhub.webp", "garden-realm-riven-proj-tracker.webp"]) {
       const asset = await handler(new Request(`http://localhost/assets/${path}`));

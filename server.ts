@@ -203,8 +203,6 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     workflow: allApps.filter(({ route }) => route.kind === "workflow").length,
     agent: allApps.filter(({ route }) => route.kind === "agent").length
   };
-  const nodeHalfWidth = 135;
-  const nodeBeaconOffset = 54;
   const atlasWidth = Math.max(3600, ...allApps.map(({ route }) => route.atlas.x + 360));
   const atlasHeight = Math.max(2500, ...allApps.map(({ route }) => route.atlas.y + 420));
   const appEntries = allApps.map(({ gateway, route }, index) => {
@@ -217,36 +215,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
 
     return { gateway, route, index, restricted, href, accessLabel, action };
   });
-  const nodes = appEntries.map(({ gateway, route, index, restricted, href, accessLabel, action }) => {
-    const position = route.atlas;
-    const author = gateway.authors[route.authorId];
-    const artFile = `garden-realm-${position.art}.webp`;
-    return `<article class="kingdom-node kingdom-node--${position.art} ${restricted ? "kingdom-node--private" : ""}" data-atlas-card data-sky-node data-node-index="${index}" data-node-title="${escapeHtml(route.title)}" data-access="${gateway.access}" data-kind="${route.kind}" data-author="${escapeHtml(route.authorId)}" style="--order:${index};--node-x:${position.x - nodeHalfWidth}px;--node-y:${position.y - nodeBeaconOffset}px;--node-scale:${position.scale}">
-      <button class="kingdom-node__island" type="button" data-atlas-select aria-label="Focus on ${escapeHtml(route.title)}" aria-pressed="false">
-        <span class="kingdom-node__art" aria-hidden="true">
-          <span class="kingdom-node__halo"></span>
-          <img src="/assets/${artFile}" alt="" decoding="async" draggable="false" />
-        </span>
-        <span class="kingdom-node__beacon" aria-hidden="true">${icon(route.icon)}<i></i></span>
-      </button>
-      <div class="kingdom-node__label">
-        <span class="kingdom-node__number">${String(index + 1).padStart(2, "0")}</span>
-        <div><span class="kingdom-node__category">${escapeHtml(route.category)}</span><h2>${escapeHtml(route.title)}</h2><a class="kingdom-node__author" href="${escapeHtml(author.profileUrl)}" target="_blank" rel="noreferrer">By ${escapeHtml(author.name)}</a></div>
-        <span class="kingdom-node__access">${restricted ? icon("lock", "badge-icon") : ""}${accessLabel}</span>
-        <div class="kingdom-node__actions">
-          <a class="kingdom-node__enter" href="${escapeHtml(href)}" aria-label="${action}: ${escapeHtml(route.title)}"><span>${action}</span><span aria-hidden="true">&nearr;</span></a>
-          <a class="kingdom-node__github" href="${escapeHtml(route.repositoryUrl)}" target="_blank" rel="noreferrer" aria-label="View ${escapeHtml(route.title)} on GitHub"><span>GitHub</span><span aria-hidden="true">&nearr;</span></a>
-        </div>
-      </div>
-    </article>`;
-  }).join("");
   const entryById = new Map(appEntries.map((entry) => [entry.route.label, entry]));
   const graphLinks = appEntries.flatMap((from) => (from.route.atlas.links ?? []).map((link) => {
     const to = entryById.get(link.to)!;
     return { from, to, geometry: atlasRouteGeometry(from.route.atlas, to.route.atlas, link.bend) };
   }));
-  const routes = graphLinks.map(({ from, to, geometry }) => `<path data-sky-route data-from="${from.index}" data-to="${to.index}" d="${geometry.path}" />`).join("");
-  const routeTerminals = graphLinks.map(({ from, to, geometry }) => `<path data-sky-route-terminal data-from="${from.index}" data-to="${to.index}" d="${geometry.fromTerminal}" /><path data-sky-route-terminal data-from="${from.index}" data-to="${to.index}" d="${geometry.toTerminal}" />`).join("");
   const minimapRoutes = graphLinks.map(({ from, to, geometry }) => `<path data-minimap-route data-from="${from.index}" data-to="${to.index}" d="${geometry.path}" />`).join("");
   const minimapNodes = appEntries.map(({ gateway, route, index }) => {
     const position = route.atlas;
@@ -282,6 +255,17 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   }).join("");
 
   const viewLabel = current.access === "private" ? "Owner's atlas" : "Open sky atlas";
+  const atlasData = {
+    width: atlasWidth, height: atlasHeight,
+    realms: appEntries.map(({ gateway, route, index, href, accessLabel }) => ({
+      id: route.label, index, title: route.title, description: route.description,
+      category: route.category, kind: route.kind, access: gateway.access, accessLabel,
+      href, repositoryUrl: route.repositoryUrl, author: gateway.authors[route.authorId],
+      x: route.atlas.x, y: route.atlas.y, scale: route.atlas.scale,
+      art: `/assets/garden-realm-${route.atlas.art}.webp`
+    })),
+    links: graphLinks.map(({ from, to, geometry }) => ({ from: from.route.label, to: to.route.label, path: geometry.path }))
+  };
   const heroCopy = current.access === "private"
     ? "Your private command deck for every realm in the garden."
     : "A constellation of tools, agents and experiments growing on one personal cloud computer.";
@@ -395,64 +379,26 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__location strong { overflow: hidden; color: #dce8e3; font: 700 .78rem/1.1 var(--serif); text-overflow: ellipsis; white-space: nowrap; }
     .atlas__viewport { position: relative; z-index: 2; height: min(720px, 72vh); min-height: 540px; overflow: clip; overscroll-behavior: contain; cursor: grab; touch-action: none; user-select: none; contain: layout paint style; background: radial-gradient(circle at 50% 45%, rgba(67,130,132,.1), transparent 34rem); }
     .atlas__viewport::-webkit-scrollbar { display: none; }
+    .atlas__viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .atlas__viewport:focus { outline: none; }
+    .atlas__viewport:focus-visible { outline: 1px solid var(--gold); outline-offset: -2px; }
+    .atlas__loading { position: absolute; inset: 45% 20px auto; text-align: center; color: #c9d9d0; font: 16px var(--serif); pointer-events: none; }
+    .atlas__loading[hidden], .realm-panel[hidden] { display: none; }
+    .atlas__location { position: relative; }
+    .atlas__location select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+    .atlas__location:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+    .realm-panel { position: absolute; z-index: 8; top: 86px; right: 22px; width: 310px; padding: 22px; border: 1px solid rgba(228,193,120,.5); border-radius: 16px; background: linear-gradient(150deg, #18383a, #081d25); box-shadow: 0 18px 55px #00101588; color: #d0ded5; }
+    .realm-panel__close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 1px solid #71847e; border-radius: 50%; background: #0a242c; color: #e7dec8; font-size: 22px; cursor: pointer; }
+    .realm-panel__art { display: block; width: 135px; height: 95px; object-fit: contain; margin: -5px auto 8px; }
+    .realm-panel__category { font-size: 10px; color: #deb987; text-transform: uppercase; letter-spacing: .13em; }
+    .realm-panel h2 { margin: 8px 0; font: 26px/1.1 var(--serif); color: #f8efd5; }
+    .realm-panel__access { font-size: 10px; text-transform: uppercase; color: #a2c9b8; }
+    .realm-panel p { margin: 15px 0; color: #b7cbc1; font-size: 13px; line-height: 1.65; }
+    .realm-panel a { color: #b9c9be; font-size: 11px; text-decoration: none; }
+    .realm-panel__actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 8px; }
+    .realm-panel__actions a:first-child { padding: 12px 20px; border-radius: 8px; background: #efdab0; color: #13252a; font-size: 12px; font-weight: 800; }
+    .realm-panel__locate { border: 0; background: transparent; padding: 10px 0 0; color: #99b6aa; cursor: pointer; font-size: 11px; }
     .atlas__viewport.is-dragging { cursor: grabbing; user-select: none; }
-    .atlas__canvas { position: absolute; inset: 0; }
-    .atlas__world { position: absolute; inset: 0 auto auto 0; width: ${atlasWidth}px; height: ${atlasHeight}px; transform-origin: left top; will-change: transform; contain: layout paint style; isolation: isolate; background-image: radial-gradient(ellipse at 42% 40%, rgba(67,130,132,.16), transparent 40%), radial-gradient(ellipse at 80% 30%, rgba(221,125,102,.08), transparent 30%), radial-gradient(circle, rgba(244,230,196,.35) 0 1px, transparent 1.5px); background-size: 100% 100%, 100% 100%, 120px 120px; }
-    .atlas__region { position: absolute; transform: translateX(-50%); pointer-events: none; text-align: center; color: rgba(177,205,197,.5); font: italic 28px/1.4 var(--serif); letter-spacing: .08em; white-space: nowrap; }
-    .atlas__region small { display: block; margin-top: 8px; color: #748e89; font: 600 10px/1.5 var(--sans); letter-spacing: .25em; text-transform: uppercase; }
-    .atlas__viewport.is-zooming .atlas__world { will-change: transform; }
-    .sky-routes, .sky-route-terminals { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-    .sky-routes { z-index: 1; }
-    .sky-route-terminals { z-index: 4; }
-    .sky-routes path, .sky-route-terminals path { fill: none; stroke: rgba(228,193,120,.25); stroke-width: 1.5; stroke-dasharray: 3 12; stroke-linecap: round; }
-    .sky-route-terminals path { stroke: rgba(255,225,157,.5); }
-    .sky-routes path.is-active { stroke: rgba(228,193,120,.65); stroke-width: 2; }
-    .sky-routes path.is-hidden, .sky-route-terminals path.is-hidden { display: none; }
-    .atlas__pegasus { position: absolute; z-index: 2; left: 1970px; top: 1140px; width: 330px; height: auto; aspect-ratio: 520 / 293; object-fit: contain; opacity: .3; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
-    .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; contain: layout style; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both; }
-    .kingdom-node[hidden] { display: none; }
-    .kingdom-node__island { position: absolute; inset: 0 0 auto; width: 100%; height: 175px; display: grid; place-items: center; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
-    .kingdom-node__island:focus-visible { outline: none; }
-    .kingdom-node__island:focus-visible .kingdom-node__beacon { outline: 3px solid #fff3c9; outline-offset: 5px; }
-    .kingdom-node__art { position: absolute; inset: 0; display: grid; place-items: center; transform: scale(var(--node-scale)); transform-origin: center bottom; will-change: transform; animation: kingdom-art-float 9s calc(var(--order) * -1.3s) ease-in-out infinite alternate; transition: transform .3s, opacity .3s; }
-    .kingdom-node__art::before, .kingdom-node__art::after { content: ""; position: absolute; pointer-events: none; opacity: 0; }
-    .kingdom-node__art::before { z-index: 3; inset: -18px -8px 8px; background: radial-gradient(circle at 12% 34%, #fff8d7 0 2px, transparent 3px), radial-gradient(circle at 26% 13%, #e4c178 0 2px, transparent 3.5px), radial-gradient(circle at 48% 4%, #fff8d7 0 1.5px, transparent 3px), radial-gradient(circle at 73% 17%, #fff0bd 0 2px, transparent 3.5px), radial-gradient(circle at 91% 40%, #e4c178 0 2px, transparent 3.5px), radial-gradient(circle at 78% 68%, #fff8d7 0 1.5px, transparent 3px), radial-gradient(circle at 18% 72%, #fff0bd 0 2px, transparent 3.5px); transform: scale(.72) rotate(-5deg); }
-    .kingdom-node__art::after { z-index: 0; inset: 22px 24px 8px; border-radius: 50%; background: radial-gradient(ellipse, rgba(255,240,189,.48), rgba(228,193,120,.14) 46%, transparent 73%); transform: scale(.78); transition: opacity .28s ease, transform .35s ease; }
-    .kingdom-node:hover .kingdom-node__art, .kingdom-node:focus-within .kingdom-node__art { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: .94; }
-    .kingdom-node__art img { position: relative; z-index: 2; display: block; width: 230px; height: 175px; object-fit: contain; }
-    .kingdom-node--main .kingdom-node__art img { width: 265px; }
-    .kingdom-node:nth-of-type(3n+2) .kingdom-node__art img { transform: scaleX(-1); }
-    .kingdom-node__halo { position: absolute; z-index: 1; width: 180px; height: 54px; border-radius: 50%; transform: translateY(48px) scaleY(.7); background: radial-gradient(ellipse, rgba(0,7,11,.9), rgba(15,47,49,.4) 48%, transparent 74%); box-shadow: 0 18px 32px rgba(0,0,0,.34); }
-    .kingdom-node--private .kingdom-node__halo { background: radial-gradient(ellipse, rgba(0,7,11,.92), rgba(81,45,39,.38) 48%, transparent 74%); }
-    .kingdom-node__beacon { position: absolute; z-index: 4; left: 50%; top: 28px; display: grid; place-items: center; width: 52px; height: 52px; transform: translateX(-50%); border: 1px solid rgba(228,193,120,.7); border-radius: 50%; color: var(--gold); background: rgba(4,22,28,.9); box-shadow: 0 0 0 8px rgba(228,193,120,.06), 0 0 28px rgba(228,193,120,.42); }
-    .kingdom-node__beacon svg { width: 21px; height: 21px; }
-    .kingdom-node__beacon i { position: absolute; inset: -9px; border: 1px solid rgba(138,199,180,.28); border-radius: inherit; animation: beacon-pulse 2.8s ease-out infinite; }
-    .kingdom-node.is-active { z-index: 6; }
-    .kingdom-node.is-active .kingdom-node__art { transform: scale(calc(var(--node-scale) * 1.08)) translateY(-8px); opacity: 1; }
-    .kingdom-node.is-active.is-arrived .kingdom-node__art::before { animation: kingdom-sparkle .9s cubic-bezier(.16,.8,.28,1) both; }
-    .kingdom-node.is-active .kingdom-node__art::after { opacity: 1; transform: scale(1.05); }
-    .kingdom-node.is-active .kingdom-node__beacon { border: 2px solid #fff3c9; color: #fff3c9; background: #1b2a2c; box-shadow: 0 0 0 6px rgba(255,240,189,.18), 0 0 0 13px rgba(228,193,120,.12), 0 0 50px rgba(228,193,120,.96); }
-    .kingdom-node.is-active .kingdom-node__label { border: 2px solid #e4c178; background: linear-gradient(145deg, #28453f, #071b20); box-shadow: 0 22px 52px rgba(0,0,0,.58), 0 0 0 5px rgba(228,193,120,.1), 0 0 38px rgba(228,193,120,.34); }
-    .kingdom-node--private:not(.is-active) .kingdom-node__beacon { border-color: rgba(221,125,102,.72); color: #e9b690; box-shadow: 0 0 0 8px rgba(221,125,102,.06), 0 0 28px rgba(221,125,102,.35); }
-    .kingdom-node__label { position: absolute; z-index: 5; left: 50%; top: 158px; width: 270px; min-height: 96px; transform: translateX(-50%); display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 8px; padding: 16px; border: 1px solid rgba(228,193,120,.2); border-radius: 12px; background: linear-gradient(145deg, #113136, #04161c); box-shadow: 0 12px 24px rgba(0,0,0,.22); }
-    .kingdom-node__label > div:not(.kingdom-node__actions) { min-width: 0; }
-    .kingdom-node:not(.is-active):not(:hover):not(:focus-within) .kingdom-node__author,
-    .kingdom-node:not(.is-active):not(:hover):not(:focus-within) .kingdom-node__actions { display: none; }
-    .kingdom-node:not(.is-active):not(:hover):not(:focus-within) .kingdom-node__label { background: rgba(5,24,30,.75); box-shadow: none; }
-    .kingdom-node--private:not(.is-active) .kingdom-node__label { background: linear-gradient(145deg, #322a2b, #0c191e); }
-    .kingdom-node__number { color: #7e9793; font-size: .58rem; font-weight: 900; letter-spacing: .1em; }
-    .kingdom-node__category { color: var(--coral); font-size: .62rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    .kingdom-node h2 { margin: 6px 0 0; font: 600 1.4rem/1.15 var(--serif); letter-spacing: -.02em; }
-    .kingdom-node__access { grid-column: 2; display: flex; align-items: center; gap: 4px; color: #a7d0c4; font-size: .58rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-    .kingdom-node--private .kingdom-node__access { color: #e7bd9c; }
-    .kingdom-node__actions { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
-    .kingdom-node__actions a { position: relative; display: flex; align-items: center; justify-content: space-between; min-height: 36px; gap: 8px; overflow: hidden; padding: 7px 6px; border-radius: 6px; color: #f4e6c9; font-size: .64rem; font-weight: 800; letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
-    .kingdom-node__github { color: #9fb8b3 !important; }
-    .kingdom-node__author { display: inline-block; margin-top: 6px; color: #9fb8b3; font-size: .7rem; font-weight: 600; text-decoration: none; }
-    .kingdom-node__author:hover { color: var(--gold); }
-    .kingdom-node__enter::before { content: ""; position: absolute; inset: 0 -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
-    .kingdom-node.is-active .kingdom-node__enter { color: #fff8df; background: rgba(228,193,120,.12); }
-    .kingdom-node.is-active.is-arrived .kingdom-node__enter::before { animation: enter-realm-shimmer 2.4s ease-in-out infinite; }
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
     .badge-icon { width: 12px; height: 12px; }
@@ -603,6 +549,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       html { scroll-behavior: auto; }
       *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
     }
+    @media (max-width: 619px) {
+      body.is-atlas-view .atlas__status { display: none; }
+      body.is-atlas-view .atlas__bar { padding: 8px 0; }
+      body.is-atlas-view .atlas__controls { gap: 6px; }
+      .realm-panel { top: auto; bottom: 10px; right: 10px; left: 10px; width: auto; padding: 16px; }
+      .realm-panel__art { float: right; width: 85px; height: 65px; margin: 15px 16px 0 8px; }
+      .realm-panel h2 { font-size: 23px; margin-right: 105px; }
+      .realm-panel p { margin: 10px 0; font-size: 12px; line-height: 1.45; }
+      .realm-panel__actions { margin: 12px 0 0; }
+    }
   </style>
 </head>
 <body>
@@ -666,7 +622,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
           <div class="atlas__controls">
             <div class="atlas__node-controls">
               <button class="atlas__control" type="button" data-atlas-previous aria-label="Previous kingdom">&larr;</button>
-              <span class="atlas__location" aria-live="polite"><small data-atlas-current-index>01 / ${String(allApps.length).padStart(2, "0")}</small><strong data-atlas-current>${escapeHtml(allApps[0]?.route.title ?? "No kingdom")}</strong></span>
+              <span class="atlas__location" aria-live="polite"><small data-atlas-current-index>01 / ${String(allApps.length).padStart(2, "0")}</small><strong data-atlas-current>${escapeHtml(allApps[0]?.route.title ?? "No kingdom")}</strong><select data-realm-chooser aria-label="Choose a kingdom"></select></span>
               <button class="atlas__control" type="button" data-atlas-next aria-label="Next kingdom">&rarr;</button>
             </div>
             <div class="atlas__zoom-controls">
@@ -677,21 +633,22 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
             </div>
           </div>
         </div>
-        <div class="atlas__viewport" data-atlas tabindex="0" aria-label="Pannable sky atlas. Drag to move, scroll or pinch to zoom, hold arrow keys or WASD to travel." aria-describedby="atlas-controls-help">
-          <div class="atlas__canvas" data-atlas-canvas>
-            <div class="atlas__world" data-atlas-world>
-              <div class="atlas__region" style="left:800px;top:140px" aria-hidden="true">The Discovery Isles<small>Ideas &amp; knowledge</small></div>
-              <div class="atlas__region" style="left:1810px;top:810px" aria-hidden="true">The Commons<small>Files, stories &amp; media</small></div>
-              <div class="atlas__region" style="left:2870px;top:160px" aria-hidden="true">The Watchtower<small>Operations &amp; signals</small></div>
-              <div class="atlas__region" style="left:1620px;top:1820px" aria-hidden="true">The Frontier<small>Experiments in progress</small></div>
-              <svg class="sky-routes" viewBox="0 0 ${atlasWidth} ${atlasHeight}" preserveAspectRatio="none" aria-hidden="true">${routes}</svg>
-              <img class="atlas__pegasus" src="/assets/garden-pegasus-atlas.webp" alt="" aria-hidden="true" decoding="async" draggable="false" width="520" height="293" />
-              ${nodes}
-              <svg class="sky-route-terminals" viewBox="0 0 ${atlasWidth} ${atlasHeight}" preserveAspectRatio="none" aria-hidden="true">${routeTerminals}</svg>
-            </div>
-          </div>
+        <div class="atlas__viewport" data-atlas tabindex="0" aria-label="Interactive sky atlas" aria-describedby="atlas-controls-help">
+          <p class="atlas__loading" data-atlas-loading role="status">Charting the sky…</p>
+          <p class="atlas__loading" data-atlas-empty hidden>No kingdoms match. Adjust the filters below.</p>
         </div>
-        <details class="atlas__help"><summary>Map controls</summary><p id="atlas-controls-help">Drag anywhere to move. Scroll or pinch to zoom. Hold WASD or arrow keys to travel; Shift moves faster. Click a kingdom to focus. Drag the mini-map to travel farther. Press 0 for Overview, Escape to stop.</p></details>
+        <aside class="realm-panel" data-realm-panel aria-label="Selected kingdom" hidden>
+          <button type="button" class="realm-panel__close" data-panel-close aria-label="Close kingdom details">×</button>
+          <img class="realm-panel__art" data-realm-art alt="" />
+          <span class="realm-panel__category" data-realm-category></span>
+          <h2 data-realm-title></h2>
+          <span class="realm-panel__access" data-realm-access></span>
+          <p data-realm-description></p>
+          <a data-realm-author target="_blank" rel="noreferrer"></a>
+          <div class="realm-panel__actions"><a data-realm-enter>Enter realm ↗</a><a data-realm-source target="_blank" rel="noreferrer">GitHub ↗</a></div>
+          <button type="button" class="realm-panel__locate" data-realm-locate>Locate on map</button>
+        </aside>
+        <details class="atlas__help"><summary>Map controls</summary><p id="atlas-controls-help">Drag to explore. Scroll or pinch to zoom. Select a kingdom for details. Hold WASD or arrow keys to travel; Shift moves faster. Drag the world map to travel farther. Press 0 for Overview, Escape to stop.</p></details>
         <div class="atlas__minimap" data-atlas-minimap role="button" tabindex="0" aria-label="Atlas overview. Click or drag to travel. Press Enter for overview.">
           <div class="atlas__minimap-chart"><svg viewBox="0 0 ${atlasWidth} ${atlasHeight}" preserveAspectRatio="none" aria-hidden="true">
             ${minimapRoutes}
@@ -699,7 +656,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
           </svg>
           <span class="atlas__minimap-window" data-atlas-minimap-window aria-hidden="true"></span></div>
         </div>
-        <div class="atlas__progress" aria-hidden="true"><span data-atlas-progress></span></div>
+        <div class="atlas__progress" aria-hidden="true"></div>
       </section>
       <section class="realm-list" id="list-view" data-view-panel="list" aria-label="Realm list" hidden>
         <div class="realm-list__bar">
@@ -714,720 +671,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     </main>
     <footer class="footer" data-screen="catalogue" hidden><span>Garden of Zo</span><span>One server. Many worlds.</span></footer>
   </div>
-  <script>
-    const accessFilters = [...document.querySelectorAll('[data-filter]')];
-    const kindFilters = [...document.querySelectorAll('[data-kind-filter]')];
-    const viewButtons = [...document.querySelectorAll('[data-view]')];
-    const viewPanels = [...document.querySelectorAll('[data-view-panel]')];
-    const landingScreen = document.querySelector('[data-screen="landing"]');
-    const catalogueScreen = document.querySelector('main[data-screen="catalogue"]');
-    const catalogueFooter = document.querySelector('footer[data-screen="catalogue"]');
-    const closeCatalogueLinks = [...document.querySelectorAll('[data-close-catalogue]')];
-    const atlasCards = [...document.querySelectorAll('[data-atlas-card]')];
-    const listCards = [...document.querySelectorAll('[data-list-card]')];
-    const atlas = document.querySelector('[data-atlas]');
-    const status = document.querySelector('[data-atlas-status]');
-    const progress = document.querySelector('[data-atlas-progress]');
-    const zoomOut = document.querySelector('[data-atlas-zoom-out]');
-    const zoomIn = document.querySelector('[data-atlas-zoom-in]');
-    const reset = document.querySelector('[data-atlas-reset]');
-    const previousNode = document.querySelector('[data-atlas-previous]');
-    const nextNode = document.querySelector('[data-atlas-next]');
-    const currentNodeName = document.querySelector('[data-atlas-current]');
-    const currentNodeIndex = document.querySelector('[data-atlas-current-index]');
-    const minimap = document.querySelector('[data-atlas-minimap]');
-    const minimapWindow = document.querySelector('[data-atlas-minimap-window]');
-    const minimapNodes = [...document.querySelectorAll('[data-minimap-node]')];
-    const minimapRoutes = [...document.querySelectorAll('[data-minimap-route]')];
-    const world = document.querySelector('[data-atlas-world]');
-    const routes = [...document.querySelectorAll('[data-sky-route]')];
-    const routeTerminals = [...document.querySelectorAll('[data-sky-route-terminal]')];
-    const listCount = document.querySelector('[data-list-count]');
-    const viewEyebrow = document.querySelector('[data-view-eyebrow]');
-    const viewDescription = document.querySelector('[data-view-description]');
-    const hero = document.querySelector('.hero');
-    const visibleNodes = () => atlasCards.filter((card) => !card.hidden);
-    let accessFilter = 'all';
-    let kindFilter = 'all';
-    const worldWidth = ${atlasWidth};
-    const worldHeight = ${atlasHeight};
-    const explorationZoom = () => innerWidth < 620 ? .9 : .85;
-    let zoom = explorationZoom();
-    let viewportWidth = atlas.clientWidth || innerWidth;
-    let viewportHeight = atlas.clientHeight || innerHeight;
-    let cameraLeft = 0;
-    let cameraTop = 0;
-    const minimumZoom = () => Math.min(.22, viewportWidth / worldWidth, viewportHeight / worldHeight);
-    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let zoomTarget = zoom;
-    let cameraAnimation = null;
-    let motionFrame = 0;
-    let motionTime = 0;
-    let velocityX = 0;
-    let velocityY = 0;
-    const heldKeys = new Set();
-    let wheelZoomFrame = 0;
-    let wheelZoomDelta = 0;
-    let wheelFocusX = 0;
-    let wheelFocusY = 0;
-    let mapInitialised = false;
-    let activeNode = null;
-    const maximumZoom = () => innerWidth < 620 ? 2 : 2.4;
-    const clampZoom = (value) => Math.max(minimumZoom(), Math.min(maximumZoom(), value));
-    const canvasOffsetForZoom = () => 0;
-    const clampCameraScroll = (value, contentSize, viewportSize) => contentSize <= viewportSize
-      ? (contentSize - viewportSize) / 2
-      : Math.max(-80, Math.min(contentSize - viewportSize + 80, value));
-    const renderCamera = () => {
-      cameraLeft = clampCameraScroll(cameraLeft, worldWidth * zoom, viewportWidth);
-      cameraTop = clampCameraScroll(cameraTop, worldHeight * zoom, viewportHeight);
-      world.style.transform = 'translate3d(' + (-cameraLeft) + 'px,' + (-cameraTop) + 'px,0) scale(' + zoom + ')';
-      scheduleAtlasUpdate();
-    };
-    const stopMotion = () => {
-      cancelAnimationFrame(motionFrame);
-      motionFrame = 0;
-      velocityX = velocityY = 0;
-      heldKeys.clear();
-    };
-    const startMotion = () => {
-      if (motionFrame) return;
-      motionTime = performance.now();
-      const frame = (now) => {
-        const dt = Math.min(32, now - motionTime);
-        motionTime = now;
-        const x = Number(heldKeys.has('right')) - Number(heldKeys.has('left'));
-        const y = Number(heldKeys.has('down')) - Number(heldKeys.has('up'));
-        if (x || y) {
-          const speed = heldKeys.has('fast') ? 1.1 : .65;
-          const length = Math.hypot(x, y);
-          velocityX = x / length * speed;
-          velocityY = y / length * speed;
-        } else {
-          const decay = Math.exp(-dt / 105);
-          velocityX *= decay;
-          velocityY *= decay;
-        }
-        const left = cameraLeft;
-        const top = cameraTop;
-        cameraLeft += velocityX * dt;
-        cameraTop += velocityY * dt;
-        renderCamera();
-        if (Math.abs(cameraLeft - left) < .001) velocityX = 0;
-        if (Math.abs(cameraTop - top) < .001) velocityY = 0;
-        markInteracting();
-        if (x || y || Math.hypot(velocityX, velocityY) > .02) motionFrame = requestAnimationFrame(frame);
-        else motionFrame = 0;
-      };
-      motionFrame = requestAnimationFrame(frame);
-    };
-    const updateZoomControls = () => {
-      zoomOut.disabled = zoomTarget <= minimumZoom();
-      zoomIn.disabled = zoomTarget >= maximumZoom();
-    };
-    const cancelWheelZoom = () => {
-      cancelAnimationFrame(wheelZoomFrame);
-      wheelZoomFrame = 0;
-      wheelZoomDelta = 0;
-    };
-    const cancelZoomAnimation = () => {
-      if (!cameraAnimation) return;
-      cancelAnimationFrame(cameraAnimation.frame);
-      cameraAnimation = null;
-      zoomTarget = zoom;
-      atlas.classList.remove('is-zooming');
-      updateZoomControls();
-      scheduleAtlasUpdate();
-    };
-    const setZoom = (nextZoom, focusX = viewportWidth / 2, focusY = viewportHeight / 2) => {
-      cancelZoomAnimation();
-      const oldZoom = zoom;
-      const oldOffset = canvasOffsetForZoom(oldZoom);
-      zoom = clampZoom(nextZoom);
-      zoomTarget = zoom;
-      const worldX = (cameraLeft + focusX - oldOffset) / oldZoom;
-      const worldY = (cameraTop + focusY) / oldZoom;
-      const nextOffset = canvasOffsetForZoom(zoom);
-      cameraLeft = worldX * zoom + nextOffset - focusX;
-      cameraTop = worldY * zoom - focusY;
-      renderCamera();
-      updateZoomControls();
-      scheduleAtlasUpdate();
-    };
-    const animateCamera = (nextZoom, nextLeft, nextTop, duration, onArrival) => {
-      stopMotion();
-      cancelWheelZoom();
-      clearTimeout(interactionTimer);
-      atlas.classList.remove('is-interacting');
-      const targetZoom = clampZoom(nextZoom);
-      cancelZoomAnimation();
-      const startZoom = zoom;
-      const startLeft = cameraLeft;
-      const startTop = cameraTop;
-      const targetLeft = clampCameraScroll(nextLeft, worldWidth * targetZoom, viewportWidth);
-      const targetTop = clampCameraScroll(nextTop, worldHeight * targetZoom, viewportHeight);
-      if (!duration || reducedMotion || (Math.abs(targetZoom - startZoom) < .002 && Math.abs(targetLeft - startLeft) < 1 && Math.abs(targetTop - startTop) < 1)) {
-        zoom = targetZoom;
-        zoomTarget = targetZoom;
-        cameraLeft = targetLeft;
-        cameraTop = targetTop;
-        renderCamera();
-        updateZoomControls();
-        updateAtlas();
-        onArrival?.();
-        return;
-      }
-      zoomTarget = targetZoom;
-      updateZoomControls();
-      atlas.classList.add('is-zooming');
-      const animation = { frame: 0, start: performance.now() };
-      cameraAnimation = animation;
-      const frame = (now) => {
-        if (cameraAnimation !== animation) return;
-        const t = Math.min(1, (now - animation.start) / duration);
-        const eased = 1 - Math.pow(1 - t, 3);
-        zoom = startZoom + (targetZoom - startZoom) * eased;
-        cameraLeft = startLeft + (targetLeft - startLeft) * eased;
-        cameraTop = startTop + (targetTop - startTop) * eased;
-        renderCamera();
-        if (t < 1) animation.frame = requestAnimationFrame(frame);
-        else {
-          cameraAnimation = null;
-          atlas.classList.remove('is-zooming');
-          updateZoomControls();
-          onArrival?.();
-        }
-      };
-      animation.frame = requestAnimationFrame(frame);
-    };
-    const animateZoom = (nextZoom, focusX = atlas.clientWidth / 2, focusY = atlas.clientHeight / 2) => {
-      const targetZoom = clampZoom(nextZoom);
-      cancelZoomAnimation();
-      const startOffset = canvasOffsetForZoom(zoom);
-      const targetOffset = canvasOffsetForZoom(targetZoom);
-      const worldX = (cameraLeft + focusX - startOffset) / zoom;
-      const worldY = (cameraTop + focusY) / zoom;
-      const targetLeft = worldX * targetZoom + targetOffset - focusX;
-      const targetTop = worldY * targetZoom - focusY;
-      animateCamera(targetZoom, targetLeft, targetTop, 180);
-    };
-    const centreNode = (node, behavior = 'smooth') => {
-      if (!node) return;
-      cancelZoomAnimation();
-      const x = node.offsetLeft * zoom + node.offsetWidth * zoom / 2 + canvasOffsetForZoom(zoom) - atlas.clientWidth / 2;
-      const y = node.offsetTop * zoom + 170 * zoom - atlas.clientHeight / 2;
-      clearTimeout(interactionTimer);
-      atlas.classList.remove('is-interacting');
-      animateCamera(zoom, x, y, behavior === 'auto' ? 0 : 240);
-    };
-    const setActiveNode = (node, shouldCentre = true, behavior = 'smooth') => {
-      const visible = visibleNodes();
-      if (!node || node.hidden) node = visible[0] || null;
-      const activeChanged = node !== activeNode;
-      activeNode = node;
-      atlasCards.forEach((card) => {
-        const selected = card === activeNode;
-        card.classList.toggle('is-active', selected);
-        if (!selected || activeChanged) card.classList.remove('is-arrived');
-        const selector = card.querySelector('[data-atlas-select]');
-        selector?.setAttribute('aria-pressed', String(selected));
-      });
-      const visibleIndex = Math.max(0, visible.indexOf(activeNode));
-      currentNodeName.textContent = activeNode?.dataset.nodeTitle || 'No kingdom';
-      currentNodeIndex.textContent = activeNode
-        ? String(visibleIndex + 1).padStart(2, '0') + ' / ' + String(visible.length).padStart(2, '0')
-        : '00 / 00';
-      previousNode.disabled = visible.length < 2;
-      nextNode.disabled = visible.length < 2;
-      routes.forEach((route) => route.classList.toggle('is-active', route.dataset.from === activeNode?.dataset.nodeIndex || route.dataset.to === activeNode?.dataset.nodeIndex));
-      minimapNodes.forEach((node) => node.classList.toggle('is-active', node.dataset.nodeIndex === activeNode?.dataset.nodeIndex));
-      if (shouldCentre && activeNode) centreNode(activeNode, behavior);
-    };
-    const focusNode = (node) => {
-      if (!node || node.hidden) return;
-      cancelZoomAnimation();
-      node.classList.remove('is-arrived');
-      setActiveNode(node, false);
-      const focusZoom = innerWidth < 620 ? 1.05 : innerWidth < 1000 ? 1.2 : 1.38;
-      const targetZoom = clampZoom(Math.max(zoom, focusZoom));
-      if (reducedMotion) {
-        setZoom(targetZoom);
-        centreNode(node, 'auto');
-        node.classList.add('is-arrived');
-        return;
-      }
-      const nodeCentreX = node.offsetLeft + node.offsetWidth / 2;
-      const nodeCentreY = node.offsetTop + 170;
-      const targetOffset = canvasOffsetForZoom(targetZoom);
-      const targetLeft = nodeCentreX * targetZoom + targetOffset - atlas.clientWidth / 2;
-      const targetTop = nodeCentreY * targetZoom - atlas.clientHeight / 2;
-      animateCamera(targetZoom, targetLeft, targetTop, 300, () => {
-        if (activeNode === node) node.classList.add('is-arrived');
-      });
-    };
-    const fitMap = (behavior = 'smooth') => {
-      cancelWheelZoom();
-      const visible = visibleNodes();
-      if (!visible.length) return;
-      cancelZoomAnimation();
-      const padding = innerWidth < 620 ? 58 : 95;
-      const left = Math.min(...visible.map((node) => node.offsetLeft));
-      const top = Math.min(...visible.map((node) => node.offsetTop));
-      const right = Math.max(...visible.map((node) => node.offsetLeft + node.offsetWidth));
-      const bottom = Math.max(...visible.map((node) => node.offsetTop + 370));
-      const contentWidth = right - left + padding * 2;
-      const contentHeight = bottom - top + padding * 2;
-      const targetZoom = Math.max(minimumZoom(), Math.min(1.08, (atlas.clientWidth - 24) / contentWidth, (atlas.clientHeight - 24) / contentHeight));
-      const scaledWidth = (right - left) * targetZoom;
-      const scaledHeight = (bottom - top) * targetZoom;
-      animateCamera(targetZoom,
-        left * targetZoom + canvasOffsetForZoom(targetZoom) - (atlas.clientWidth - scaledWidth) / 2,
-        top * targetZoom - (atlas.clientHeight - scaledHeight) / 2,
-        behavior === 'auto' ? 0 : 240);
-    };
-    const exploreMap = (behavior = 'smooth') => {
-      if (!activeNode) return;
-      const targetZoom = explorationZoom();
-      animateCamera(targetZoom,
-        (activeNode.offsetLeft + activeNode.offsetWidth / 2) * targetZoom + canvasOffsetForZoom(targetZoom) - atlas.clientWidth / 2,
-        (activeNode.offsetTop + 170) * targetZoom - atlas.clientHeight / 2,
-        behavior === 'auto' ? 0 : 240);
-    };
-    const moveNode = (step) => {
-      const visible = visibleNodes();
-      if (!visible.length) return;
-      const index = Math.max(0, visible.indexOf(activeNode));
-      setActiveNode(visible[(index + step + visible.length) % visible.length]);
-    };
-    const navigateSpatially = (direction) => {
-      const visible = visibleNodes();
-      if (!visible.length) return;
-      const origin = activeNode && !activeNode.hidden ? activeNode : visible[0];
-      const originX = origin.offsetLeft + origin.offsetWidth / 2;
-      const originY = origin.offsetTop + 54;
-      const candidates = visible.filter((node) => {
-        if (node === origin) return false;
-        const dx = node.offsetLeft + node.offsetWidth / 2 - originX;
-        const dy = node.offsetTop + 54 - originY;
-        if (direction === 'left') return dx < -10;
-        if (direction === 'right') return dx > 10;
-        if (direction === 'up') return dy < -10;
-        return dy > 10;
-      });
-      const target = candidates.sort((a, b) => {
-        const score = (node) => {
-          const dx = node.offsetLeft + node.offsetWidth / 2 - originX;
-          const dy = node.offsetTop + 54 - originY;
-          const primary = direction === 'left' || direction === 'right' ? Math.abs(dx) : Math.abs(dy);
-          const secondary = direction === 'left' || direction === 'right' ? Math.abs(dy) : Math.abs(dx);
-          return primary + secondary * 1.7;
-        };
-        return score(a) - score(b);
-      })[0];
-      if (target) setActiveNode(target);
-    };
-    const setView = (view, remember = true) => {
-      stopMotion();
-      clearPointers();
-      cancelWheelZoom();
-      cancelZoomAnimation();
-      const selected = view === 'list' ? 'list' : 'atlas';
-      document.body.classList.toggle('is-atlas-view', selected === 'atlas');
-      viewButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.view === selected)));
-      viewPanels.forEach((panel) => { panel.hidden = panel.dataset.viewPanel !== selected; });
-      viewEyebrow.textContent = selected === 'list' ? 'The realm directory' : 'The sky atlas';
-      viewDescription.textContent = selected === 'list'
-        ? 'Scan every app, workflow and agent in one compact directory, then enter any realm directly.'
-        : 'Travel from node to node across your apps, workflows and agents. Every stop is a live destination in the Garden of Zo.';
-      if (remember) {
-        try { localStorage.setItem('garden-of-zo-view', selected); } catch {}
-        const nextHash = selected === 'list' ? '#list' : '#atlas';
-        history.replaceState(null, '', location.pathname + location.search + nextHash);
-      }
-      if (selected === 'atlas') requestAnimationFrame(() => {
-        viewportWidth = atlas.clientWidth;
-        viewportHeight = atlas.clientHeight;
-        document.querySelector('.atlas').classList.remove('is-offscreen');
-        refreshRoute();
-        if (!mapInitialised) {
-          setActiveNode(visibleNodes().find((node) => node.dataset.nodeTitle === 'Zo Drive') || visibleNodes()[0], false);
-          exploreMap('auto');
-          mapInitialised = true;
-        }
-        updateAtlas();
-      });
-    };
-    const refreshRoute = () => {
-      [...routes, ...routeTerminals].forEach((route) => {
-        const from = atlasCards[Number(route.dataset.from)];
-        const to = atlasCards[Number(route.dataset.to)];
-        route.classList.toggle('is-hidden', from.hidden || to.hidden);
-      });
-      minimapRoutes.forEach((route) => {
-        const from = atlasCards[Number(route.dataset.from)];
-        const to = atlasCards[Number(route.dataset.to)];
-        route.classList.toggle('is-hidden', from.hidden || to.hidden);
-      });
-      minimapNodes.forEach((node) => {
-        node.classList.toggle('is-hidden', atlasCards[Number(node.dataset.nodeIndex)].hidden);
-      });
-    };
-    const updateAtlas = () => {
-      const visible = visibleNodes();
-      const text = visible.length
-        ? String(visible.length).padStart(2, '0') + ' kingdoms charted · ' + Math.round(zoom * 100) + '% scale'
-        : '00 kingdoms charted · adjust filters to continue';
-      if (!visible.length) {
-        if (status.textContent !== text) status.textContent = text;
-        progress.style.width = '0';
-        progress.style.transform = 'translateX(0)';
-        return;
-      }
-      const width = viewportWidth;
-      const height = viewportHeight;
-      const scrollWidth = Math.max(width, worldWidth * zoom);
-      const left = Math.max(0, cameraLeft);
-      const top = Math.max(0, cameraTop);
-      const max = Math.max(1, scrollWidth - width);
-      const viewportRatio = Math.min(1, width / scrollWidth);
-      const progressWidth = Math.max(8, viewportRatio * 100) + '%';
-      const progressTransform = 'translateX(' + (left / max * (100 / viewportRatio - 100)) + '%)';
-      if (status.textContent !== text) status.textContent = text;
-      if (progress.style.width !== progressWidth) progress.style.width = progressWidth;
-      if (progress.style.transform !== progressTransform) progress.style.transform = progressTransform;
-      const windowWidth = Math.min(worldWidth, width / zoom);
-      const windowHeight = Math.min(worldHeight, height / zoom);
-      const windowX = Math.min(worldWidth - windowWidth, left / zoom);
-      const windowY = Math.min(worldHeight - windowHeight, top / zoom);
-      const miniWidth = windowWidth / worldWidth * 100 + '%';
-      const miniHeight = windowHeight / worldHeight * 100 + '%';
-      if (minimapWindow.style.width !== miniWidth) minimapWindow.style.width = miniWidth;
-      if (minimapWindow.style.height !== miniHeight) minimapWindow.style.height = miniHeight;
-      minimapWindow.style.transform = 'translate(' + (windowX / windowWidth * 100) + '%,' + (windowY / windowHeight * 100) + '%)';
-    };
-    let atlasUpdateFrame = 0;
-    let interactionTimer = 0;
-    const scheduleAtlasUpdate = () => {
-      if (atlasUpdateFrame) return;
-      atlasUpdateFrame = requestAnimationFrame(() => {
-        atlasUpdateFrame = 0;
-        updateAtlas();
-      });
-    };
-    const syncActiveToViewport = () => {
-      const visible = visibleNodes();
-      if (!visible.length) return;
-      const centreX = (cameraLeft + viewportWidth / 2) / zoom;
-      const centreY = (cameraTop + viewportHeight / 2) / zoom;
-      const nearest = visible.sort((a, b) => {
-        const distance = (node) => {
-          const dx = node.offsetLeft + node.offsetWidth / 2 - centreX;
-          const dy = node.offsetTop + 54 - centreY;
-          return dx * dx + dy * dy;
-        };
-        return distance(a) - distance(b);
-      })[0];
-      setActiveNode(nearest, false);
-    };
-    const markInteracting = () => {
-      atlas.classList.add('is-interacting');
-      clearTimeout(interactionTimer);
-      interactionTimer = setTimeout(() => {
-        atlas.classList.remove('is-interacting');
-      }, 140);
-    };
-    const applyFilters = () => {
-      [...atlasCards, ...listCards].forEach((card) => {
-        const accessMismatch = accessFilter !== 'all' && card.dataset.access !== accessFilter;
-        const kindMismatch = kindFilter !== 'all' && card.dataset.kind !== kindFilter;
-        card.hidden = accessMismatch || kindMismatch;
-      });
-      listCount.textContent = String(listCards.filter((card) => !card.hidden).length);
-      requestAnimationFrame(() => {
-        refreshRoute();
-        setActiveNode(activeNode && !activeNode.hidden ? activeNode : visibleNodes()[0], false);
-        if (document.body.classList.contains('is-atlas-view')) exploreMap();
-        updateAtlas();
-      });
-    };
-    accessFilters.forEach((button) => button.addEventListener('click', () => {
-      accessFilter = button.dataset.filter;
-      accessFilters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-      applyFilters();
-    }));
-    kindFilters.forEach((button) => button.addEventListener('click', () => {
-      kindFilter = button.dataset.kindFilter;
-      kindFilters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-      applyFilters();
-    }));
-    viewButtons.forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
-    zoomOut.addEventListener('click', () => animateZoom(zoomTarget - .16));
-    zoomIn.addEventListener('click', () => animateZoom(zoomTarget + .16));
-    reset.addEventListener('click', () => fitMap());
-    document.querySelector('[data-atlas-explore]').addEventListener('click', () => exploreMap());
-    previousNode.addEventListener('click', () => moveNode(-1));
-    nextNode.addEventListener('click', () => moveNode(1));
-    atlasCards.forEach((card) => card.querySelector('[data-atlas-select]')?.addEventListener('click', () => focusNode(card)));
-    atlasCards.forEach((card) => card.addEventListener('focusin', () => setActiveNode(card, false)));
-    atlas.addEventListener('wheel', (event) => {
-      event.preventDefault();
-      stopMotion();
-      cancelZoomAnimation();
-      if (!event.shiftKey) {
-        const bounds = atlas.getBoundingClientRect();
-        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? atlas.clientHeight : 1;
-        wheelZoomDelta += Math.max(-100, Math.min(100, event.deltaY * unit));
-        wheelFocusX = event.clientX - bounds.left;
-        wheelFocusY = event.clientY - bounds.top;
-        if (!wheelZoomFrame) wheelZoomFrame = requestAnimationFrame(() => {
-          wheelZoomFrame = 0;
-          const delta = wheelZoomDelta;
-          wheelZoomDelta = 0;
-          setZoom(zoom * Math.exp(-delta * .003), wheelFocusX, wheelFocusY);
-          markInteracting();
-        });
-        return;
-      }
-      cancelWheelZoom();
-      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? atlas.clientHeight : 1;
-      cameraLeft += (event.deltaX || event.deltaY) * unit;
-      renderCamera();
-      markInteracting();
-    }, { passive: false });
-    const keyDirection = (key) => ({ ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down' })[key];
-    atlas.addEventListener('keydown', (event) => {
-      if (event.target.closest('input, textarea, select, [contenteditable]') || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (event.key === 'Escape') { stopMotion(); cancelWheelZoom(); cancelZoomAnimation(); return; }
-      if (event.key === '0') { event.preventDefault(); fitMap(); return; }
-      if (event.key === '+' || event.key === '=' || event.key === '-') {
-        event.preventDefault(); animateZoom(zoomTarget * (event.key === '-' ? .8 : 1.25)); return;
-      }
-      const direction = keyDirection(event.key);
-      if (!direction) return;
-      event.preventDefault();
-      cancelWheelZoom();
-      cancelZoomAnimation();
-      heldKeys.add(direction);
-      if (event.shiftKey) heldKeys.add('fast'); else heldKeys.delete('fast');
-      startMotion();
-    });
-    addEventListener('keyup', (event) => {
-      heldKeys.delete(keyDirection(event.key));
-      if (event.key === 'Shift') heldKeys.delete('fast');
-      if (![...heldKeys].some((key) => key !== 'fast')) stopMotion();
-    });
-    const stopCamera = () => { stopMotion(); cancelWheelZoom(); cancelZoomAnimation(); };
-    addEventListener('blur', stopCamera);
-    atlas.addEventListener('focusout', (event) => { if (!atlas.contains(event.relatedTarget)) stopMotion(); });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) stopCamera(); });
-    const moveFromMinimap = (event, immediate = false) => {
-      cancelWheelZoom();
-      cancelZoomAnimation();
-      const bounds = minimap.querySelector('svg').getBoundingClientRect();
-      const worldX = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) * worldWidth;
-      const worldY = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)) * worldHeight;
-      const targetZoom = Math.max(zoom, explorationZoom());
-      animateCamera(targetZoom,
-        worldX * targetZoom + canvasOffsetForZoom(targetZoom) - atlas.clientWidth / 2,
-        worldY * targetZoom - atlas.clientHeight / 2,
-        immediate ? 0 : 240, immediate ? undefined : syncActiveToViewport);
-    };
-    let minimapPointer = null;
-    minimap.addEventListener('pointerdown', (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      minimapPointer = event.pointerId;
-      minimap.setPointerCapture(event.pointerId);
-      moveFromMinimap(event);
-    });
-    minimap.addEventListener('pointermove', (event) => {
-      if (event.pointerId === minimapPointer) moveFromMinimap(event, true);
-    });
-    const endMinimap = () => { minimapPointer = null; };
-    minimap.addEventListener('pointerup', endMinimap);
-    minimap.addEventListener('pointercancel', endMinimap);
-    minimap.addEventListener('lostpointercapture', endMinimap);
-    minimap.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        fitMap();
-      }
-    });
-    let dragStartX = 0;
-    let dragStartY = 0;
-    let dragLeft = 0;
-    let dragTop = 0;
-    let pendingDragX = 0;
-    let pendingDragY = 0;
-    let dragFrame = 0;
-    let dragMoved = false;
-    let lastDragTime = 0;
-    let lastMoveTime = 0;
-    let suppressClickUntil = 0;
-    const pointers = new Map();
-    let pinch = null;
-    const beginPinch = () => {
-      const [a, b] = [...pointers.values()];
-      const bounds = atlas.getBoundingClientRect();
-      const x = (a.x + b.x) / 2 - bounds.left;
-      const y = (a.y + b.y) / 2 - bounds.top;
-      pinch = { distance: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), zoom, worldX: (cameraLeft + x) / zoom, worldY: (cameraTop + y) / zoom, bounds };
-      dragMoved = true;
-    };
-    const flushDrag = () => {
-      cancelAnimationFrame(dragFrame);
-      dragFrame = 0;
-      if (!pointers.size || !dragMoved) return;
-      if (pointers.size > 1 && pinch) {
-        const [a, b] = [...pointers.values()];
-        zoom = clampZoom(pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y) / pinch.distance);
-        zoomTarget = zoom;
-        cameraLeft = pinch.worldX * zoom - ((a.x + b.x) / 2 - pinch.bounds.left);
-        cameraTop = pinch.worldY * zoom - ((a.y + b.y) / 2 - pinch.bounds.top);
-        velocityX = velocityY = 0;
-        updateZoomControls();
-      } else {
-        const left = cameraLeft;
-        const top = cameraTop;
-        cameraLeft = dragLeft - (pendingDragX - dragStartX);
-        cameraTop = dragTop - (pendingDragY - dragStartY);
-        const now = performance.now();
-        const dt = Math.max(8, now - lastDragTime);
-        velocityX = Math.max(-2, Math.min(2, (cameraLeft - left) / dt));
-        velocityY = Math.max(-2, Math.min(2, (cameraTop - top) / dt));
-        lastDragTime = now;
-      }
-      renderCamera();
-      markInteracting();
-    };
-    atlas.addEventListener('pointerdown', (event) => {
-      if (event.button !== 0 || event.target.closest('a, button:not([data-atlas-select])')) return;
-      event.preventDefault();
-      stopCamera();
-      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-      if (pointers.size > 1) { beginPinch(); return; }
-      dragStartX = event.clientX;
-      dragStartY = event.clientY;
-      pendingDragX = dragStartX;
-      pendingDragY = dragStartY;
-      dragLeft = cameraLeft;
-      dragTop = cameraTop;
-      lastDragTime = lastMoveTime = performance.now();
-      dragMoved = false;
-      atlas.focus({ preventScroll: true });
-    });
-    addEventListener('pointermove', (event) => {
-      if (!pointers.has(event.pointerId)) return;
-      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-      pendingDragX = event.clientX;
-      pendingDragY = event.clientY;
-      if (!dragMoved && Math.hypot(pendingDragX - dragStartX, pendingDragY - dragStartY) < 5) return;
-      dragMoved = true;
-      lastMoveTime = performance.now();
-      atlas.classList.add('is-dragging');
-      if (!atlas.hasPointerCapture(event.pointerId)) atlas.setPointerCapture(event.pointerId);
-      if (dragFrame) return;
-      dragFrame = requestAnimationFrame(flushDrag);
-    });
-    const endDrag = (event) => {
-      if (event.type === 'lostpointercapture' && event.target !== atlas) return;
-      if (!pointers.has(event.pointerId)) return;
-      if (dragFrame) flushDrag();
-      pointers.delete(event.pointerId);
-      if (dragMoved) suppressClickUntil = performance.now() + 350;
-      if (pointers.size === 1) {
-        const remaining = [...pointers.values()][0];
-        dragStartX = pendingDragX = remaining.x;
-        dragStartY = pendingDragY = remaining.y;
-        dragLeft = cameraLeft;
-        dragTop = cameraTop;
-        pinch = null;
-        velocityX = velocityY = 0;
-        lastDragTime = performance.now();
-        return;
-      }
-      atlas.classList.remove('is-dragging');
-      pinch = null;
-      if (event.type === 'pointerup' && dragMoved && !reducedMotion && performance.now() - lastMoveTime < 80) startMotion();
-      else stopMotion();
-    };
-    addEventListener('pointerup', endDrag);
-    addEventListener('pointercancel', endDrag);
-    atlas.addEventListener('lostpointercapture', endDrag);
-    atlas.addEventListener('click', (event) => {
-      if (event.detail && performance.now() < suppressClickUntil) { event.preventDefault(); event.stopImmediatePropagation(); }
-    }, true);
-    atlas.addEventListener('dragstart', (event) => event.preventDefault());
-    const clearPointers = () => {
-      pointers.clear(); pinch = null; cancelAnimationFrame(dragFrame); dragFrame = 0;
-      atlas.classList.remove('is-dragging');
-    };
-    addEventListener('blur', clearPointers);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) clearPointers(); });
-    let resizeFrame = 0;
-    addEventListener('resize', () => {
-      if (resizeFrame) cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(() => {
-        resizeFrame = 0;
-        stopMotion();
-        clearPointers();
-        cancelWheelZoom();
-        cancelZoomAnimation();
-        refreshRoute();
-        const centreX = (cameraLeft + viewportWidth / 2) / zoom;
-        const centreY = (cameraTop + viewportHeight / 2) / zoom;
-        viewportWidth = atlas.clientWidth || viewportWidth;
-        viewportHeight = atlas.clientHeight || viewportHeight;
-        zoom = clampZoom(zoom);
-        zoomTarget = zoom;
-        cameraLeft = centreX * zoom - viewportWidth / 2;
-        cameraTop = centreY * zoom - viewportHeight / 2;
-        renderCamera();
-        updateZoomControls();
-        updateAtlas();
-      });
-    });
-    if ('IntersectionObserver' in window) {
-      const visibilityObserver = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => entry.target.classList.toggle('is-offscreen', !entry.isIntersecting));
-      }, { rootMargin: '120px' });
-      visibilityObserver.observe(hero);
-    }
-    let savedView = 'atlas';
-    try { savedView = localStorage.getItem('garden-of-zo-view') || 'atlas'; } catch {}
-    let catalogueInitialised = false;
-    const syncScreen = () => {
-      const showCatalogue = location.hash === '#atlas' || location.hash === '#list' || location.hash === '#realms';
-      landingScreen.hidden = showCatalogue;
-      catalogueScreen.hidden = !showCatalogue;
-      catalogueFooter.hidden = !showCatalogue;
-      document.body.classList.toggle('is-catalogue-open', showCatalogue);
-      if (!showCatalogue) {
-        stopMotion();
-        clearPointers();
-        cancelWheelZoom();
-        cancelZoomAnimation();
-        document.body.classList.remove('is-atlas-view');
-      }
-      if (showCatalogue) {
-        const requestedView = location.hash === '#atlas' ? 'atlas' : location.hash === '#list' ? 'list' : null;
-        const activeView = requestedView || (catalogueInitialised
-          ? viewButtons.find((button) => button.getAttribute('aria-pressed') === 'true')?.dataset.view || savedView
-          : savedView);
-        setZoom(zoom);
-        setView(activeView, false);
-        catalogueInitialised = true;
-      }
-      requestAnimationFrame(() => scrollTo({ top: 0, behavior: 'auto' }));
-    };
-    closeCatalogueLinks.forEach((link) => link.addEventListener('click', (event) => {
-      event.preventDefault();
-      history.replaceState(null, '', location.pathname + location.search);
-      syncScreen();
-    }));
-    addEventListener('hashchange', syncScreen);
-    syncScreen();
-  </script>
+  <script type="application/json" id="atlas-data">${JSON.stringify(atlasData).replace(/</g, '\\u003c')}</script>
+  <script type="module" src="/atlas-client.js?v=canvas-1"></script>
 </body>
 </html>`;
 }
@@ -1444,6 +689,7 @@ function contentLength(headers: Headers): number {
 export function createHandler(configFile: string) {
   const config = loadConfig(configFile);
   const catalog = loadCatalogConfigs(configFile);
+  let clientBuild: Promise<string> | undefined;
   const realmArtFiles = new Map(catalog.flatMap((gateway) => gateway.routes.map((route) => {
     const file = `garden-realm-${route.atlas.art}.webp`;
     return [`/assets/${file}`, file] as const;
@@ -1485,6 +731,14 @@ export function createHandler(configFile: string) {
 
   return async (request: Request): Promise<Response> => {
     const url = new URL(request.url);
+
+    if (url.pathname === "/atlas-client.js") {
+      clientBuild ??= Bun.build({ entrypoints: [join(import.meta.dir, "client/atlas.ts")], target: "browser", minify: true }).then(async result => {
+        if (!result.success) throw new Error(result.logs.join("\n"));
+        return result.outputs[0].text();
+      }).catch(error => { clientBuild = undefined; throw error; });
+      return new Response(await clientBuild, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" } });
+    }
 
     if (url.pathname === "/health") {
       return Response.json({
