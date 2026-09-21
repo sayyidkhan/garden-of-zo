@@ -15,8 +15,8 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-backlog",
       "atlas": {
-        "x": 1645,
-        "y": 574,
+        "x": 2710,
+        "y": 1090,
         "art": "zo-backlog",
         "scale": 1.06,
         "links": [
@@ -36,12 +36,54 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-usage",
       "atlas": {
-        "x": 2015,
-        "y": 334,
+        "x": 3020,
+        "y": 420,
         "art": "zo-usage",
         "scale": 1.12
       },
       "targetOrigin": "http://127.0.0.1:8791"
+    },
+    {
+      "prefix": "/mailhub",
+      "label": "gigradar-mailhub",
+      "title": "GigRadar MailHub",
+      "description": "Monitor priority mail across encrypted IMAP connections without inbox noise.",
+      "category": "Communications",
+      "kind": "app",
+      "icon": "lock",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/gigradarapp/gr-mailhub",
+      "atlas": {
+        "x": 3170,
+        "y": 1520,
+        "art": "mailhub",
+        "scale": 1,
+        "links": [
+          { "to": "zo-usage", "bend": 42 }
+        ]
+      },
+      "targetOrigin": "http://127.0.0.1:8787"
+    },
+    {
+      "prefix": "/riven-proj-tracker",
+      "label": "riven-proj-tracker",
+      "title": "Riven Project Tracker",
+      "description": "Track Riven Buildsmith's approved work, live execution, review queue and audit trail.",
+      "category": "Agent Operations",
+      "kind": "app",
+      "icon": "spark",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-riven",
+      "atlas": {
+        "x": 2470,
+        "y": 1740,
+        "art": "riven-proj-tracker",
+        "scale": 0.98,
+        "links": [
+          { "to": "zo-backlog", "bend": 36 }
+        ]
+      },
+      "targetOrigin": "http://127.0.0.1:8798"
     }
   ]
 }

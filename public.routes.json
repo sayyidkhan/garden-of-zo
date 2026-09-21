@@ -15,8 +15,8 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-relationship-mapper",
       "atlas": {
-        "x": 265,
-        "y": 444,
+        "x": 650,
+        "y": 620,
         "art": "relationship-mapper",
         "scale": 0.88,
         "links": [
@@ -37,8 +37,8 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/itachiscrow",
       "atlas": {
-        "x": 1235,
-        "y": 372,
+        "x": 1770,
+        "y": 460,
         "art": "itachis-crow",
         "scale": 1.02
       },
@@ -57,8 +57,8 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-expert",
       "atlas": {
-        "x": 605,
-        "y": 164,
+        "x": 1130,
+        "y": 330,
         "art": "zo-expert",
         "scale": 1.08,
         "links": [
@@ -78,8 +78,8 @@
       "authorId": "pocketbase",
       "repositoryUrl": "https://github.com/pocketbase/pocketbase",
       "atlas": {
-        "x": 635,
-        "y": 744,
+        "x": 970,
+        "y": 1150,
         "art": "pocketbase",
         "scale": 0.9,
         "links": [
@@ -103,8 +103,8 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-drive",
       "atlas": {
-        "x": 985,
-        "y": 404,
+        "x": 1530,
+        "y": 940,
         "art": "zo-drive",
         "scale": 1.18,
         "links": [
@@ -127,8 +127,8 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-tube",
       "atlas": {
-        "x": 1245,
-        "y": 794,
+        "x": 1600,
+        "y": 1470,
         "art": "zo-tube",
         "scale": 0.96,
         "links": [
@@ -149,8 +149,8 @@
       "authorId": "sayyidkhan",
       "repositoryUrl": "https://github.com/sayyidkhan/zo-memories",
       "atlas": {
-        "x": 1505,
-        "y": 144,
+        "x": 2190,
+        "y": 850,
         "art": "zo-moments",
         "scale": 1.02,
         "links": [
@@ -159,6 +159,44 @@
         ]
       },
       "targetOrigin": "http://127.0.0.1:8790",
+      "stripPrefix": true
+    },
+    {
+      "prefix": "/staging/batam-100-site",
+      "label": "batam-100-site",
+      "title": "Batam 100 Itinerary",
+      "description": "A mobile-first itinerary and local-only trip planner for Hackathon 100.",
+      "category": "Hackathon",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/batam-100-site",
+      "atlas": {
+        "x": 1390,
+        "y": 2040,
+        "art": "relationship-mapper",
+        "scale": 0.82
+      },
+      "targetOrigin": "http://127.0.0.1:8807",
+      "stripPrefix": true
+    },
+    {
+      "prefix": "/staging/tampalidea",
+      "label": "tampalidea",
+      "title": "TampalIdea",
+      "description": "A consent-first contributor and ownership tracker, built as a browser-local MVP.",
+      "category": "Hackathon",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/tampalidea",
+      "atlas": {
+        "x": 1930,
+        "y": 2020,
+        "art": "relationship-mapper",
+        "scale": 0.82
+      },
+      "targetOrigin": "http://127.0.0.1:8808",
       "stripPrefix": true
     }
   ]

@@ -13,7 +13,8 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - every realm uses its own lightweight transparent kingdom asset in both Atlas and List views
 - authors live in `authors.json`; every realm references one reusable `authorId`, and both views link that attribution to the author's profile
 - Atlas placement and graph links live in each route's manifest entry; routes, beacon terminals, kingdom artwork and the mini-map all derive from the same canonical coordinates
-- Atlas navigation includes a fitted overview, active-kingdom stepping, continuous focal zoom, a viewport mini-map, and spatial arrow/WASD movement
+- The existing Sky Atlas View at `/#atlas` opens at a readable exploration scale centred on Zo Drive, with widely spaced kingdoms and four geographical labels. Overview explicitly fits the world; Explore returns to reading scale. Filters preserve exploration instead of fitting every result. The mini-map jumps to a location at reading scale; active-kingdom stepping, focal zoom and arrow/WASD movement remain available. Atlas improvements belong in this existing view; there is no separate `/map` route.
+- Map labels show the title, category and access level; selection, hover or keyboard focus reveals attribution and destination/source actions. Paths connected to the active kingdom are highlighted.
 - selecting kingdom artwork uses a Web Animations compositor camera to zoom and centre the map without navigating; the selected kingdom sparkles and starts its `Enter realm` shimmer only after the camera arrives, desktop focus reaches 138%, manual zoom reaches 240% on desktop and 200% on mobile, and viewport resizing preserves the current zoom while only the card's `Enter realm` action opens the destination
 - private app links always resolve through the authenticated private Zo service, while each realm's public GitHub repository remains directly visible
 - catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
@@ -55,7 +56,7 @@ Add a contributor once to `authors.json`, then reference that stable key from ev
 }
 ```
 
-- `x` and `y` are the beacon centre on the `2240 × 1080` Atlas canvas.
+- `x` and `y` are the beacon centre on an Atlas canvas of at least `3600 × 2500`; the canvas expands automatically for farther placements. Leave at least 380px horizontally or 460px vertically between neighbours to accommodate artwork and expanded labels.
 - `art` is a lowercase asset ID. It resolves to `assets/garden-realm-<art>.webp`, so a new realm can add its own kingdom without changing renderer code.
 - `links` uses stable route `label` values, never array indexes. Omit it for a leaf node.
 - `bend` is optional. `0` is direct; positive and negative values curve on opposite sides of the straight route.

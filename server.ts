@@ -205,6 +205,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   };
   const nodeHalfWidth = 135;
   const nodeBeaconOffset = 54;
+  const atlasWidth = Math.max(3600, ...allApps.map(({ route }) => route.atlas.x + 360));
+  const atlasHeight = Math.max(2500, ...allApps.map(({ route }) => route.atlas.y + 420));
   const appEntries = allApps.map(({ gateway, route }, index) => {
     const restricted = gateway.access === "private";
     const sameGateway = gateway.access === current.access;
@@ -394,16 +396,19 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__viewport { position: relative; z-index: 2; height: min(720px, 72vh); min-height: 540px; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; cursor: grab; touch-action: none; contain: layout paint style; background: radial-gradient(circle at 50% 45%, rgba(67,130,132,.1), transparent 34rem); }
     .atlas__viewport::-webkit-scrollbar { display: none; }
     .atlas__viewport.is-dragging { cursor: grabbing; user-select: none; }
-    .atlas__canvas { position: relative; width: calc(2240px * var(--atlas-zoom, .8)); height: calc(1080px * var(--atlas-zoom, .8)); margin-inline: auto; }
-    .atlas__world { position: absolute; inset: 0 auto auto 0; width: 2240px; height: 1080px; transform: scale(var(--atlas-zoom, .8)); transform-origin: left top; contain: layout paint style; isolation: isolate; background-image: radial-gradient(ellipse at 52% 54%, rgba(67,130,132,.13), transparent 52%), radial-gradient(circle, rgba(244,230,196,.72) 0 1px, transparent 1.5px); background-size: 100% 100%, 83px 83px; }
+    .atlas__canvas { position: relative; width: calc(${atlasWidth}px * var(--atlas-zoom, 1)); height: calc(${atlasHeight}px * var(--atlas-zoom, 1)); margin-inline: auto; }
+    .atlas__world { position: absolute; inset: 0 auto auto 0; width: ${atlasWidth}px; height: ${atlasHeight}px; transform: scale(var(--atlas-zoom, 1)); transform-origin: left top; contain: layout paint style; isolation: isolate; background-image: radial-gradient(ellipse at 42% 40%, rgba(67,130,132,.16), transparent 40%), radial-gradient(ellipse at 80% 30%, rgba(221,125,102,.08), transparent 30%), radial-gradient(circle, rgba(244,230,196,.35) 0 1px, transparent 1.5px); background-size: 100% 100%, 100% 100%, 120px 120px; }
+    .atlas__region { position: absolute; transform: translateX(-50%); pointer-events: none; text-align: center; color: rgba(177,205,197,.5); font: italic 28px/1.4 var(--serif); letter-spacing: .08em; white-space: nowrap; }
+    .atlas__region small { display: block; margin-top: 8px; color: #748e89; font: 600 10px/1.5 var(--sans); letter-spacing: .25em; text-transform: uppercase; }
     .atlas__viewport.is-zooming .atlas__world { will-change: transform; }
     .sky-routes, .sky-route-terminals { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
     .sky-routes { z-index: 1; }
     .sky-route-terminals { z-index: 4; }
-    .sky-routes path, .sky-route-terminals path { fill: none; stroke: rgba(228,193,120,.78); stroke-width: 3; stroke-dasharray: 4 14; stroke-linecap: round; animation: route-drift 20s linear infinite; }
-    .sky-route-terminals path { stroke: rgba(255,225,157,.94); }
+    .sky-routes path, .sky-route-terminals path { fill: none; stroke: rgba(228,193,120,.25); stroke-width: 1.5; stroke-dasharray: 3 12; stroke-linecap: round; }
+    .sky-route-terminals path { stroke: rgba(255,225,157,.5); }
+    .sky-routes path.is-active { stroke: rgba(228,193,120,.65); stroke-width: 2; }
     .sky-routes path.is-hidden, .sky-route-terminals path.is-hidden { display: none; }
-    .atlas__pegasus { position: absolute; z-index: 2; left: 1060px; top: 285px; width: 330px; height: auto; aspect-ratio: 520 / 293; object-fit: contain; opacity: .58; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
+    .atlas__pegasus { position: absolute; z-index: 2; left: 1970px; top: 1140px; width: 330px; height: auto; aspect-ratio: 520 / 293; object-fit: contain; opacity: .3; pointer-events: none; animation: pegasus-map 11s ease-in-out infinite alternate; }
     .kingdom-node { position: absolute; z-index: 3; left: var(--node-x); top: var(--node-y); width: 270px; height: 260px; contain: layout style; animation: kingdom-node-arrive .7s calc(var(--order) * 65ms) both; }
     .kingdom-node[hidden] { display: none; }
     .kingdom-node__island { position: absolute; inset: 0 0 auto; width: 100%; height: 175px; display: grid; place-items: center; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
@@ -429,17 +434,21 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .kingdom-node.is-active .kingdom-node__beacon { border: 2px solid #fff3c9; color: #fff3c9; background: #1b2a2c; box-shadow: 0 0 0 6px rgba(255,240,189,.18), 0 0 0 13px rgba(228,193,120,.12), 0 0 50px rgba(228,193,120,.96); }
     .kingdom-node.is-active .kingdom-node__label { border: 2px solid #e4c178; background: linear-gradient(145deg, #28453f, #071b20); box-shadow: 0 22px 52px rgba(0,0,0,.58), 0 0 0 5px rgba(228,193,120,.1), 0 0 38px rgba(228,193,120,.34); }
     .kingdom-node--private:not(.is-active) .kingdom-node__beacon { border-color: rgba(221,125,102,.72); color: #e9b690; box-shadow: 0 0 0 8px rgba(221,125,102,.06), 0 0 28px rgba(221,125,102,.35); }
-    .kingdom-node__label { position: absolute; z-index: 5; left: 50%; bottom: 0; width: 255px; min-height: 96px; transform: translateX(-50%); display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; padding: 13px 14px; border: 1px solid rgba(228,193,120,.24); border-radius: 4px 20px 4px 20px; background: linear-gradient(145deg, #113136, #04161c); box-shadow: 0 20px 38px rgba(0,0,0,.38); }
+    .kingdom-node__label { position: absolute; z-index: 5; left: 50%; top: 158px; width: 270px; min-height: 96px; transform: translateX(-50%); display: grid; grid-template-columns: 22px minmax(0, 1fr); align-items: start; gap: 8px; padding: 16px; border: 1px solid rgba(228,193,120,.2); border-radius: 12px; background: linear-gradient(145deg, #113136, #04161c); box-shadow: 0 12px 24px rgba(0,0,0,.22); }
+    .kingdom-node__label > div:not(.kingdom-node__actions) { min-width: 0; }
+    .kingdom-node:not(.is-active):not(:hover):not(:focus-within) .kingdom-node__author,
+    .kingdom-node:not(.is-active):not(:hover):not(:focus-within) .kingdom-node__actions { display: none; }
+    .kingdom-node:not(.is-active):not(:hover):not(:focus-within) .kingdom-node__label { background: rgba(5,24,30,.75); box-shadow: none; }
     .kingdom-node--private:not(.is-active) .kingdom-node__label { background: linear-gradient(145deg, #322a2b, #0c191e); }
     .kingdom-node__number { color: #7e9793; font-size: .58rem; font-weight: 900; letter-spacing: .1em; }
-    .kingdom-node__category { color: var(--coral); font-size: .52rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-    .kingdom-node h2 { margin: 4px 0 0; font: 600 1.22rem/1 var(--serif); letter-spacing: -.02em; }
-    .kingdom-node__access { align-self: start; display: flex; align-items: center; gap: 4px; color: #a7d0c4; font-size: .5rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+    .kingdom-node__category { color: var(--coral); font-size: .62rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .kingdom-node h2 { margin: 6px 0 0; font: 600 1.4rem/1.15 var(--serif); letter-spacing: -.02em; }
+    .kingdom-node__access { grid-column: 2; display: flex; align-items: center; gap: 4px; color: #a7d0c4; font-size: .58rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
     .kingdom-node--private .kingdom-node__access { color: #e7bd9c; }
     .kingdom-node__actions { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
-    .kingdom-node__actions a { position: relative; display: flex; justify-content: space-between; gap: 8px; overflow: hidden; padding: 5px 6px; border-radius: 6px; color: #f4e6c9; font-size: .5rem; font-weight: 900; letter-spacing: .07em; text-decoration: none; text-transform: uppercase; }
+    .kingdom-node__actions a { position: relative; display: flex; align-items: center; justify-content: space-between; min-height: 36px; gap: 8px; overflow: hidden; padding: 7px 6px; border-radius: 6px; color: #f4e6c9; font-size: .64rem; font-weight: 800; letter-spacing: .04em; text-decoration: none; text-transform: uppercase; }
     .kingdom-node__github { color: #9fb8b3 !important; }
-    .kingdom-node__author { display: inline-block; margin-top: 3px; color: #9fb8b3; font-size: .58rem; font-weight: 700; letter-spacing: .03em; text-decoration: none; }
+    .kingdom-node__author { display: inline-block; margin-top: 6px; color: #9fb8b3; font-size: .7rem; font-weight: 600; text-decoration: none; }
     .kingdom-node__author:hover { color: var(--gold); }
     .kingdom-node__enter::before { content: ""; position: absolute; inset: 0 -35%; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,248,215,.72) 50%, transparent 62%); transform: translateX(-100%); }
     .kingdom-node.is-active .kingdom-node__enter { color: #fff8df; background: rgba(228,193,120,.12); }
@@ -449,14 +458,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .badge-icon { width: 12px; height: 12px; }
     .atlas__progress { position: relative; z-index: 3; height: 3px; background: rgba(255,255,255,.06); }
     .atlas__progress span { display: block; width: 18%; height: 100%; transform: translateX(0); background: linear-gradient(90deg, var(--mint), var(--gold)); box-shadow: 0 0 16px rgba(228,193,120,.5); transition: width .2s ease-out, transform .2s ease-out; }
-    .atlas__minimap { position: absolute; z-index: 7; right: 22px; bottom: 22px; width: 220px; height: 112px; padding: 8px; border: 1px solid rgba(228,193,120,.36); border-radius: 14px; background: rgba(3,18,23,.9); box-shadow: 0 18px 44px rgba(0,0,0,.42); cursor: crosshair; touch-action: none; }
+    .atlas__minimap { position: absolute; z-index: 7; right: 22px; bottom: 22px; width: 190px; height: 154px; padding: 24px 10px 10px; border: 1px solid rgba(228,193,120,.36); border-radius: 14px; background: rgba(3,18,23,.94); box-shadow: 0 18px 44px rgba(0,0,0,.42); cursor: crosshair; touch-action: none; }
+    .atlas__minimap::before { content: "WORLD MAP"; position: absolute; top: 9px; left: 12px; color: #a1b8ad; font-size: 8px; font-weight: 800; letter-spacing: .18em; }
+    .atlas__minimap circle.is-active { fill: #fff5cf; stroke: #fff5cf; }
     .atlas__minimap:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
     .atlas__minimap svg { display: block; width: 100%; height: 100%; }
     .atlas__minimap path { fill: none; stroke: rgba(228,193,120,.48); stroke-width: 10; stroke-linecap: round; }
     .atlas__minimap path.is-hidden, .atlas__minimap circle.is-hidden { display: none; }
     .atlas__minimap circle { fill: var(--gold); stroke: #102c31; stroke-width: 12; }
     .atlas__minimap circle[data-access="private"] { fill: var(--coral); }
-    .atlas__minimap rect { fill: rgba(138,199,180,.12); stroke: #b9e0d5; stroke-width: 9; vector-effect: non-scaling-stroke; }
+    .atlas__minimap rect { fill: rgba(138,199,180,.12); stroke: #b9e0d5; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
     .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__art, .atlas__viewport:is(.is-interacting, .is-zooming) .atlas__pegasus, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-routes path, .atlas__viewport:is(.is-interacting, .is-zooming) .sky-route-terminals path, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__beacon i, .atlas__viewport:is(.is-interacting, .is-zooming) .kingdom-node__enter::before { animation-play-state: paused; }
     .hero.is-offscreen .hero__kingdom, .hero.is-offscreen .hero__pegasus { animation-play-state: paused; }
     .realm-list[hidden], .atlas[hidden] { display: none; }
@@ -553,7 +564,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .atlas__control { min-width: 38px; height: 38px; padding-inline: 11px; }
       .atlas__location { flex: 1; grid-template-columns: auto minmax(72px, 1fr); min-height: 38px; padding: 5px 9px; }
       .atlas__location strong { font-size: .68rem; }
-      .atlas__minimap { right: 10px; bottom: 10px; width: 112px; height: 58px; padding: 5px; border-radius: 9px; }
+      .atlas__minimap { right: 10px; bottom: 10px; width: 120px; height: 96px; padding: 20px 7px 7px; border-radius: 9px; }
       .realm-list { padding-inline: 14px; }
       .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
       .realm-kind-filter { flex: none; }
@@ -647,7 +658,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       </div>
       <section class="atlas" id="atlas-view" data-view-panel="atlas" aria-label="Sky atlas">
         <div class="atlas__bar">
-          <span class="atlas__status"><span data-atlas-status>${String(allApps.length).padStart(2, "0")} kingdoms charted</span><span class="atlas__hint">Drag the sky &middot; scroll to roam &middot; select a kingdom to enter</span></span>
+          <span class="atlas__status"><span data-atlas-status>${String(allApps.length).padStart(2, "0")} kingdoms charted</span><span class="atlas__hint">Drag to explore &middot; select a kingdom</span></span>
           <div class="atlas__controls">
             <div class="atlas__node-controls">
               <button class="atlas__control" type="button" data-atlas-previous aria-label="Previous kingdom">&larr;</button>
@@ -656,7 +667,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
             </div>
             <div class="atlas__zoom-controls">
               <button class="atlas__control" type="button" data-atlas-zoom-out aria-label="Zoom out">&minus;</button>
-              <button class="atlas__control" type="button" data-atlas-reset aria-label="Fit the full sky atlas">Fit</button>
+              <button class="atlas__control" type="button" data-atlas-reset aria-label="Fit the full sky atlas">Overview</button>
+              <button class="atlas__control" type="button" data-atlas-explore aria-label="Return to exploration scale">Explore</button>
               <button class="atlas__control" type="button" data-atlas-zoom-in aria-label="Zoom in">&plus;</button>
             </div>
           </div>
@@ -664,15 +676,19 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <div class="atlas__viewport" data-atlas tabindex="0" aria-label="Pannable sky atlas. Drag, scroll, or use arrow keys to traverse the kingdom graph.">
           <div class="atlas__canvas" data-atlas-canvas>
             <div class="atlas__world" data-atlas-world>
-              <svg class="sky-routes" viewBox="0 0 2240 1080" preserveAspectRatio="none" aria-hidden="true">${routes}</svg>
+              <div class="atlas__region" style="left:800px;top:140px" aria-hidden="true">The Discovery Isles<small>Ideas &amp; knowledge</small></div>
+              <div class="atlas__region" style="left:1810px;top:810px" aria-hidden="true">The Commons<small>Files, stories &amp; media</small></div>
+              <div class="atlas__region" style="left:2870px;top:160px" aria-hidden="true">The Watchtower<small>Operations &amp; signals</small></div>
+              <div class="atlas__region" style="left:1620px;top:1820px" aria-hidden="true">The Frontier<small>Experiments in progress</small></div>
+              <svg class="sky-routes" viewBox="0 0 ${atlasWidth} ${atlasHeight}" preserveAspectRatio="none" aria-hidden="true">${routes}</svg>
               <img class="atlas__pegasus" src="/assets/garden-pegasus-atlas.webp" alt="" aria-hidden="true" decoding="async" draggable="false" width="520" height="293" />
               ${nodes}
-              <svg class="sky-route-terminals" viewBox="0 0 2240 1080" preserveAspectRatio="none" aria-hidden="true">${routeTerminals}</svg>
+              <svg class="sky-route-terminals" viewBox="0 0 ${atlasWidth} ${atlasHeight}" preserveAspectRatio="none" aria-hidden="true">${routeTerminals}</svg>
             </div>
           </div>
         </div>
         <div class="atlas__minimap" data-atlas-minimap role="button" tabindex="0" aria-label="Atlas overview. Select a position to move the map.">
-          <svg viewBox="0 0 2240 1080" preserveAspectRatio="none" aria-hidden="true">
+          <svg viewBox="0 0 ${atlasWidth} ${atlasHeight}" preserveAspectRatio="none" aria-hidden="true">
             ${minimapRoutes}
             ${minimapNodes}
             <rect data-atlas-minimap-window x="0" y="0" width="100" height="100" rx="18" />
@@ -728,8 +744,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const visibleNodes = () => atlasCards.filter((card) => !card.hidden);
     let accessFilter = 'all';
     let kindFilter = 'all';
-    let zoom = innerWidth < 620 ? .64 : innerWidth < 1000 ? .72 : .82;
-    const minimumZoom = () => innerWidth < 620 ? .58 : .48;
+    const worldWidth = ${atlasWidth};
+    const worldHeight = ${atlasHeight};
+    const explorationZoom = () => innerWidth < 620 ? .9 : .85;
+    let zoom = explorationZoom();
+    const minimumZoom = () => Math.min(.22, atlas.clientWidth / worldWidth, atlas.clientHeight / worldHeight);
     const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     let zoomTarget = zoom;
     let cameraAnimation = null;
@@ -741,7 +760,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let activeNode = null;
     const maximumZoom = () => innerWidth < 620 ? 2 : 2.4;
     const clampZoom = (value) => Math.max(minimumZoom(), Math.min(maximumZoom(), value));
-    const canvasOffsetForZoom = (value) => Math.max(0, (atlas.clientWidth - 2240 * value) / 2);
+    const canvasOffsetForZoom = (value) => Math.max(0, (atlas.clientWidth - worldWidth * value) / 2);
     const clampCameraScroll = (value, contentSize, viewportSize) => Math.max(0, Math.min(Math.max(0, contentSize - viewportSize), value));
     const updateZoomControls = () => {
       zoomOut.disabled = zoomTarget <= minimumZoom();
@@ -752,8 +771,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const matrix = new DOMMatrixReadOnly(getComputedStyle(world).transform);
       const visualZoom = clampZoom(matrix.a);
       const visualOriginX = cameraStartOffset - cameraStartLeft + matrix.e;
-      const visualLeft = clampCameraScroll(canvasOffsetForZoom(visualZoom) - visualOriginX, 2240 * visualZoom, atlas.clientWidth);
-      const visualTop = clampCameraScroll(cameraStartTop - matrix.f, 1080 * visualZoom, atlas.clientHeight);
+      const visualLeft = clampCameraScroll(canvasOffsetForZoom(visualZoom) - visualOriginX, worldWidth * visualZoom, atlas.clientWidth);
+      const visualTop = clampCameraScroll(cameraStartTop - matrix.f, worldHeight * visualZoom, atlas.clientHeight);
       cameraAnimation.cancel();
       cameraAnimation = null;
       zoom = visualZoom;
@@ -772,8 +791,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const worldY = (atlas.scrollTop + focusY) / oldZoom;
       const nextOffset = canvasOffsetForZoom(zoom);
       atlas.style.setProperty('--atlas-zoom', String(zoom));
-      atlas.scrollLeft = clampCameraScroll(worldX * zoom + nextOffset - focusX, 2240 * zoom, atlas.clientWidth);
-      atlas.scrollTop = clampCameraScroll(worldY * zoom - focusY, 1080 * zoom, atlas.clientHeight);
+      atlas.scrollLeft = clampCameraScroll(worldX * zoom + nextOffset - focusX, worldWidth * zoom, atlas.clientWidth);
+      atlas.scrollTop = clampCameraScroll(worldY * zoom - focusY, worldHeight * zoom, atlas.clientHeight);
       updateZoomControls();
       updateAtlas();
     };
@@ -785,8 +804,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const startTop = atlas.scrollTop;
       const startOffset = canvasOffsetForZoom(startZoom);
       const targetOffset = canvasOffsetForZoom(targetZoom);
-      const targetLeft = clampCameraScroll(nextLeft, 2240 * targetZoom, atlas.clientWidth);
-      const targetTop = clampCameraScroll(nextTop, 1080 * targetZoom, atlas.clientHeight);
+      const targetLeft = clampCameraScroll(nextLeft, worldWidth * targetZoom, atlas.clientWidth);
+      const targetTop = clampCameraScroll(nextTop, worldHeight * targetZoom, atlas.clientHeight);
       if (reducedMotion || (Math.abs(targetZoom - startZoom) < .002 && Math.abs(targetLeft - startLeft) < 1 && Math.abs(targetTop - startTop) < 1)) {
         zoom = targetZoom;
         zoomTarget = targetZoom;
@@ -842,9 +861,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     };
     const centreNode = (node, behavior = 'smooth') => {
       if (!node) return;
-      const x = node.offsetLeft * zoom + node.offsetWidth * zoom / 2 - atlas.clientWidth / 2;
-      const y = node.offsetTop * zoom + node.offsetHeight * zoom / 2 - atlas.clientHeight / 2;
-      atlas.scrollTo({ left: Math.max(0, x), top: Math.max(0, y), behavior });
+      const x = node.offsetLeft * zoom + node.offsetWidth * zoom / 2 + canvasOffsetForZoom(zoom) - atlas.clientWidth / 2;
+      const y = node.offsetTop * zoom + 170 * zoom - atlas.clientHeight / 2;
+      clearTimeout(interactionTimer);
+      atlas.classList.remove('is-interacting');
+      animateCamera(zoom, x, y, behavior === 'auto' ? 0 : 480);
     };
     const setActiveNode = (node, shouldCentre = true, behavior = 'smooth') => {
       const visible = visibleNodes();
@@ -865,6 +886,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         : '00 / 00';
       previousNode.disabled = visible.length < 2;
       nextNode.disabled = visible.length < 2;
+      routes.forEach((route) => route.classList.toggle('is-active', route.dataset.from === activeNode?.dataset.nodeIndex || route.dataset.to === activeNode?.dataset.nodeIndex));
+      minimapNodes.forEach((node) => node.classList.toggle('is-active', node.dataset.nodeIndex === activeNode?.dataset.nodeIndex));
       if (shouldCentre && activeNode) centreNode(activeNode, behavior);
     };
     const focusNode = (node) => {
@@ -877,10 +900,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       if (reducedMotion) {
         setZoom(targetZoom);
         centreNode(node, 'auto');
+        node.classList.add('is-arrived');
         return;
       }
       const nodeCentreX = node.offsetLeft + node.offsetWidth / 2;
-      const nodeCentreY = node.offsetTop + node.offsetHeight / 2;
+      const nodeCentreY = node.offsetTop + 170;
       const targetOffset = canvasOffsetForZoom(targetZoom);
       const targetLeft = nodeCentreX * targetZoom + targetOffset - atlas.clientWidth / 2;
       const targetTop = nodeCentreY * targetZoom - atlas.clientHeight / 2;
@@ -896,7 +920,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const left = Math.min(...visible.map((node) => node.offsetLeft));
       const top = Math.min(...visible.map((node) => node.offsetTop));
       const right = Math.max(...visible.map((node) => node.offsetLeft + node.offsetWidth));
-      const bottom = Math.max(...visible.map((node) => node.offsetTop + node.offsetHeight));
+      const bottom = Math.max(...visible.map((node) => node.offsetTop + 370));
       const contentWidth = right - left + padding * 2;
       const contentHeight = bottom - top + padding * 2;
       zoom = Math.max(minimumZoom(), Math.min(1.08, (atlas.clientWidth - 24) / contentWidth, (atlas.clientHeight - 24) / contentHeight));
@@ -906,11 +930,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const scaledWidth = (right - left) * zoom;
       const scaledHeight = (bottom - top) * zoom;
       atlas.scrollTo({
-        left: Math.max(0, left * zoom - (atlas.clientWidth - scaledWidth) / 2),
+        left: Math.max(0, left * zoom + canvasOffsetForZoom(zoom) - (atlas.clientWidth - scaledWidth) / 2),
         top: Math.max(0, top * zoom - (atlas.clientHeight - scaledHeight) / 2),
         behavior
       });
       updateAtlas();
+    };
+    const exploreMap = (behavior = 'smooth') => {
+      if (!activeNode) return;
+      setZoom(explorationZoom());
+      centreNode(activeNode, behavior);
     };
     const moveNode = (step) => {
       const visible = visibleNodes();
@@ -963,9 +992,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         document.querySelector('.atlas').classList.remove('is-offscreen');
         refreshRoute();
         if (!mapInitialised) {
-          setActiveNode(visibleNodes()[0], false);
-          fitMap('auto');
-          if (innerWidth < 620) centreNode(activeNode, 'auto');
+          setActiveNode(visibleNodes().find((node) => node.dataset.nodeTitle === 'Zo Drive') || visibleNodes()[0], false);
+          exploreMap('auto');
           mapInitialised = true;
         }
         updateAtlas();
@@ -999,10 +1027,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const viewportRatio = Math.min(1, atlas.clientWidth / atlas.scrollWidth);
       progress.style.width = Math.max(8, viewportRatio * 100) + '%';
       progress.style.transform = 'translateX(' + (atlas.scrollLeft / max * (100 / viewportRatio - 100)) + '%)';
-      minimapWindow.setAttribute('x', String(atlas.scrollLeft / zoom));
+      minimapWindow.setAttribute('x', String(Math.max(0, (atlas.scrollLeft - canvasOffsetForZoom(zoom)) / zoom)));
       minimapWindow.setAttribute('y', String(atlas.scrollTop / zoom));
-      minimapWindow.setAttribute('width', String(Math.min(2240, atlas.clientWidth / zoom)));
-      minimapWindow.setAttribute('height', String(Math.min(1080, atlas.clientHeight / zoom)));
+      minimapWindow.setAttribute('width', String(Math.min(worldWidth, atlas.clientWidth / zoom)));
+      minimapWindow.setAttribute('height', String(Math.min(worldHeight, atlas.clientHeight / zoom)));
     };
     let atlasUpdateFrame = 0;
     let interactionTimer = 0;
@@ -1016,7 +1044,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const syncActiveToViewport = () => {
       const visible = visibleNodes();
       if (!visible.length) return;
-      const centreX = (atlas.scrollLeft + atlas.clientWidth / 2) / zoom;
+      const centreX = (atlas.scrollLeft + atlas.clientWidth / 2 - canvasOffsetForZoom(zoom)) / zoom;
       const centreY = (atlas.scrollTop + atlas.clientHeight / 2) / zoom;
       const nearest = visible.sort((a, b) => {
         const distance = (node) => {
@@ -1046,8 +1074,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       requestAnimationFrame(() => {
         refreshRoute();
         setActiveNode(activeNode && !activeNode.hidden ? activeNode : visibleNodes()[0], false);
-        fitMap();
-        if (innerWidth < 620) centreNode(activeNode);
+        if (document.body.classList.contains('is-atlas-view')) exploreMap();
         updateAtlas();
       });
     };
@@ -1065,6 +1092,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     zoomOut.addEventListener('click', () => animateZoom(zoomTarget - .16));
     zoomIn.addEventListener('click', () => animateZoom(zoomTarget + .16));
     reset.addEventListener('click', () => fitMap());
+    document.querySelector('[data-atlas-explore]').addEventListener('click', () => exploreMap());
     previousNode.addEventListener('click', () => moveNode(-1));
     nextNode.addEventListener('click', () => moveNode(1));
     atlasCards.forEach((card) => card.querySelector('[data-atlas-select]')?.addEventListener('click', () => focusNode(card)));
@@ -1076,7 +1104,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     atlas.addEventListener('wheel', (event) => {
       if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
-        animateZoom(zoomTarget + (event.deltaY < 0 ? .12 : -.12), event.offsetX, event.offsetY);
+        const bounds = atlas.getBoundingClientRect();
+        animateZoom(zoomTarget + (event.deltaY < 0 ? .12 : -.12), event.clientX - bounds.left, event.clientY - bounds.top);
         return;
       }
       const canMoveX = atlas.scrollWidth > atlas.clientWidth;
@@ -1103,11 +1132,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       navigateSpatially(direction);
     });
     const moveFromMinimap = (event) => {
-      const bounds = minimap.getBoundingClientRect();
-      const worldX = (event.clientX - bounds.left) / bounds.width * 2240;
-      const worldY = (event.clientY - bounds.top) / bounds.height * 1080;
+      const bounds = minimap.querySelector('svg').getBoundingClientRect();
+      const worldX = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) * worldWidth;
+      const worldY = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)) * worldHeight;
+      if (zoom < explorationZoom()) setZoom(explorationZoom());
       atlas.scrollTo({
-        left: Math.max(0, worldX * zoom - atlas.clientWidth / 2),
+        left: Math.max(0, worldX * zoom + canvasOffsetForZoom(zoom) - atlas.clientWidth / 2),
         top: Math.max(0, worldY * zoom - atlas.clientHeight / 2),
         behavior: 'smooth'
       });
