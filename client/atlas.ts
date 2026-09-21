@@ -1,5 +1,6 @@
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Viewport, Decelerate } from 'pixi-viewport';
+import { AtlasGlide, AtlasWheel } from './camera-motion';
 
 type Realm = { id: string; index: number; title: string; description: string; category: string; kind: string; access: string; accessLabel: string; href: string; repositoryUrl: string; author: { name: string; profileUrl: string }; x: number; y: number; scale: number; art: string };
 type MapData = { width: number; height: number; realms: Realm[]; links: { from: string; to: string; path: string }[] };
@@ -10,6 +11,8 @@ const host = get('[data-atlas]');
 const panel = get('[data-realm-panel]');
 const chooser = get<HTMLSelectElement>('[data-realm-chooser]');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+const miniCanvas = get<HTMLCanvasElement>('[data-atlas-minimap-window]');
+const miniContext = miniCanvas.getContext('2d');
 let access = 'all', kind = 'all', view = 'atlas';
 let selected = data.realms.find(r => r.id === 'zo-drive') || data.realms[0];
 let app: Application, viewport: Viewport;
@@ -22,7 +25,7 @@ const links = new Map<MapData['links'][number], Graphics>();
 const visible = () => data.realms.filter(r => (access === 'all' || r.access === access) && (kind === 'all' || r.kind === kind));
 const readingScale = () => innerWidth < 620 ? .64 : .72;
 const maxScale = () => innerWidth < 620 ? 2 : 2.4;
-const minScale = () => Math.min(.24, host.clientWidth / data.width);
+const minScale = () => Math.min(.24, (viewport?.screenWidth ?? host.clientWidth) / data.width);
 const stop = () => {
   keys.clear();
   if (!viewport) return;
@@ -31,6 +34,7 @@ const stop = () => {
   viewport.pinch();
   host.classList.remove('is-dragging');
   viewport.plugins.remove('animate');
+  viewport.plugins.get<AtlasWheel>('wheel')?.reset();
   viewport.plugins.get<Decelerate>('decelerate')?.reset();
 };
 const travel = (x: number, y: number, scale = viewport.scale.x) => {
@@ -96,12 +100,17 @@ function updateHud() {
   if (get('[data-atlas-status]').textContent !== status) get('[data-atlas-status]').textContent = status;
   get<HTMLButtonElement>('[data-atlas-zoom-out]').disabled = viewport.scale.x <= minScale() + .001;
   get<HTMLButtonElement>('[data-atlas-zoom-in]').disabled = viewport.scale.x >= maxScale() - .001;
-  const box = get('[data-atlas-minimap-window]');
   const w = Math.min(data.width, viewport.worldScreenWidth), h = Math.min(data.height, viewport.worldScreenHeight);
-  const width = w / data.width * 100 + '%', height = h / data.height * 100 + '%';
-  if (box.style.width !== width) box.style.width = width;
-  if (box.style.height !== height) box.style.height = height;
-  box.style.transform = `translate(${Math.max(0, Math.min(data.width - w, viewport.left)) / w * 100}%,${Math.max(0, Math.min(data.height - h, viewport.top)) / h * 100}%)`;
+  if (miniContext) {
+    const sx = miniCanvas.width / data.width, sy = miniCanvas.height / data.height;
+    const x = Math.max(0, Math.min(data.width - w, viewport.left)) * sx;
+    const y = Math.max(0, Math.min(data.height - h, viewport.top)) * sy;
+    miniContext.clearRect(0, 0, miniCanvas.width, miniCanvas.height);
+    miniContext.fillStyle = 'rgba(138,199,180,.12)';
+    miniContext.strokeStyle = '#b9e0d5'; miniContext.lineWidth = 3;
+    miniContext.fillRect(x, y, w * sx, h * sy);
+    miniContext.strokeRect(x, y, w * sx, h * sy);
+  }
 }
 async function initialise() {
   app = new Application();
@@ -109,14 +118,18 @@ async function initialise() {
   app.ticker.remove(app.render, app);
   app.canvas.setAttribute('aria-label', 'Interactive sky map. Drag to explore, scroll or pinch to zoom. Use Choose a kingdom for keyboard access.');
   host.prepend(app.canvas);
-  viewport = new Viewport({ screenWidth: host.clientWidth, screenHeight: host.clientHeight, worldWidth: data.width, worldHeight: data.height, events: app.renderer.events, noTicker: true, passiveWheel: false, threshold: 5, allowPreserveDragOutside: true });
+  viewport = new Viewport({ screenWidth: host.clientWidth, screenHeight: host.clientHeight, worldWidth: data.width, worldHeight: data.height, events: app.renderer.events, noTicker: true, passiveWheel: false, threshold: 3, allowPreserveDragOutside: true });
   app.stage.addChild(viewport);
-  viewport.drag({ wheel: false }).pinch().wheel({ percent: .12, smooth: false, interrupt: true }).clampZoom({ minScale: minScale(), maxScale: maxScale() }).clamp({ direction: 'all', underflow: 'center' });
-  if (!reduced.matches) viewport.decelerate({ friction: .88, minSpeed: .025 });
+  viewport.interactiveChildren = false;
+  viewport.drag({ wheel: false }).pinch();
+  viewport.plugins.add('wheel', new AtlasWheel(viewport, () => ({ min: minScale(), max: maxScale() }), () => reduced.matches));
+  if (!reduced.matches) viewport.plugins.add('decelerate', new AtlasGlide(viewport));
+  viewport.clampZoom({ minScale: minScale(), maxScale: maxScale() }).clamp({ direction: 'all', underflow: 'center' });
   const terrain = new Container();
   const paths = new Container();
   const islands = new Container();
   const labels = new Container();
+  labels.eventMode = 'none';
   viewport.addChild(terrain, paths, islands);
   app.stage.addChild(labels);
   const stars = new Graphics();
@@ -179,7 +192,7 @@ async function initialise() {
   new ResizeObserver(resize).observe(host);
   app.ticker.add(ticker => {
     if (!active || document.hidden) return;
-    const dt = Math.min(ticker.deltaMS, 32);
+    const dt = Math.min(ticker.elapsedMS, 50);
     const dx = Number(keys.has('right')) - Number(keys.has('left')), dy = Number(keys.has('down')) - Number(keys.has('up'));
     if (dx || dy) {
       const speed = (keys.has('fast') ? 1.1 : .6) * dt / Math.hypot(dx, dy);
@@ -264,7 +277,7 @@ const direction = (key: string) => ({ ArrowLeft: 'left', a: 'left', ArrowRight: 
 host.addEventListener('keydown', event => {
   if (!ready || event.ctrlKey || event.metaKey || event.altKey) return;
   const dir = direction(event.key);
-  if (dir) { event.preventDefault(); viewport.plugins.remove('animate'); viewport.plugins.get<Decelerate>('decelerate')?.reset(); keys.add(dir); if (event.shiftKey) keys.add('fast'); }
+  if (dir) { event.preventDefault(); viewport.plugins.remove('animate'); viewport.plugins.get<AtlasWheel>('wheel')?.reset(); viewport.plugins.get<Decelerate>('decelerate')?.reset(); keys.add(dir); if (event.shiftKey) keys.add('fast'); }
   else if (event.key === '0') { event.preventDefault(); overview(); }
   else if (['+', '=', '-'].includes(event.key)) { event.preventDefault(); travel(viewport.center.x, viewport.center.y, viewport.scale.x * (event.key === '-' ? .8 : 1.25)); }
   else if (event.key === 'Enter') select(selected);
@@ -274,7 +287,7 @@ addEventListener('keyup', event => { keys.delete(direction(event.key)); if (even
 addEventListener('blur', stop);
 host.addEventListener('focusout', stop);
 document.addEventListener('visibilitychange', () => { if (document.hidden) { stop(); app?.ticker.stop(); } else if (active && ready) app.ticker.start(); });
-reduced.addEventListener('change', () => { if (!ready) return; stop(); viewport.plugins.remove('decelerate'); if (!reduced.matches) viewport.decelerate({ friction: .88, minSpeed: .025 }); });
+reduced.addEventListener('change', () => { if (!ready) return; stop(); viewport.plugins.remove('decelerate'); if (!reduced.matches) viewport.plugins.add('decelerate', new AtlasGlide(viewport), viewport.plugins.list.length - 2); });
 const mini = get('[data-atlas-minimap]');
 let miniPointer: number | undefined;
 function moveMini(event: PointerEvent, animate = false) {

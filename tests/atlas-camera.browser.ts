@@ -69,6 +69,24 @@ try {
     check(label + ': zoom anchored under cursor', Math.abs((anchor.x-start.x)/start.z-(anchor.x-zoomed.x)/zoomed.z)<1 && Math.abs((anchor.y-start.y)/start.z-(anchor.y-zoomed.y)/zoomed.z)<1);
     await pause(200);
     check(label + ': zoom settles promptly', Math.abs((await camera()).z-zoomed.z)<.001);
+    await evaluate(`window.zoomSamples=[];window.recordZoom=true;function sampleZoom(){window.zoomSamples.push(window.__skyAtlas.state().scale);if(window.recordZoom)requestAnimationFrame(sampleZoom)}requestAnimationFrame(sampleZoom)`);
+    await wheel(anchor.x, start.top + anchor.y, -120);
+    await pause(300);
+    const zoomSamples = await evaluate('window.recordZoom=false;window.zoomSamples');
+    console.log(label, 'wheel frames', zoomSamples);
+    check(label + ': wheel step is spread across rendered frames', new Set(zoomSamples.map((n:number)=>n.toFixed(5))).size >= 3);
+    check(label + ': zoom has no backwards jitter', zoomSamples.every((n:number,i:number)=>!i||n>=zoomSamples[i-1]));
+    await wheel(anchor.x, start.top + anchor.y, -120);
+    await pause(20);
+    await wheel(anchor.x, start.top + anchor.y, 120);
+    const reversing = await camera();
+    await pause(80);
+    check(label + ': reverse wheel promptly reverses zoom', (await camera()).z < reversing.z);
+    await wheel(anchor.x, start.top + anchor.y, -120);
+    await pause(20);
+    await key('keyDown','Escape','Escape'); await key('keyUp','Escape','Escape');
+    const cancelledZoom = await camera(); await pause(150);
+    check(label + ': Escape cancels pending wheel motion', (await camera()).z === cancelledZoom.z);
     await click('[data-atlas-explore]'); await pause(400);
     const before = await camera();
     const x = before.width / 2, y = before.top + before.height / 2;
@@ -140,6 +158,13 @@ try {
       await click('[data-panel-close]');
     }
     await click('[data-atlas-explore]');await pause(400);
+    await evaluate(`window.hitVisits=0;const boundary=window.__skyAtlas.app.renderer.events.rootBoundary;window.originalHit=boundary.hitTestMoveRecursive;boundary.hitTestMoveRecursive=function(...args){window.hitVisits++;return window.originalHit.apply(this,args)}`);
+    await move(250, before.top + 220);
+    await evaluate('window.hitVisits=0');
+    await move(260, before.top + 225);
+    const hits = await evaluate('window.hitVisits');
+    await evaluate('window.__skyAtlas.app.renderer.events.rootBoundary.hitTestMoveRecursive=window.originalHit');
+    check(label + ': pointer hit-testing skips decorative artwork', hits <= 6);
     await evaluate("document.querySelector('[data-atlas]').focus();window.frameSamples=[];window.sampling=true;let last=performance.now();function sample(now){window.frameSamples.push(now-last);last=now;if(window.sampling)requestAnimationFrame(sample)}requestAnimationFrame(sample)");
     const metricsBefore=await metrics();
     await key('keyDown','d','KeyD');await pause(1000);await key('keyUp','d','KeyD');

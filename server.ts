@@ -414,7 +414,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__minimap circle { fill: var(--gold); stroke: #102c31; stroke-width: 12; }
     .atlas__minimap circle[data-access="private"] { fill: var(--coral); }
     .atlas__minimap-chart { position: relative; width: 100%; height: 100%; overflow: hidden; }
-    .atlas__minimap-window { position: absolute; inset: 0 auto auto 0; border: 1.5px solid #b9e0d5; border-radius: 2px; background: rgba(138,199,180,.12); pointer-events: none; will-change: transform; }
+    .atlas__minimap-window { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     .atlas__help { position: absolute; z-index: 7; bottom: 16px; left: 16px; max-width: min(300px, calc(100% - 155px)); color: #b8cec6; font-size: .7rem; line-height: 1.6; }
     .atlas__help summary { width: max-content; padding: 8px 12px; border: 1px solid rgba(228,193,120,.3); border-radius: 12px; background: #071e25; cursor: pointer; }
     .atlas__help p { margin: 6px 0 0; padding: 12px; border-radius: 12px; background: #071e25; }
@@ -653,8 +653,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
           <div class="atlas__minimap-chart"><svg viewBox="0 0 ${atlasWidth} ${atlasHeight}" preserveAspectRatio="none" aria-hidden="true">
             ${minimapRoutes}
             ${minimapNodes}
-          </svg>
-          <span class="atlas__minimap-window" data-atlas-minimap-window aria-hidden="true"></span></div>
+          </svg><canvas class="atlas__minimap-window" data-atlas-minimap-window width="380" height="240" aria-hidden="true"></canvas></div>
         </div>
         <div class="atlas__progress" aria-hidden="true"></div>
       </section>
@@ -672,7 +671,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     <footer class="footer" data-screen="catalogue" hidden><span>Garden of Zo</span><span>One server. Many worlds.</span></footer>
   </div>
   <script type="application/json" id="atlas-data">${JSON.stringify(atlasData).replace(/</g, '\\u003c')}</script>
-  <script type="module" src="/atlas-client.js?v=canvas-1"></script>
+  <script type="module" src="/atlas-client.js?v=canvas-2"></script>
 </body>
 </html>`;
 }

@@ -11,6 +11,8 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - the existing `/#atlas` route keeps the floating-kingdom artwork, teal/gold palette, authors, realm destinations, access boundaries and List View; there is no separate `/map` page
 - route manifests supply canonical world coordinates, artwork and links; the browser receives only catalogue metadata, never backend target addresses
 - camera input uses direct drag, pointer-anchored wheel zoom, touch drag/pinch and a short release glide; WASD/arrows move continuously, Shift moves faster, `0` opens Overview and Escape stops travel
+- `client/camera-motion.ts` corrects pixi-viewport 6.0.3's double-decay glide calculation and applies time-based, pointer-anchored wheel smoothing; direction reversals discard pending zoom, and press/Escape/keyboard/blur cancel it. Glide is capped at 240 screen pixels and verified at 30/60/120/144 Hz.
+- decorative artwork is excluded from pointer hit-testing; the mini-map's moving outline uses a small canvas to avoid layout work while panning and zooming
 - the starting regional view is centred on Zo Drive at 72% desktop / 64% mobile scale; Overview fits the world, Explore returns to the selected kingdom at that reading scale, and the mini-map supports click/drag travel
 - labels render at a stable screen size with collision suppression and reduced detail when zoomed out; offscreen islands are culled, idle frames skip rendering, and hidden Atlas tabs stop their ticker
 - clicking a kingdom opens a fixed details panel without moving or zooming the camera; only Locate, the kingdom chooser, previous/next and Explore initiate travel; only Enter realm opens the destination
