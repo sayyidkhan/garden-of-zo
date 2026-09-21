@@ -387,17 +387,37 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .atlas__location { position: relative; }
     .atlas__location select { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
     .atlas__location:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
-    .realm-panel { position: absolute; z-index: 8; top: 86px; right: 22px; width: 310px; padding: 22px; border: 1px solid rgba(228,193,120,.5); border-radius: 16px; background: linear-gradient(150deg, #18383a, #081d25); box-shadow: 0 18px 55px #00101588; color: #d0ded5; }
-    .realm-panel__close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 1px solid #71847e; border-radius: 50%; background: #0a242c; color: #e7dec8; font-size: 22px; cursor: pointer; }
-    .realm-panel__art { display: block; width: 135px; height: 95px; object-fit: contain; margin: -5px auto 8px; }
-    .realm-panel__category { font-size: 10px; color: #deb987; text-transform: uppercase; letter-spacing: .13em; }
-    .realm-panel h2 { margin: 8px 0; font: 26px/1.1 var(--serif); color: #f8efd5; }
-    .realm-panel__access { font-size: 10px; text-transform: uppercase; color: #a2c9b8; }
-    .realm-panel p { margin: 15px 0; color: #b7cbc1; font-size: 13px; line-height: 1.65; }
-    .realm-panel a { color: #b9c9be; font-size: 11px; text-decoration: none; }
-    .realm-panel__actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 0 8px; }
-    .realm-panel__actions a:first-child { padding: 12px 20px; border-radius: 8px; background: #efdab0; color: #13252a; font-size: 12px; font-weight: 800; }
-    .realm-panel__locate { border: 0; background: transparent; padding: 10px 0 0; color: #99b6aa; cursor: pointer; font-size: 11px; }
+    .realm-panel { position: absolute; z-index: 8; top: 86px; right: 22px; width: 374px; overflow: hidden; border: 1px solid rgba(228,193,120,.48); border-radius: 20px; background: linear-gradient(145deg, rgba(23,57,59,.98), rgba(5,22,29,.98)); box-shadow: 0 28px 70px rgba(0,8,13,.62), inset 0 1px rgba(255,241,203,.08); color: #d0ded5; animation: realm-panel-in .28s cubic-bezier(.2,.8,.2,1); }
+    .realm-panel::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, transparent, var(--gold) 22%, #fff1bd 50%, var(--gold) 78%, transparent); opacity: .82; }
+    .realm-panel__close { position: absolute; z-index: 2; top: 14px; right: 14px; display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid rgba(226,239,231,.28); border-radius: 50%; background: rgba(4,22,29,.72); color: #f7ecd3; font-size: 21px; line-height: 1; cursor: pointer; transition: background .2s, transform .2s, border-color .2s; }
+    .realm-panel__close:hover { transform: rotate(90deg); border-color: var(--gold); background: #12363a; }
+    .realm-panel__top { display: grid; grid-template-columns: 122px minmax(0, 1fr); gap: 17px; align-items: center; min-height: 148px; padding: 21px 49px 17px 20px; background: radial-gradient(circle at 16% 10%, rgba(228,193,120,.18), transparent 9rem), linear-gradient(90deg, rgba(3,17,23,.5), transparent); }
+    .realm-panel__visual { position: relative; display: grid; place-items: center; width: 122px; height: 108px; margin: 0; overflow: hidden; border: 1px solid rgba(228,193,120,.35); border-radius: 14px; background: radial-gradient(circle at 50% 26%, rgba(228,193,120,.22), transparent 48%), linear-gradient(145deg, #102e34, #061c24); box-shadow: inset 0 0 0 1px rgba(255,241,203,.05), 0 12px 26px rgba(0,8,13,.26); }
+    .realm-panel__visual::after { content: ""; position: absolute; right: -31px; bottom: -36px; width: 94px; height: 94px; border: 1px solid rgba(228,193,120,.2); border-radius: 50%; }
+    .realm-panel__art { position: relative; z-index: 1; display: block; width: 132px; height: 102px; object-fit: contain; filter: drop-shadow(0 12px 6px rgba(0,6,10,.62)); }
+    .realm-panel__eyebrow { display: block; margin-bottom: 8px; color: #f1d296; font-size: 9px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
+    .realm-panel__category { display: block; color: #a6c9bf; font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .realm-panel h2 { margin: 5px 0 7px; color: #fff2d0; font: 600 clamp(1.65rem, 3vw, 2rem)/.95 var(--serif); letter-spacing: -.025em; text-wrap: balance; }
+    .realm-panel__access { display: inline-flex; align-items: center; gap: 6px; color: #9ed4c2; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .realm-panel__access::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+    .realm-panel[data-access="private"] .realm-panel__access { color: #e5a98e; }
+    .realm-panel__body { padding: 17px 20px 19px; border-top: 1px solid rgba(228,193,120,.13); }
+    .realm-panel p { margin: 0; color: #c4d4cd; font-size: 13px; line-height: 1.65; }
+    .realm-panel__byline { display: flex; align-items: center; gap: 8px; margin: 15px 0 0; color: #7f9a92; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .realm-panel__byline::before { content: ""; width: 18px; height: 1px; background: rgba(228,193,120,.58); }
+    .realm-panel__byline a { color: #d9e8df; font-size: 10px; font-weight: 700; letter-spacing: 0; text-decoration: none; text-transform: none; }
+    .realm-panel__byline a:hover { color: #fff0bd; }
+    .realm-panel__actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; margin-top: 18px; }
+    .realm-panel__actions a { display: inline-flex; align-items: center; justify-content: center; min-height: 43px; border: 1px solid rgba(228,193,120,.3); border-radius: 11px; color: #d9e5de; font-size: 11px; font-weight: 800; letter-spacing: .02em; text-decoration: none; transition: transform .2s, background .2s, border-color .2s; }
+    .realm-panel__actions a:first-child { padding: 0 15px; border-color: #fff0bd; background: linear-gradient(135deg, #fff0bd, #dfb966); color: #102228; box-shadow: 0 8px 20px rgba(228,193,120,.22); }
+    .realm-panel__actions a:last-child { width: 43px; color: #c7d8d0; background: rgba(8,32,38,.7); font-size: 0; }
+    .realm-panel__actions a:last-child::before { content: "↗"; font-size: 16px; }
+    .realm-panel__actions a:hover { transform: translateY(-2px); border-color: var(--gold); background: #1b4648; }
+    .realm-panel__actions a:first-child:hover { background: #fff5d3; }
+    .realm-panel__footer { display: flex; align-items: center; justify-content: space-between; margin-top: 13px; }
+    .realm-panel__locate { border: 0; background: transparent; padding: 6px 0; color: #9bb9af; cursor: pointer; font-size: 10px; font-weight: 800; letter-spacing: .05em; }
+    .realm-panel__locate:hover { color: #fff0bd; }
+    .realm-panel__footer span { color: #6f8c85; font-size: 8px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
     .atlas__viewport.is-dragging { cursor: grabbing; user-select: none; }
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
@@ -464,6 +484,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     @keyframes pegasus-map { from { transform: translate3d(0, 8px, 0) rotate(-2deg); } to { transform: translate3d(28px, -13px, 0) rotate(1deg); } }
     @keyframes kingdom-float { from { transform: translate3d(0, -5px, 0); } to { transform: translate3d(-18px, 13px, 0); } }
     @keyframes pegasus-soar { from { transform: translate3d(0, 0, 0) rotate(-1deg); } to { transform: translate3d(-24px, -17px, 0) rotate(1deg); } }
+    @keyframes realm-panel-in { from { opacity: 0; transform: translate3d(12px, 8px, 0) scale(.985); } to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); } }
     @media (max-width: 900px) {
       .hero { min-height: 100svh; }
       .hero__art { background-position: 62% center; }
@@ -553,11 +574,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       body.is-atlas-view .atlas__status { display: none; }
       body.is-atlas-view .atlas__bar { padding: 8px 0; }
       body.is-atlas-view .atlas__controls { gap: 6px; }
-      .realm-panel { top: auto; bottom: 10px; right: 10px; left: 10px; width: auto; padding: 16px; }
-      .realm-panel__art { float: right; width: 85px; height: 65px; margin: 15px 16px 0 8px; }
-      .realm-panel h2 { font-size: 23px; margin-right: 105px; }
-      .realm-panel p { margin: 10px 0; font-size: 12px; line-height: 1.45; }
-      .realm-panel__actions { margin: 12px 0 0; }
+      .realm-panel { top: auto; bottom: 10px; right: 10px; left: 10px; width: auto; border-radius: 17px; }
+      .realm-panel__top { grid-template-columns: 91px minmax(0, 1fr); gap: 13px; min-height: 118px; padding: 15px 44px 14px 15px; }
+      .realm-panel__visual { width: 91px; height: 83px; border-radius: 12px; }
+      .realm-panel__art { width: 102px; height: 79px; }
+      .realm-panel h2 { font-size: 1.65rem; }
+      .realm-panel__body { padding: 13px 15px 15px; }
+      .realm-panel p { font-size: 12px; line-height: 1.48; }
+      .realm-panel__byline { margin-top: 10px; }
+      .realm-panel__actions { margin-top: 13px; }
+      .realm-panel__footer { margin-top: 8px; }
     }
   </style>
 </head>
@@ -639,14 +665,21 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         </div>
         <aside class="realm-panel" data-realm-panel aria-label="Selected kingdom" hidden>
           <button type="button" class="realm-panel__close" data-panel-close aria-label="Close kingdom details">×</button>
-          <img class="realm-panel__art" data-realm-art alt="" />
-          <span class="realm-panel__category" data-realm-category></span>
-          <h2 data-realm-title></h2>
-          <span class="realm-panel__access" data-realm-access></span>
-          <p data-realm-description></p>
-          <a data-realm-author target="_blank" rel="noreferrer"></a>
-          <div class="realm-panel__actions"><a data-realm-enter>Enter realm ↗</a><a data-realm-source target="_blank" rel="noreferrer">GitHub ↗</a></div>
-          <button type="button" class="realm-panel__locate" data-realm-locate>Locate on map</button>
+          <div class="realm-panel__top">
+            <figure class="realm-panel__visual"><img class="realm-panel__art" data-realm-art alt="" /></figure>
+            <div>
+              <span class="realm-panel__eyebrow">Realm dossier</span>
+              <span class="realm-panel__category" data-realm-category></span>
+              <h2 data-realm-title></h2>
+              <span class="realm-panel__access" data-realm-access></span>
+            </div>
+          </div>
+          <div class="realm-panel__body">
+            <p data-realm-description></p>
+            <div class="realm-panel__byline"><span>Keeper</span><a data-realm-author target="_blank" rel="noreferrer"></a></div>
+            <div class="realm-panel__actions"><a data-realm-enter>Enter realm <span aria-hidden="true">↗</span></a><a data-realm-source target="_blank" rel="noreferrer" aria-label="View source on GitHub">GitHub ↗</a></div>
+            <div class="realm-panel__footer"><button type="button" class="realm-panel__locate" data-realm-locate>Locate on map</button><span>Atlas record</span></div>
+          </div>
         </aside>
         <details class="atlas__help"><summary>Map controls</summary><p id="atlas-controls-help">Drag to explore. Scroll or pinch to zoom. Select a kingdom for details. Hold WASD or arrow keys to travel; Shift moves faster. Drag the world map to travel farther. Press 0 for Overview, Escape to stop.</p></details>
         <div class="atlas__minimap" data-atlas-minimap role="button" tabindex="0" aria-label="Atlas overview. Click or drag to travel. Press Enter for overview.">
