@@ -99,9 +99,10 @@ try {
     const keyboard=await camera();
     await key('keyDown','d','KeyD'); await pause(200);
     const midway=await camera(); await pause(200);
-    const end=await camera(); await key('keyUp','d','KeyD'); await pause(100);
+    const end=await camera(); await key('keyUp','d','KeyD');
+    const keyReleased=await camera(); await pause(100);
     check(label + ': keyboard movement is continuous', midway.x<keyboard.x-40 && end.x<midway.x-40);
-    check(label + ': key release stops movement', Math.abs((await camera()).x-end.x)<1);
+    check(label + ': key release stops movement', Math.abs((await camera()).x-keyReleased.x)<1);
     await click('[data-atlas-next]'); await pause(80);
     await mouse('mousePressed',x,y); const interrupted=await camera(); await pause(400);
     check(label + ': manual input interrupts travel', Math.abs((await camera()).x-interrupted.x)<1);
