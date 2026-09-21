@@ -15,6 +15,7 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 - Atlas placement and graph links live in each route's manifest entry; routes, beacon terminals, kingdom artwork and the mini-map all derive from the same canonical coordinates
 - The existing Sky Atlas View at `/#atlas` opens at a readable exploration scale centred on Zo Drive, with widely spaced kingdoms and four geographical labels. Overview explicitly fits the world; Explore returns to reading scale. Filters preserve exploration instead of fitting every result. The mini-map jumps to a location at reading scale; active-kingdom stepping, focal zoom and arrow/WASD movement remain available. Atlas improvements belong in this existing view; there is no separate `/map` route.
 - Map labels show the title, category and access level; selection, hover or keyboard focus reveals attribution and destination/source actions. Paths connected to the active kingdom are highlighted.
+- Trackpad/pinch wheel zoom follows gesture distance once per animation frame. Wheel, drag, touch and keyboard input interrupt camera travel at its current visual position. Button zoom takes 180ms, kingdom stepping 240ms and focus travel 300ms; reduced-motion settings skip these transitions. Pan updates read geometry before changing the DOM and leave unchanged status text and mini-map dimensions alone.
 - selecting kingdom artwork uses a Web Animations compositor camera to zoom and centre the map without navigating; the selected kingdom sparkles and starts its `Enter realm` shimmer only after the camera arrives, desktop focus reaches 138%, manual zoom reaches 240% on desktop and 200% on mobile, and viewport resizing preserves the current zoom while only the card's `Enter realm` action opens the destination
 - private app links always resolve through the authenticated private Zo service, while each realm's public GitHub repository remains directly visible
 - catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
@@ -33,6 +34,8 @@ Set `assetQuery` only when static assets need a versioned URL after a cache corr
 
 Each route also carries the catalogue metadata `title`, `description`, `category`, `kind`, `icon`, `authorId`, `repositoryUrl`, and `atlas`. `kind` is one of `app`, `workflow`, or `agent` and powers the shared Atlas/List type filter. `authorId` must resolve to a profile in `authors.json`. `repositoryUrl` must be a public GitHub repository and powers the source action in both views. Run `bun test` after changing a manifest or the author registry.
 Use optional `entryPath` when a catalogue card should open below the route root, such as PocketBase's `/_/` admin shell.
+
+For interaction regression checks, open a fresh `/#atlas` page with `agent-browser`, then run `agent-browser eval --stdin < tests/atlas-interaction.browser.js`. Run at desktop and mobile viewport sizes, reloading between runs. This checks continuous zoom, camera interruption, stable status text, kingdom selection, overview, mini-map, filters and view switching. The script changes only the test browser's view; it does not enter destinations or write application data.
 
 ## Add a realm
 

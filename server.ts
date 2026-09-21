@@ -756,6 +756,10 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let cameraStartLeft = 0;
     let cameraStartTop = 0;
     let cameraStartOffset = 0;
+    let wheelZoomFrame = 0;
+    let wheelZoomDelta = 0;
+    let wheelFocusX = 0;
+    let wheelFocusY = 0;
     let mapInitialised = false;
     let activeNode = null;
     const maximumZoom = () => innerWidth < 620 ? 2 : 2.4;
@@ -765,6 +769,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const updateZoomControls = () => {
       zoomOut.disabled = zoomTarget <= minimumZoom();
       zoomIn.disabled = zoomTarget >= maximumZoom();
+    };
+    const cancelWheelZoom = () => {
+      cancelAnimationFrame(wheelZoomFrame);
+      wheelZoomFrame = 0;
+      wheelZoomDelta = 0;
     };
     const cancelZoomAnimation = () => {
       if (!cameraAnimation) return;
@@ -776,10 +785,14 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       cameraAnimation.cancel();
       cameraAnimation = null;
       zoom = visualZoom;
+      zoomTarget = zoom;
       atlas.style.setProperty('--atlas-zoom', String(zoom));
-      atlas.scrollLeft = visualLeft;
-      atlas.scrollTop = visualTop;
+      cameraSettling = true;
+      atlas.scrollTo({ left: visualLeft, top: visualTop, behavior: 'instant' });
+      requestAnimationFrame(() => { cameraSettling = false; });
       atlas.classList.remove('is-zooming');
+      updateZoomControls();
+      scheduleAtlasUpdate();
     };
     const setZoom = (nextZoom, focusX = atlas.clientWidth / 2, focusY = atlas.clientHeight / 2) => {
       cancelZoomAnimation();
@@ -791,12 +804,18 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const worldY = (atlas.scrollTop + focusY) / oldZoom;
       const nextOffset = canvasOffsetForZoom(zoom);
       atlas.style.setProperty('--atlas-zoom', String(zoom));
-      atlas.scrollLeft = clampCameraScroll(worldX * zoom + nextOffset - focusX, worldWidth * zoom, atlas.clientWidth);
-      atlas.scrollTop = clampCameraScroll(worldY * zoom - focusY, worldHeight * zoom, atlas.clientHeight);
+      atlas.scrollTo({
+        left: clampCameraScroll(worldX * zoom + nextOffset - focusX, worldWidth * zoom, atlas.clientWidth),
+        top: clampCameraScroll(worldY * zoom - focusY, worldHeight * zoom, atlas.clientHeight),
+        behavior: 'instant'
+      });
       updateZoomControls();
-      updateAtlas();
+      scheduleAtlasUpdate();
     };
     const animateCamera = (nextZoom, nextLeft, nextTop, duration, onArrival) => {
+      cancelWheelZoom();
+      clearTimeout(interactionTimer);
+      atlas.classList.remove('is-interacting');
       const targetZoom = clampZoom(nextZoom);
       cancelZoomAnimation();
       const startZoom = zoom;
@@ -806,7 +825,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const targetOffset = canvasOffsetForZoom(targetZoom);
       const targetLeft = clampCameraScroll(nextLeft, worldWidth * targetZoom, atlas.clientWidth);
       const targetTop = clampCameraScroll(nextTop, worldHeight * targetZoom, atlas.clientHeight);
-      if (reducedMotion || (Math.abs(targetZoom - startZoom) < .002 && Math.abs(targetLeft - startLeft) < 1 && Math.abs(targetTop - startTop) < 1)) {
+      if (!duration || reducedMotion || (Math.abs(targetZoom - startZoom) < .002 && Math.abs(targetLeft - startLeft) < 1 && Math.abs(targetTop - startTop) < 1)) {
         zoom = targetZoom;
         zoomTarget = targetZoom;
         atlas.style.setProperty('--atlas-zoom', String(zoom));
@@ -830,7 +849,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const animation = world.animate([
         { transform: 'translate3d(0,0,0) scale(' + startZoom + ')' },
         { transform: 'translate3d(' + translateX + 'px,' + translateY + 'px,0) scale(' + targetZoom + ')' }
-      ], { duration, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' });
+      ], { duration, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
       cameraAnimation = animation;
       animation.finished.then(() => {
         if (cameraAnimation !== animation) return;
@@ -857,15 +876,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const worldY = (atlas.scrollTop + focusY) / zoom;
       const targetLeft = worldX * targetZoom + targetOffset - focusX;
       const targetTop = worldY * targetZoom - focusY;
-      animateCamera(targetZoom, targetLeft, targetTop, 340 + Math.abs(targetZoom - zoom) * 220);
+      animateCamera(targetZoom, targetLeft, targetTop, 180);
     };
     const centreNode = (node, behavior = 'smooth') => {
       if (!node) return;
+      cancelZoomAnimation();
       const x = node.offsetLeft * zoom + node.offsetWidth * zoom / 2 + canvasOffsetForZoom(zoom) - atlas.clientWidth / 2;
       const y = node.offsetTop * zoom + 170 * zoom - atlas.clientHeight / 2;
       clearTimeout(interactionTimer);
       atlas.classList.remove('is-interacting');
-      animateCamera(zoom, x, y, behavior === 'auto' ? 0 : 480);
+      animateCamera(zoom, x, y, behavior === 'auto' ? 0 : 240);
     };
     const setActiveNode = (node, shouldCentre = true, behavior = 'smooth') => {
       const visible = visibleNodes();
@@ -908,11 +928,12 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const targetOffset = canvasOffsetForZoom(targetZoom);
       const targetLeft = nodeCentreX * targetZoom + targetOffset - atlas.clientWidth / 2;
       const targetTop = nodeCentreY * targetZoom - atlas.clientHeight / 2;
-      animateCamera(targetZoom, targetLeft, targetTop, 640, () => {
+      animateCamera(targetZoom, targetLeft, targetTop, 300, () => {
         if (activeNode === node) node.classList.add('is-arrived');
       });
     };
     const fitMap = (behavior = 'smooth') => {
+      cancelWheelZoom();
       const visible = visibleNodes();
       if (!visible.length) return;
       cancelZoomAnimation();
@@ -923,23 +944,21 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       const bottom = Math.max(...visible.map((node) => node.offsetTop + 370));
       const contentWidth = right - left + padding * 2;
       const contentHeight = bottom - top + padding * 2;
-      zoom = Math.max(minimumZoom(), Math.min(1.08, (atlas.clientWidth - 24) / contentWidth, (atlas.clientHeight - 24) / contentHeight));
-      zoomTarget = zoom;
-      atlas.style.setProperty('--atlas-zoom', String(zoom));
-      updateZoomControls();
-      const scaledWidth = (right - left) * zoom;
-      const scaledHeight = (bottom - top) * zoom;
-      atlas.scrollTo({
-        left: Math.max(0, left * zoom + canvasOffsetForZoom(zoom) - (atlas.clientWidth - scaledWidth) / 2),
-        top: Math.max(0, top * zoom - (atlas.clientHeight - scaledHeight) / 2),
-        behavior
-      });
-      updateAtlas();
+      const targetZoom = Math.max(minimumZoom(), Math.min(1.08, (atlas.clientWidth - 24) / contentWidth, (atlas.clientHeight - 24) / contentHeight));
+      const scaledWidth = (right - left) * targetZoom;
+      const scaledHeight = (bottom - top) * targetZoom;
+      animateCamera(targetZoom,
+        left * targetZoom + canvasOffsetForZoom(targetZoom) - (atlas.clientWidth - scaledWidth) / 2,
+        top * targetZoom - (atlas.clientHeight - scaledHeight) / 2,
+        behavior === 'auto' ? 0 : 240);
     };
     const exploreMap = (behavior = 'smooth') => {
       if (!activeNode) return;
-      setZoom(explorationZoom());
-      centreNode(activeNode, behavior);
+      const targetZoom = explorationZoom();
+      animateCamera(targetZoom,
+        (activeNode.offsetLeft + activeNode.offsetWidth / 2) * targetZoom + canvasOffsetForZoom(targetZoom) - atlas.clientWidth / 2,
+        (activeNode.offsetTop + 170) * targetZoom - atlas.clientHeight / 2,
+        behavior === 'auto' ? 0 : 240);
     };
     const moveNode = (step) => {
       const visible = visibleNodes();
@@ -975,6 +994,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       if (target) setActiveNode(target);
     };
     const setView = (view, remember = true) => {
+      cancelWheelZoom();
+      cancelZoomAnimation();
       const selected = view === 'list' ? 'list' : 'atlas';
       document.body.classList.toggle('is-atlas-view', selected === 'atlas');
       viewButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.view === selected)));
@@ -1016,21 +1037,35 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     };
     const updateAtlas = () => {
       const visible = visibleNodes();
+      const text = visible.length
+        ? String(visible.length).padStart(2, '0') + ' kingdoms charted · ' + Math.round(zoom * 100) + '% scale'
+        : '00 kingdoms charted · adjust filters to continue';
       if (!visible.length) {
-        status.textContent = '00 kingdoms charted · adjust filters to continue';
+        if (status.textContent !== text) status.textContent = text;
         progress.style.width = '0';
         progress.style.transform = 'translateX(0)';
         return;
       }
-      status.textContent = String(visible.length).padStart(2, '0') + ' kingdoms charted · ' + Math.round(zoom * 100) + '% scale';
-      const max = Math.max(1, atlas.scrollWidth - atlas.clientWidth);
-      const viewportRatio = Math.min(1, atlas.clientWidth / atlas.scrollWidth);
-      progress.style.width = Math.max(8, viewportRatio * 100) + '%';
-      progress.style.transform = 'translateX(' + (atlas.scrollLeft / max * (100 / viewportRatio - 100)) + '%)';
-      minimapWindow.setAttribute('x', String(Math.max(0, (atlas.scrollLeft - canvasOffsetForZoom(zoom)) / zoom)));
-      minimapWindow.setAttribute('y', String(atlas.scrollTop / zoom));
-      minimapWindow.setAttribute('width', String(Math.min(worldWidth, atlas.clientWidth / zoom)));
-      minimapWindow.setAttribute('height', String(Math.min(worldHeight, atlas.clientHeight / zoom)));
+      const width = atlas.clientWidth;
+      const height = atlas.clientHeight;
+      const scrollWidth = atlas.scrollWidth;
+      const left = atlas.scrollLeft;
+      const top = atlas.scrollTop;
+      const max = Math.max(1, scrollWidth - width);
+      const viewportRatio = Math.min(1, width / scrollWidth);
+      const progressWidth = Math.max(8, viewportRatio * 100) + '%';
+      const progressTransform = 'translateX(' + (left / max * (100 / viewportRatio - 100)) + '%)';
+      const offset = Math.max(0, (width - worldWidth * zoom) / 2);
+      if (status.textContent !== text) status.textContent = text;
+      if (progress.style.width !== progressWidth) progress.style.width = progressWidth;
+      if (progress.style.transform !== progressTransform) progress.style.transform = progressTransform;
+      for (const [key, value] of Object.entries({
+        x: Math.max(0, (left - offset) / zoom), y: top / zoom,
+        width: Math.min(worldWidth, width / zoom), height: Math.min(worldHeight, height / zoom)
+      })) {
+        const next = String(value);
+        if (minimapWindow.getAttribute(key) !== next) minimapWindow.setAttribute(key, next);
+      }
     };
     let atlasUpdateFrame = 0;
     let interactionTimer = 0;
@@ -1098,28 +1133,44 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     atlasCards.forEach((card) => card.querySelector('[data-atlas-select]')?.addEventListener('click', () => focusNode(card)));
     atlasCards.forEach((card) => card.addEventListener('focusin', () => setActiveNode(card, false)));
     atlas.addEventListener('scroll', () => {
-      if (!cameraSettling) markInteracting();
+      if (!cameraSettling && !cameraAnimation) markInteracting();
       scheduleAtlasUpdate();
     }, { passive: true });
     atlas.addEventListener('wheel', (event) => {
+      cancelZoomAnimation();
       if (event.ctrlKey || event.metaKey) {
         event.preventDefault();
         const bounds = atlas.getBoundingClientRect();
-        animateZoom(zoomTarget + (event.deltaY < 0 ? .12 : -.12), event.clientX - bounds.left, event.clientY - bounds.top);
+        const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? atlas.clientHeight : 1;
+        wheelZoomDelta += Math.max(-100, Math.min(100, event.deltaY * unit));
+        wheelFocusX = event.clientX - bounds.left;
+        wheelFocusY = event.clientY - bounds.top;
+        if (!wheelZoomFrame) wheelZoomFrame = requestAnimationFrame(() => {
+          wheelZoomFrame = 0;
+          const delta = wheelZoomDelta;
+          wheelZoomDelta = 0;
+          setZoom(zoom * Math.exp(-delta * .004), wheelFocusX, wheelFocusY);
+          markInteracting();
+        });
         return;
       }
       const canMoveX = atlas.scrollWidth > atlas.clientWidth;
       const canMoveY = atlas.scrollHeight > atlas.clientHeight;
+      cancelWheelZoom();
       if (!canMoveX && !canMoveY) return;
       event.preventDefault();
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? atlas.clientHeight : 1;
+      const left = atlas.scrollLeft + (event.deltaX + (event.shiftKey ? event.deltaY : 0)) * unit;
+      const top = atlas.scrollTop + (event.shiftKey ? 0 : event.deltaY * unit);
+      atlas.scrollTo({ left, top, behavior: 'instant' });
       markInteracting();
-      atlas.scrollLeft += event.deltaX + (event.shiftKey ? event.deltaY : 0);
-      atlas.scrollTop += event.shiftKey ? 0 : event.deltaY;
     }, { passive: false });
     atlas.addEventListener('keydown', (event) => {
       const direction = ({ ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'up', w: 'up', W: 'up', ArrowDown: 'down', s: 'down', S: 'down' })[event.key];
       if (!direction) return;
       event.preventDefault();
+      cancelWheelZoom();
+      cancelZoomAnimation();
       if (event.shiftKey) {
         const distance = 220;
         atlas.scrollBy({
@@ -1132,15 +1183,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       navigateSpatially(direction);
     });
     const moveFromMinimap = (event) => {
+      cancelWheelZoom();
+      cancelZoomAnimation();
       const bounds = minimap.querySelector('svg').getBoundingClientRect();
       const worldX = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width)) * worldWidth;
       const worldY = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height)) * worldHeight;
-      if (zoom < explorationZoom()) setZoom(explorationZoom());
-      atlas.scrollTo({
-        left: Math.max(0, worldX * zoom + canvasOffsetForZoom(zoom) - atlas.clientWidth / 2),
-        top: Math.max(0, worldY * zoom - atlas.clientHeight / 2),
-        behavior: 'smooth'
-      });
+      const targetZoom = Math.max(zoom, explorationZoom());
+      animateCamera(targetZoom,
+        worldX * targetZoom + canvasOffsetForZoom(targetZoom) - atlas.clientWidth / 2,
+        worldY * targetZoom - atlas.clientHeight / 2,
+        240, syncActiveToViewport);
     };
     minimap.addEventListener('pointerdown', moveFromMinimap);
     minimap.addEventListener('keydown', (event) => {
@@ -1158,6 +1210,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     let dragFrame = 0;
     let dragMoved = false;
     atlas.addEventListener('pointerdown', (event) => {
+      cancelWheelZoom();
+      cancelZoomAnimation();
+      atlas.scrollTo({ left: atlas.scrollLeft, top: atlas.scrollTop, behavior: 'instant' });
       if (event.pointerType === 'touch') return;
       if (event.target.closest('a, button')) return;
       dragStartX = event.clientX;
@@ -1180,8 +1235,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       if (dragFrame) return;
       dragFrame = requestAnimationFrame(() => {
         dragFrame = 0;
-        atlas.scrollLeft = scrollStartX - (pendingDragX - dragStartX);
-        atlas.scrollTop = scrollStartY - (pendingDragY - dragStartY);
+        atlas.scrollTo({ left: scrollStartX - (pendingDragX - dragStartX), top: scrollStartY - (pendingDragY - dragStartY), behavior: 'instant' });
       });
     });
     const endDrag = () => atlas.classList.remove('is-dragging');
@@ -1192,6 +1246,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       if (resizeFrame) cancelAnimationFrame(resizeFrame);
       resizeFrame = requestAnimationFrame(() => {
         resizeFrame = 0;
+        cancelWheelZoom();
         cancelZoomAnimation();
         refreshRoute();
         zoom = clampZoom(zoom);
@@ -1216,7 +1271,11 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       catalogueScreen.hidden = !showCatalogue;
       catalogueFooter.hidden = !showCatalogue;
       document.body.classList.toggle('is-catalogue-open', showCatalogue);
-      if (!showCatalogue) document.body.classList.remove('is-atlas-view');
+      if (!showCatalogue) {
+        cancelWheelZoom();
+        cancelZoomAnimation();
+        document.body.classList.remove('is-atlas-view');
+      }
       if (showCatalogue) {
         const requestedView = location.hash === '#atlas' ? 'atlas' : location.hash === '#list' ? 'list' : null;
         const activeView = requestedView || (catalogueInitialised
