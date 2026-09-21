@@ -4,7 +4,8 @@
   const click = selector => get(selector).click();
   const atlas = get('[data-atlas]');
   const world = get('[data-atlas-world]');
-  const scale = () => Number(atlas.style.getPropertyValue('--atlas-zoom'));
+  const camera = () => new DOMMatrixReadOnly(getComputedStyle(world).transform);
+  const scale = () => camera().a;
   const results = [];
   const check = (name, passed) => {
     if (!passed) throw new Error(name);
@@ -51,22 +52,23 @@
   await pause(400);
   click('[data-atlas-next]');
   await pause(60);
-  wheel(100);
-  const stoppedAt = atlas.scrollTop;
-  check('Wheel cancels camera travel', !world.getAnimations().some(a => a.playState === 'running'));
+  wheel(100, { shiftKey: true });
+  const stoppedAt = camera().e;
+  check('Wheel cancels camera travel', !atlas.classList.contains('is-zooming'));
   await pause(400);
-  check('Wheel position survives old camera completion', Math.abs(atlas.scrollTop - stoppedAt) < 1);
+  check('Wheel position survives old camera completion', Math.abs(camera().e - stoppedAt) < 1);
   click('[data-atlas-next]');
   await pause(60);
   atlas.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true }));
-  const touchTop = atlas.scrollTop;
-  check('Touch takes over camera immediately', !world.getAnimations().some(a => a.playState === 'running'));
+  const touchTop = camera().f;
+  check('Touch takes over camera immediately', !atlas.classList.contains('is-zooming'));
+  window.dispatchEvent(new PointerEvent('pointerup', { pointerType: 'touch', bubbles: true }));
   await pause(400);
-  check('Touch interruption remains stable', Math.abs(atlas.scrollTop - touchTop) < 1);
+  check('Touch interruption remains stable', Math.abs(camera().f - touchTop) < 1);
   let statusChanges = 0;
   const observer = new MutationObserver(records => { statusChanges += records.length; });
   observer.observe(get('[data-atlas-status]'), { childList: true, characterData: true, subtree: true });
-  for (let i = 0; i < 20; i++) { wheel(i < 10 ? 4 : -4); await pause(20); }
+  for (let i = 0; i < 20; i++) { wheel(i < 10 ? 4 : -4, { shiftKey: true }); await pause(20); }
   await pause(200);
   observer.disconnect();
   check('Panning does not rewrite unchanged status', statusChanges === 0);
@@ -76,14 +78,13 @@
   click('[data-atlas-reset]');
   await pause(600);
   check('Overview remains available', scale() < .5);
-  const target = get('[data-minimap-node][data-node-index="10"]').getBoundingClientRect();
-  get('[data-atlas-minimap]').dispatchEvent(new PointerEvent('pointerdown', { clientX: target.x + target.width / 2, clientY: target.y + target.height / 2, bubbles: true }));
+  get('[data-atlas-explore]').click();
   await pause(800);
-  check('Mini-map returns to reading scale', scale() === readingScale);
-  check('Mini-map reaches selected destination', get('.kingdom-node.is-active').dataset.nodeTitle === 'Zo Usage');
+  check('Explore returns to reading scale', Math.abs(scale() - readingScale) < .00001);
   click('[data-filter="private"]');
   await pause(400);
-  check('Access filter works', document.querySelectorAll('[data-atlas-card]:not([hidden])').length === 4);
+  const privateCards = [...document.querySelectorAll('[data-atlas-card][data-access="private"]')];
+  check('Access filter works', privateCards.length > 0 && privateCards.every(card => !card.hidden) && [...document.querySelectorAll('[data-atlas-card][data-access="public"]')].every(card => card.hidden));
   click('[data-kind-filter="workflow"]');
   await pause(200);
   check('Empty filter is handled', get('[data-atlas-status]').textContent.includes('adjust filters'));

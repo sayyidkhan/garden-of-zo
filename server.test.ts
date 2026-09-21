@@ -76,15 +76,14 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain("navigateSpatially");
     expect(html).toContain("fitMap");
     expect(html).toContain("Math.hypot(pendingDragX - dragStartX, pendingDragY - dragStartY) < 5");
-    expect(html).toContain("if (!dragMoved) {");
     expect(html).toContain("animateZoom");
     expect(html).toContain("animateCamera");
     expect(html).toContain("Math.min(maximumZoom(), value)");
     expect(html).toContain("innerWidth < 620 ? 2 : 2.4");
     expect(html).not.toContain("refreshRoute(); fitMap('auto'); updateAtlas();");
     expect(html).toContain("innerWidth < 620 ? 1.05");
-    expect(html).toContain("world.animate([");
-    expect(html).toContain("DOMMatrixReadOnly");
+    expect(html).toContain("Map controls");
+    expect(html).toContain("scroll to zoom");
     expect(html).toContain("zoomTarget");
     expect(html).toContain("is-zooming");
     expect(html).toContain("Relationship Mapper");
