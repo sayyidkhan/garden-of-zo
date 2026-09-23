@@ -38,6 +38,12 @@ export type RouteConfig = {
   entryPath?: string;
   stripPrefix?: boolean;
   assetQuery?: string;
+  rewriteVitePreloadBase?: boolean;
+  listed?: boolean;
+  websocketOnly?: boolean;
+  websocketPaths?: string[];
+  allowedWebSocketOrigins?: string[];
+  webSocketBridgeBase?: string;
   atlas: AtlasNode;
 };
 
@@ -57,6 +63,13 @@ type TrafficSample = {
   sentBytes: number;
   requestCount: number;
   errorCount: number;
+};
+
+type WebSocketBridgeData = {
+  upstream: WebSocket;
+  downstream?: Bun.ServerWebSocket<WebSocketBridgeData>;
+  pending: Array<string | ArrayBuffer | Uint8Array>;
+  label: string;
 };
 
 const iconPaths: Record<string, string> = {
@@ -83,6 +96,20 @@ function escapeRegularExpression(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export function rewriteVitePreloadBase(script: string, prefix: string): string {
+  const base = prefix.replace(/^\/+|\/+$/g, "");
+  if (!base) return script;
+  return script.replace(/(["'`])assets\/(?=[^"'`]+\.(?:css|js)\1)/g, `$1${base}/assets/`);
+}
+
+export function injectWebSocketBridge(html: string, route: RouteConfig): string {
+  if (!route.webSocketBridgeBase) return html;
+  const sourcePrefix = JSON.stringify(route.prefix);
+  const bridgeBase = JSON.stringify(route.webSocketBridgeBase.replace(/\/+$/, ""));
+  const script = `<script>(()=>{const Native=window.WebSocket;const source=${sourcePrefix};const bridge=${bridgeBase};function Routed(url,protocols){const current=new URL(String(url),window.location.href);if(current.host===window.location.host&&current.pathname.startsWith(source+"/api/")){const target=new URL(bridge);target.pathname+=current.pathname.slice(source.length);target.search=current.search;url=target.toString()}return protocols===undefined?new Native(url):new Native(url,protocols)}Object.setPrototypeOf(Routed,Native);Routed.prototype=Native.prototype;window.WebSocket=Routed})();</script>`;
+  return html.replace("</head>", `${script}</head>`);
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => ({
     "&": "&amp;",
@@ -91,6 +118,12 @@ function escapeHtml(value: string): string {
     '"': "&quot;",
     "'": "&#39;"
   })[character] as string);
+}
+
+export function findRoute(routes: RouteConfig[], pathname: string): RouteConfig | undefined {
+  return routes
+    .filter((route) => pathname === route.prefix || pathname.startsWith(`${route.prefix}/`))
+    .sort((left, right) => right.prefix.length - left.prefix.length)[0];
 }
 
 export function validateAuthors(routes: RouteConfig[], authors: Record<string, AuthorProfile>): void {
@@ -146,7 +179,7 @@ export function loadCatalogConfigs(configFile: string): RouterConfig[] {
 }
 
 export function validateAtlasGraph(configs: RouterConfig[]): void {
-  const routes = configs.flatMap((config) => config.routes);
+  const routes = configs.flatMap((config) => config.routes.filter((route) => route.listed !== false));
   const ids = new Set<string>();
   for (const route of routes) {
     if (ids.has(route.label)) throw new Error(`Duplicate realm label: ${route.label}`);
@@ -195,7 +228,7 @@ function icon(name: string, className = "icon"): string {
 }
 
 export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): string {
-  const allApps = catalog.flatMap((gateway) => gateway.routes.map((route) => ({ gateway, route })));
+  const allApps = catalog.flatMap((gateway) => gateway.routes.filter((route) => route.listed !== false).map((route) => ({ gateway, route })));
   const publicCount = allApps.filter(({ gateway }) => gateway.access === "public").length;
   const privateCount = allApps.length - publicCount;
   const kindCounts = {
@@ -722,7 +755,7 @@ export function createHandler(configFile: string) {
   const config = loadConfig(configFile);
   const catalog = loadCatalogConfigs(configFile);
   let clientBuild: Promise<string> | undefined;
-  const realmArtFiles = new Map(catalog.flatMap((gateway) => gateway.routes.map((route) => {
+  const realmArtFiles = new Map(catalog.flatMap((gateway) => gateway.routes.filter((route) => route.listed !== false).map((route) => {
     const file = `garden-realm-${route.atlas.art}.webp`;
     return [`/assets/${file}`, file] as const;
   })));
@@ -778,7 +811,7 @@ export function createHandler(configFile: string) {
         service: "zo-router",
         title: config.title,
         access: config.access,
-        catalogSize: catalog.reduce((total, gateway) => total + gateway.routes.length, 0),
+        catalogSize: catalog.reduce((total, gateway) => total + gateway.routes.filter((route) => route.listed !== false).length, 0),
         routes: config.routes.map((route) => ({ prefix: route.prefix, label: route.label, targetOrigin: route.targetOrigin }))
       });
     }
@@ -811,8 +844,9 @@ export function createHandler(configFile: string) {
       return new Response(renderIndex(config, catalog), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     }
 
-    const route = config.routes.find((item) => url.pathname === item.prefix || url.pathname.startsWith(`${item.prefix}/`));
+    const route = findRoute(config.routes, url.pathname);
     if (!route) return Response.json({ error: "not found" }, { status: 404 });
+    if (route.websocketOnly) return Response.json({ error: "websocket upgrade required" }, { status: 426 });
 
     if (route.stripPrefix && url.pathname === route.prefix) {
       return new Response(null, {
@@ -857,23 +891,29 @@ export function createHandler(configFile: string) {
       if (route.assetQuery && contentType.includes("text/html")) {
         const assetQuery = encodeURIComponent(route.assetQuery);
         const html = await upstream.text();
-        const rewrittenHtml = html.replace(
+        const rewrittenHtml = injectWebSocketBridge(html.replace(
           /(["'])\.\/((?:assets|libs)\/[^"'?]+)\1/g,
           (_match, quote, assetPath) => `${quote}./${assetPath}?v=${assetQuery}${quote}`
         ).replace(
           new RegExp(`(["'])${escapeRegularExpression(route.prefix)}/((?:assets|libs)/[^"'?]+)\\1`, "g"),
           (_match, quote, assetPath) => `${quote}${route.prefix}/${assetPath}?v=${assetQuery}${quote}`
-        );
+        ), route);
         responseHeaders.set("cache-control", "no-store");
         return new Response(rewrittenHtml, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
       }
 
-      if (route.assetQuery && contentType.includes("javascript")) {
-        const assetQuery = encodeURIComponent(route.assetQuery);
-        const script = (await upstream.text()).replace(
-          /(["'`])\.\/([^"'`?]+\.js)\1/g,
-          (_match, quote, assetPath) => `${quote}./${assetPath}?v=${assetQuery}${quote}`
-        );
+      if ((route.assetQuery || route.rewriteVitePreloadBase) && contentType.includes("javascript")) {
+        let script = await upstream.text();
+        if (route.assetQuery) {
+          const assetQuery = encodeURIComponent(route.assetQuery);
+          script = script.replace(
+            /(["'`])\.\/([^"'`?]+\.js)\1/g,
+            (_match, quote, assetPath) => `${quote}./${assetPath}?v=${assetQuery}${quote}`
+          );
+        }
+        if (route.rewriteVitePreloadBase) script = rewriteVitePreloadBase(script, route.prefix);
+        responseHeaders.delete("etag");
+        responseHeaders.delete("last-modified");
         return new Response(script, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
       }
 
@@ -885,10 +925,78 @@ export function createHandler(configFile: string) {
   };
 }
 
+export function createServerOptions(configFile: string, port: number): Bun.Serve.Options<WebSocketBridgeData> {
+  const config = loadConfig(configFile);
+  const httpHandler = createHandler(configFile);
+
+  return {
+    port,
+    async fetch(request, server) {
+      if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+        return httpHandler(request);
+      }
+
+      const url = new URL(request.url);
+      const route = findRoute(config.routes, url.pathname);
+      if (!route) return Response.json({ error: "not found" }, { status: 404 });
+
+      const upstreamPath = route.stripPrefix ? url.pathname.slice(route.prefix.length) || "/" : url.pathname;
+      if (route.websocketPaths && !route.websocketPaths.includes(upstreamPath)) {
+        return Response.json({ error: "websocket path not allowed", application: route.label }, { status: 404 });
+      }
+      const origin = request.headers.get("origin");
+      if (route.allowedWebSocketOrigins && (!origin || !route.allowedWebSocketOrigins.includes(origin))) {
+        return Response.json({ error: "websocket origin not allowed", application: route.label }, { status: 403 });
+      }
+      const upstreamUrl = new URL(upstreamPath + url.search, route.targetOrigin);
+      upstreamUrl.protocol = upstreamUrl.protocol === "https:" ? "wss:" : "ws:";
+
+      const data: WebSocketBridgeData = {
+        upstream: new WebSocket(upstreamUrl),
+        pending: [],
+        label: route.label
+      };
+      data.upstream.binaryType = "arraybuffer";
+
+      data.upstream.addEventListener("open", () => {
+        for (const message of data.pending.splice(0)) data.upstream.send(message);
+      });
+      data.upstream.addEventListener("message", (event) => {
+        if (data.downstream?.readyState === WebSocket.OPEN) data.downstream.send(event.data);
+      });
+      data.upstream.addEventListener("close", (event) => {
+        if (data.downstream?.readyState === WebSocket.OPEN) data.downstream.close(event.code, event.reason);
+      });
+      data.upstream.addEventListener("error", () => {
+        if (data.downstream?.readyState === WebSocket.OPEN) data.downstream.close(1011, "upstream websocket unavailable");
+      });
+
+      if (server.upgrade(request, { data })) return;
+      data.upstream.close();
+      return Response.json({ error: "websocket upgrade failed", application: route.label }, { status: 400 });
+    },
+    websocket: {
+      data: {} as WebSocketBridgeData,
+      open(socket) {
+        socket.data.downstream = socket;
+      },
+      message(socket, message) {
+        if (socket.data.upstream.readyState === WebSocket.OPEN) socket.data.upstream.send(message);
+        else if (socket.data.upstream.readyState === WebSocket.CONNECTING) socket.data.pending.push(message);
+      },
+      close(socket, code, reason) {
+        if (socket.data.upstream.readyState < WebSocket.CLOSING) socket.data.upstream.close(code, reason);
+      },
+      idleTimeout: 120,
+      maxPayloadLength: 16 * 1024 * 1024
+    }
+  };
+}
+
 if (import.meta.main) {
   const configFile = process.env.ROUTES_FILE;
   if (!configFile) throw new Error("Missing ROUTES_FILE");
   const port = Number(process.env.PORT || "9000");
-  Bun.serve({ port, fetch: createHandler(configFile) });
+  Bun.serve(createServerOptions(configFile, port));
   console.log(`zo-router listening on http://127.0.0.1:${port}`);
 }

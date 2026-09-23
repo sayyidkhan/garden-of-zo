@@ -25,6 +25,8 @@ Small Bun-based reverse proxy and shared app catalogue for Zo service consolidat
 Current route plan:
 - private: `/backlog` -> `http://127.0.0.1:3000`
 - private: `/usage` -> `http://127.0.0.1:8791` (focused host-usage dashboard)
+- private: `/agent/runa` -> `http://127.0.0.1:8812` (Runa Hermes dashboard; prefix stripped, WebSocket enabled)
+- public hidden transport: `/agent/runa-socket` -> `http://127.0.0.1:8812` (WebSocket-only, origin-restricted bridge for the private Runa dashboard; omitted from the catalogue)
 - public: `/mapper` -> `http://127.0.0.1:8000`
 - public: `/expert` -> `http://127.0.0.1:8001`
 - public: `/pocketbase` -> `http://127.0.0.1:8090` (prefix stripped)
@@ -33,6 +35,7 @@ Current route plan:
 
 Set `stripPrefix` only for upstreams that must receive root-relative paths.
 Set `assetQuery` only when static assets need a versioned URL after a cache correction.
+Set `rewriteVitePreloadBase` only for prefix-aware Vite apps whose lazy preload map still emits root-relative asset URLs.
 
 Each route also carries the catalogue metadata `title`, `description`, `category`, `kind`, `icon`, `authorId`, `repositoryUrl`, and `atlas`. `kind` is one of `app`, `workflow`, or `agent` and powers the shared Atlas/List type filter. `authorId` must resolve to a profile in `authors.json`. `repositoryUrl` must be a public GitHub repository and powers the source action in both views. Run `bun test` after changing a manifest or the author registry.
 Use optional `entryPath` when a catalogue card should open below the route root, such as PocketBase's `/_/` admin shell.

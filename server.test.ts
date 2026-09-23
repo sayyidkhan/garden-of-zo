@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { createHandler, loadCatalogConfigs, loadConfig, renderIndex, validateAtlasGraph, validateAuthors } from "./server";
+import { createHandler, findRoute, injectWebSocketBridge, loadCatalogConfigs, loadConfig, renderIndex, rewriteVitePreloadBase, validateAtlasGraph, validateAuthors } from "./server";
 
 const publicFile = join(import.meta.dir, "public.routes.json");
 const privateFile = join(import.meta.dir, "private.routes.json");
@@ -8,7 +8,7 @@ const privateFile = join(import.meta.dir, "private.routes.json");
 describe("Garden of Zo catalogue", () => {
   test("catalogues every realm in canvas data and the accessible list", () => {
     const catalog = loadCatalogConfigs(publicFile);
-    const expected = catalog.flatMap(gateway => gateway.routes);
+    const expected = catalog.flatMap(gateway => gateway.routes.filter(route => route.listed !== false));
     const html = renderIndex(loadConfig(publicFile), catalog);
     const data = JSON.parse(html.match(/id="atlas-data">([\s\S]*?)<\/script>/)![1]);
     expect(data.realms).toHaveLength(expected.length);
@@ -48,6 +48,7 @@ describe("Garden of Zo catalogue", () => {
     const riven = routes.find((route) => route.label === "riven-proj-tracker");
     const batam = routes.find((route) => route.label === "batam-100-site");
     const tampalidea = routes.find((route) => route.label === "tampalidea");
+    const runa = routes.find((route) => route.label === "runa");
     const crow = routes.find((route) => route.label === "itachiscrow");
 
     expect(mapper?.atlas).toMatchObject({ x: 650, y: 620, art: "relationship-mapper", scale: 0.88 });
@@ -63,9 +64,41 @@ describe("Garden of Zo catalogue", () => {
     expect(riven?.atlas).toMatchObject({ x: 2470, y: 1740, art: "riven-proj-tracker", scale: 0.98 });
     expect(batam).toMatchObject({ prefix: "/staging/batam-100-site", targetOrigin: "http://127.0.0.1:8807", stripPrefix: true });
     expect(tampalidea).toMatchObject({ prefix: "/staging/tampalidea", targetOrigin: "http://127.0.0.1:8808", stripPrefix: true });
+    expect(runa).toMatchObject({ prefix: "/agent/runa", targetOrigin: "http://127.0.0.1:8812", stripPrefix: true, assetQuery: "runa-prefix-20260923-1", rewriteVitePreloadBase: true, kind: "agent" });
     expect(crow).toMatchObject({ prefix: "/crow", targetOrigin: "http://127.0.0.1:8806", stripPrefix: true });
     expect(crow?.atlas).toMatchObject({ x: 1770, y: 460, art: "itachis-crow", scale: 1.02 });
-    expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(13);
+    expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(14);
+  });
+
+  test("selects the longest matching route prefix", () => {
+    const routes = loadConfig(privateFile).routes;
+    const parent = { ...routes[0], prefix: "/agent", label: "agent-index" };
+    expect(findRoute([parent, ...routes], "/agent/runa/chat")?.label).toBe("runa");
+  });
+
+  test("keeps Vite lazy-preload assets inside a mounted route prefix", () => {
+    const script = 'const deps=["assets/ChatPage-a1.js","assets/xterm-b2.css"];import("./ChatPage-a1.js")';
+    expect(rewriteVitePreloadBase(script, "/agent/runa")).toBe(
+      'const deps=["agent/runa/assets/ChatPage-a1.js","agent/runa/assets/xterm-b2.css"];import("./ChatPage-a1.js")'
+    );
+  });
+
+  test("keeps the Runa transport hidden and rewrites only its dashboard WebSockets", async () => {
+    const publicConfig = loadConfig(publicFile);
+    const bridge = publicConfig.routes.find((route) => route.label === "runa-websocket-bridge")!;
+    expect(bridge).toMatchObject({ listed: false, websocketOnly: true, websocketPaths: ["/api/ws", "/api/pty", "/api/events"] });
+    const html = renderIndex(publicConfig, loadCatalogConfigs(publicFile));
+    expect(html).not.toContain("runa-websocket-bridge");
+
+    const privateConfig = loadConfig(privateFile);
+    const runa = privateConfig.routes.find((route) => route.label === "runa")!;
+    const injected = injectWebSocketBridge("<html><head></head></html>", runa);
+    expect(injected).toContain("public-apps-sayyidkhan.zocomputer.io/agent/runa-socket");
+    expect(injected).toContain('startsWith(source+"/api/")');
+
+    const handler = createHandler(publicFile);
+    const response = await handler(new Request("http://localhost/agent/runa-socket/api/events"));
+    expect(response.status).toBe(426);
   });
 
   test("rejects Atlas links that cannot resolve to a manifest realm", () => {
@@ -123,6 +156,7 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('href="/backlog"');
     expect(html).toContain('href="/mailhub"');
     expect(html).toContain('href="/riven-proj-tracker"');
+    expect(html).toContain('href="/agent/runa"');
     expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/mapper"');
     expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/crow/explore.html"');
   });
@@ -131,7 +165,7 @@ describe("Garden of Zo catalogue", () => {
     const handler = createHandler(publicFile);
     const health = await handler(new Request("http://localhost/health"));
     expect(health.status).toBe(200);
-    expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: loadCatalogConfigs(publicFile).flatMap(gateway => gateway.routes).length });
+    expect(await health.json()).toMatchObject({ ok: true, access: "public", catalogSize: loadCatalogConfigs(publicFile).flatMap(gateway => gateway.routes.filter(route => route.listed !== false)).length });
 
     for (const path of ["garden-sky-v2.webp", "garden-kingdom.webp", "garden-kingdom-observatory.webp", "garden-kingdom-outpost.webp", "garden-pegasus.webp", "garden-pegasus-atlas.webp", "garden-realm-relationship-mapper.webp", "garden-realm-itachis-crow.webp", "garden-realm-zo-expert.webp", "garden-realm-pocketbase.webp", "garden-realm-zo-drive.webp", "garden-realm-zo-tube.webp", "garden-realm-zo-moments.webp", "garden-realm-zo-backlog.webp", "garden-realm-zo-usage.webp", "garden-realm-mailhub.webp", "garden-realm-riven-proj-tracker.webp"]) {
       const asset = await handler(new Request(`http://localhost/assets/${path}`));

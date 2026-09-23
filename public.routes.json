@@ -216,6 +216,29 @@
         "scale": 0.82
       },
       "targetOrigin": "http://127.0.0.1:8811"
+    },
+    {
+      "prefix": "/agent/runa-socket",
+      "label": "runa-websocket-bridge",
+      "title": "Runa WebSocket Bridge",
+      "description": "Hidden authenticated WebSocket transport for the private Runa dashboard.",
+      "category": "Infrastructure",
+      "kind": "agent",
+      "icon": "network",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-runa",
+      "atlas": {
+        "x": 0,
+        "y": 0,
+        "art": "riven-proj-tracker",
+        "scale": 1
+      },
+      "targetOrigin": "http://127.0.0.1:8812",
+      "stripPrefix": true,
+      "listed": false,
+      "websocketOnly": true,
+      "websocketPaths": ["/api/ws", "/api/pty", "/api/events"],
+      "allowedWebSocketOrigins": ["https://private-apps-sayyidkhan.zo.computer"]
     }
   ]
 }

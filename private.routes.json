@@ -84,6 +84,31 @@
         ]
       },
       "targetOrigin": "http://127.0.0.1:8798"
+    },
+    {
+      "prefix": "/agent/runa",
+      "label": "runa",
+      "title": "Runa — Chief of Agents",
+      "description": "Plan objectives, ownership, dependencies and founder decisions across Prompt Alchemist Labs.",
+      "category": "Agent Operations",
+      "kind": "agent",
+      "icon": "network",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-runa",
+      "atlas": {
+        "x": 3500,
+        "y": 1050,
+        "art": "riven-proj-tracker",
+        "scale": 0.92,
+        "links": [
+          { "to": "riven-proj-tracker", "bend": 54 }
+        ]
+      },
+      "targetOrigin": "http://127.0.0.1:8812",
+      "stripPrefix": true,
+      "assetQuery": "runa-prefix-20260923-1",
+      "rewriteVitePreloadBase": true,
+      "webSocketBridgeBase": "wss://public-apps-sayyidkhan.zocomputer.io/agent/runa-socket"
     }
   ]
 }
