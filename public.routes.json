@@ -181,21 +181,41 @@
       "stripPrefix": true
     },
     {
-      "prefix": "/staging/tampalidea",
-      "label": "tampalidea",
-      "title": "TampalIdea",
-      "description": "A consent-first contributor and ownership tracker, built as a browser-local MVP.",
+      "prefix": "/staging/stakefolio",
+      "label": "stakefolio",
+      "title": "Stakefolio",
+      "description": "A project ledger for contributor roles, recorded ownership and decisions.",
       "category": "Hackathon",
       "kind": "app",
       "icon": "compass",
       "authorId": "sayyidkhan",
-      "repositoryUrl": "https://github.com/sayyidkhan/tampalidea",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
       "atlas": {
         "x": 1930,
         "y": 2020,
         "art": "relationship-mapper",
         "scale": 0.82
       },
+      "targetOrigin": "http://127.0.0.1:8808",
+      "stripPrefix": true
+    },
+    {
+      "prefix": "/staging/tampalidea",
+      "label": "tampalidea",
+      "title": "Stakefolio",
+      "description": "A consent-first contributor and ownership tracker, built as a browser-local MVP.",
+      "category": "Hackathon",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
+      "atlas": {
+        "x": 1930,
+        "y": 2020,
+        "art": "relationship-mapper",
+        "scale": 0.82
+      },
+      "listed": false,
       "targetOrigin": "http://127.0.0.1:8808",
       "stripPrefix": true
     },

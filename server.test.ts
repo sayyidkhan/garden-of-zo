@@ -108,7 +108,7 @@ describe("Garden of Zo catalogue", () => {
   });
 
   test("keeps neighbouring kingdoms clear of expanded labels and artwork", () => {
-    const routes = loadCatalogConfigs(publicFile).flatMap((gateway) => gateway.routes);
+    const routes = loadCatalogConfigs(publicFile).flatMap((gateway) => gateway.routes.filter(route => route.listed !== false));
     for (let index = 0; index < routes.length; index++) {
       for (const other of routes.slice(index + 1)) {
         const node = routes[index];

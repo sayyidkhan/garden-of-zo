@@ -109,6 +109,45 @@
       "assetQuery": "runa-prefix-20260923-1",
       "rewriteVitePreloadBase": true,
       "webSocketBridgeBase": "wss://public-apps-sayyidkhan.zocomputer.io/agent/runa-socket"
+    },
+    {
+      "prefix": "/stakefolio",
+      "label": "stakefolio-studio",
+      "title": "Stakefolio Studio",
+      "description": "Owner-only image management for Stakefolio project records.",
+      "category": "Project IP",
+      "kind": "app",
+      "icon": "image",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
+      "atlas": {
+        "x": 2220,
+        "y": 2600,
+        "art": "relationship-mapper",
+        "scale": 0.8
+      },
+      "targetOrigin": "http://127.0.0.1:8808",
+      "stripPrefix": true
+    },
+    {
+      "prefix": "/tampalidea",
+      "label": "tampalidea-studio",
+      "title": "Stakefolio Studio",
+      "description": "Owner-only image management for Stakefolio project records.",
+      "category": "Project IP",
+      "kind": "app",
+      "icon": "image",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
+      "atlas": {
+        "x": 2220,
+        "y": 2600,
+        "art": "relationship-mapper",
+        "scale": 0.8
+      },
+      "listed": false,
+      "targetOrigin": "http://127.0.0.1:8808",
+      "stripPrefix": true
     }
   ]
 }
