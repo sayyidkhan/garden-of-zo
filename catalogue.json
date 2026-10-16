@@ -1,0 +1,451 @@
+{
+  "public": {
+    "zo-relationship-mapper": {
+      "title": "Relationship Mapper",
+      "description": "Reveal the people, systems and connections shaping an idea.",
+      "category": "Insight",
+      "kind": "app",
+      "icon": "network",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-relationship-mapper",
+      "atlas": {
+        "x": 650,
+        "y": 620,
+        "art": "relationship-mapper",
+        "scale": 0.88,
+        "links": [
+          {
+            "to": "zo-expert",
+            "bend": -36
+          },
+          {
+            "to": "zo-pocketbase",
+            "bend": 38
+          }
+        ]
+      }
+    },
+    "itachiscrow": {
+      "title": "Itachi’s Crow",
+      "description": "Explore a living 3D city with an embedded flying crow, place discovery and AI-guided journeys.",
+      "category": "3D Explorer",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/itachiscrow",
+      "atlas": {
+        "x": 1770,
+        "y": 460,
+        "art": "itachis-crow",
+        "scale": 1.02
+      },
+      "entryPath": "/explore.html"
+    },
+    "zo-expert": {
+      "title": "Zo Expert",
+      "description": "Turn a difficult question into a guided path through specialist knowledge.",
+      "category": "AI Agent",
+      "kind": "agent",
+      "icon": "spark",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-expert",
+      "atlas": {
+        "x": 1130,
+        "y": 330,
+        "art": "zo-expert",
+        "scale": 1.08,
+        "links": [
+          {
+            "to": "zo-drive",
+            "bend": -54
+          }
+        ]
+      }
+    },
+    "zo-pocketbase": {
+      "title": "PocketBase",
+      "description": "The compact data control plane powering services across the garden.",
+      "category": "Infrastructure",
+      "kind": "app",
+      "icon": "database",
+      "authorId": "pocketbase",
+      "repositoryUrl": "https://github.com/pocketbase/pocketbase",
+      "atlas": {
+        "x": 970,
+        "y": 1150,
+        "art": "pocketbase",
+        "scale": 0.9,
+        "links": [
+          {
+            "to": "zo-drive",
+            "bend": 42
+          },
+          {
+            "to": "zotube",
+            "bend": 30
+          }
+        ]
+      },
+      "entryPath": "/_/"
+    },
+    "zo-drive": {
+      "title": "Zo Drive",
+      "description": "Browse, organise and work with the files held on your personal server.",
+      "category": "Workspace",
+      "kind": "app",
+      "icon": "folder",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-drive",
+      "atlas": {
+        "x": 1530,
+        "y": 940,
+        "art": "zo-drive",
+        "scale": 1.18,
+        "links": [
+          {
+            "to": "zo-moments",
+            "bend": 62
+          },
+          {
+            "to": "zo-backlog",
+            "bend": -72
+          }
+        ]
+      }
+    },
+    "zotube": {
+      "title": "Zo Tube",
+      "description": "Stream an independent media library with background audio and installable access.",
+      "category": "Media",
+      "kind": "app",
+      "icon": "play",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-tube",
+      "atlas": {
+        "x": 1600,
+        "y": 1470,
+        "art": "zo-tube",
+        "scale": 0.96,
+        "links": [
+          {
+            "to": "zo-backlog",
+            "bend": 38
+          }
+        ]
+      }
+    },
+    "zo-moments": {
+      "title": "Zo Moments",
+      "description": "Collect conversations and memories into private, cinematic keepsakes.",
+      "category": "Social",
+      "kind": "app",
+      "icon": "image",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-memories",
+      "atlas": {
+        "x": 2190,
+        "y": 850,
+        "art": "zo-moments",
+        "scale": 1.02,
+        "links": [
+          {
+            "to": "zo-backlog",
+            "bend": -42
+          },
+          {
+            "to": "zo-usage",
+            "bend": 46
+          }
+        ]
+      }
+    },
+    "batam-100-site": {
+      "title": "Batam 100 Itinerary",
+      "description": "A mobile-first itinerary and local-only trip planner for Hackathon 100.",
+      "category": "Hackathon",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/batam-100-site",
+      "atlas": {
+        "x": 1390,
+        "y": 2040,
+        "art": "relationship-mapper",
+        "scale": 0.82
+      }
+    },
+    "stakefolio": {
+      "title": "Stakefolio",
+      "description": "A project ledger for contributor roles, recorded ownership and decisions.",
+      "category": "Hackathon",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
+      "atlas": {
+        "x": 1930,
+        "y": 2020,
+        "art": "relationship-mapper",
+        "scale": 0.82
+      }
+    },
+    "tampalidea": {
+      "title": "Stakefolio",
+      "description": "A consent-first contributor and ownership tracker, built as a browser-local MVP.",
+      "category": "Hackathon",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
+      "atlas": {
+        "x": 1930,
+        "y": 2020,
+        "art": "relationship-mapper",
+        "scale": 0.82
+      },
+      "listed": false
+    },
+    "shouldijoin": {
+      "title": "Should I Join",
+      "description": "A company-evaluation workspace for professionals weighing an employer or monitoring their current company.",
+      "category": "Career Intelligence",
+      "kind": "app",
+      "icon": "pulse",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/shouldijoin",
+      "atlas": {
+        "x": 3100,
+        "y": 2070,
+        "art": "zo-expert",
+        "scale": 0.82
+      }
+    },
+    "ideas-bank": {
+      "title": "Ideas Bank",
+      "description": "Capture, assess and revisit founder opportunities, decisions and experiments.",
+      "category": "Founder Operations",
+      "kind": "app",
+      "icon": "spark",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-riven",
+      "atlas": {
+        "x": 2700,
+        "y": 2500,
+        "art": "zo-backlog",
+        "scale": 0.82
+      }
+    },
+    "openzo": {
+      "title": "OpenZo",
+      "description": "A local replica of the OpenZo website, with its guide, promo film and downloadable self-hosted package.",
+      "category": "Infrastructure",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/garden-of-zo",
+      "atlas": {
+        "x": 720,
+        "y": 2100,
+        "art": "zo-drive",
+        "scale": 0.88
+      },
+      "entryPath": "/"
+    },
+    "orin-websocket-bridge": {
+      "title": "Orin WebSocket Bridge",
+      "description": "Hidden authenticated WebSocket transport for the private Orin dashboard.",
+      "category": "Infrastructure",
+      "kind": "agent",
+      "icon": "network",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-orin",
+      "atlas": {
+        "x": 0,
+        "y": 0,
+        "art": "riven-proj-tracker",
+        "scale": 1
+      },
+      "listed": false
+    },
+    "runa-websocket-bridge": {
+      "title": "Runa WebSocket Bridge",
+      "description": "Hidden authenticated WebSocket transport for the private Runa dashboard.",
+      "category": "Infrastructure",
+      "kind": "agent",
+      "icon": "network",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-runa",
+      "atlas": {
+        "x": 0,
+        "y": 0,
+        "art": "riven-proj-tracker",
+        "scale": 1
+      },
+      "listed": false
+    }
+  },
+  "private": {
+    "kasm-browser": {
+      "title": "Kasm Browser",
+      "description": "Private persistent Chrome desktop for browser login testing.",
+      "category": "Infrastructure",
+      "kind": "app",
+      "icon": "lock",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/kasmtech/KasmVNC",
+      "atlas": {
+        "x": -1000,
+        "y": -1000,
+        "art": "zo-usage",
+        "scale": 1
+      },
+      "listed": false
+    },
+    "zo-backlog": {
+      "title": "Zo Backlog",
+      "description": "Operate ideas, commitments and delivery from one focused command board.",
+      "category": "Operations",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-backlog",
+      "atlas": {
+        "x": 2710,
+        "y": 1090,
+        "art": "zo-backlog",
+        "scale": 1.06,
+        "links": [
+          {
+            "to": "zo-usage",
+            "bend": -46
+          }
+        ]
+      }
+    },
+    "zo-usage": {
+      "title": "Zo Usage",
+      "description": "Observe live resources, application traffic and long-term host health.",
+      "category": "Observatory",
+      "kind": "app",
+      "icon": "pulse",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-usage",
+      "atlas": {
+        "x": 3020,
+        "y": 420,
+        "art": "zo-usage",
+        "scale": 1.12
+      }
+    },
+    "gigradar-mailhub": {
+      "title": "GigRadar MailHub",
+      "description": "Monitor priority mail across encrypted IMAP connections without inbox noise.",
+      "category": "Communications",
+      "kind": "app",
+      "icon": "lock",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/gigradarapp/gr-mailhub",
+      "atlas": {
+        "x": 3170,
+        "y": 1520,
+        "art": "mailhub",
+        "scale": 1,
+        "links": [
+          {
+            "to": "zo-usage",
+            "bend": 42
+          }
+        ]
+      }
+    },
+    "riven-proj-tracker": {
+      "title": "Riven Project Tracker",
+      "description": "Track Riven Buildsmith's approved work, live execution, review queue and audit trail.",
+      "category": "Agent Operations",
+      "kind": "app",
+      "icon": "spark",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-riven",
+      "atlas": {
+        "x": 2470,
+        "y": 1740,
+        "art": "riven-proj-tracker",
+        "scale": 0.98,
+        "links": [
+          {
+            "to": "zo-backlog",
+            "bend": 36
+          }
+        ]
+      }
+    },
+    "runa": {
+      "title": "Runa — Chief of Agents",
+      "description": "Plan objectives, ownership, dependencies and founder decisions across Prompt Alchemist Labs.",
+      "category": "Agent Operations",
+      "kind": "agent",
+      "icon": "network",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-runa",
+      "atlas": {
+        "x": 3500,
+        "y": 1050,
+        "art": "riven-proj-tracker",
+        "scale": 0.92,
+        "links": [
+          {
+            "to": "riven-proj-tracker",
+            "bend": 54
+          }
+        ]
+      }
+    },
+    "orin": {
+      "title": "Orin Forgekeeper",
+      "description": "Community stewardship, promptcraft and governed workflows for Prompt Alchemist Labs.",
+      "category": "Agent Operations",
+      "kind": "agent",
+      "icon": "spark",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/promptalchemistlabs/pal-agent-orin",
+      "atlas": {
+        "x": 3950,
+        "y": 1530,
+        "art": "riven-proj-tracker",
+        "scale": 0.92
+      },
+      "entryPath": "/chat?profile=orin"
+    },
+    "stakefolio-studio": {
+      "title": "Stakefolio Studio",
+      "description": "Owner-only image management for Stakefolio project records.",
+      "category": "Project IP",
+      "kind": "app",
+      "icon": "image",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
+      "atlas": {
+        "x": 2220,
+        "y": 2600,
+        "art": "relationship-mapper",
+        "scale": 0.8
+      }
+    },
+    "tampalidea-studio": {
+      "title": "Stakefolio Studio",
+      "description": "Owner-only image management for Stakefolio project records.",
+      "category": "Project IP",
+      "kind": "app",
+      "icon": "image",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
+      "atlas": {
+        "x": 2220,
+        "y": 2600,
+        "art": "relationship-mapper",
+        "scale": 0.8
+      },
+      "listed": false
+    }
+  }
+}

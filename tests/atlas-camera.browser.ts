@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHandler } from '../server';
 
 const root = new URL('../', import.meta.url).pathname;
-const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: createHandler(root + 'public.routes.json') });
+const server = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: createHandler(root + '../zo-router/public.routes.json') });
 const session = 'sky-atlas-camera-' + process.pid;
 execFileSync('agent-browser', ['--session', session, 'open', 'about:blank']);
 const browserUrl = execFileSync('agent-browser', ['--session', session, 'get', 'cdp-url'], { encoding: 'utf8' }).trim();

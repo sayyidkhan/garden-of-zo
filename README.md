@@ -1,73 +1,49 @@
-# Garden of Zo router
+# Garden of Zo platform
 
-Small Bun-based reverse proxy and shared app catalogue for Zo service consolidation.
+The GOZ platform app: Garden homepage, Atlas, catalogue and read-only private inventory. Repository: `sayyidkhan/garden-of-zo`; folder: `Start/garden-of-zo/zo-platform`. Routing and connection infrastructure live in sibling `../zo-router` and repository `sayyidkhan/zo-router`.
 
-- private gateway uses `private.routes.json`
-- public gateway uses `public.routes.json`
-- backend apps should be started with matching `APP_BASE_PATH` values
-- both gateway homepages render the complete catalogue from both manifests
-- the landing realm and catalogue are separate full-screen states; `#atlas` opens the catalogue and browser Back returns to the landing screen
-- the Atlas renders its world through PixiJS 8 and pixi-viewport 6 in one WebGL canvas; client source lives in `client/atlas.ts`, bundled by Bun and served locally at `/atlas-client.js` (no runtime CDN dependency)
-- the existing `/#atlas` route keeps the floating-kingdom artwork, teal/gold palette, authors, realm destinations, access boundaries and List View; there is no separate `/map` page
-- route manifests supply canonical world coordinates, artwork and links; the browser receives only catalogue metadata, never backend target addresses
-- camera input uses direct drag, pointer-anchored wheel zoom, touch drag/pinch and a short release glide; WASD/arrows move continuously, Shift moves faster, `0` opens Overview and Escape stops travel
-- `client/camera-motion.ts` corrects pixi-viewport 6.0.3's double-decay glide calculation and applies time-based, pointer-anchored wheel smoothing; direction reversals discard pending zoom, and press/Escape/keyboard/blur cancel it. Glide is capped at 240 screen pixels and verified at 30/60/120/144 Hz.
-- decorative artwork is excluded from pointer hit-testing; the mini-map's moving outline uses a small canvas to avoid layout work while panning and zooming
-- the starting regional view is centred on Zo Drive at 72% desktop / 64% mobile scale; Overview fits the world, Explore returns to the selected kingdom at that reading scale, and the mini-map supports click/drag travel
-- labels render at a stable screen size with collision suppression and reduced detail when zoomed out; offscreen islands are culled, idle frames skip rendering, and hidden Atlas tabs stop their ticker
-- clicking a kingdom opens a fixed details panel without moving or zooming the camera; only Locate, the kingdom chooser, previous/next and Explore initiate travel; only Enter realm opens the destination
-- access/type filters preserve camera position; List View and the native kingdom chooser retain keyboard access to every destination
-- reduced motion disables camera transitions and release glide; graphics initialisation/context failure explains how to use List View
-- private links continue through the authenticated private gateway; source and author links remain public
-- dependencies are pinned in `package.json` and `bun.lock`; install with `bun install --frozen-lockfile` before starting the gateway
-- catalogue hero art is layered from `assets/garden-sky-v2.webp`, `assets/garden-kingdom.webp`, and `assets/garden-pegasus.webp`
+## Run and maintain
 
-Current route plan:
-- private: `/backlog` -> `http://127.0.0.1:3000`
-- private: `/usage` -> `http://127.0.0.1:8791` (focused host-usage dashboard)
-- private: `/agent/runa` -> `http://127.0.0.1:8812` (Runa Hermes dashboard; prefix stripped, WebSocket enabled)
-- public hidden transport: `/agent/runa-socket` -> `http://127.0.0.1:8812` (WebSocket-only, origin-restricted bridge for the private Runa dashboard; omitted from the catalogue)
-- public: `/mapper` -> `http://127.0.0.1:8000`
-- public: `/expert` -> `http://127.0.0.1:8001`
-- public: `/pocketbase` -> `http://127.0.0.1:8090` (prefix stripped)
-- public: `/zotube` -> `http://127.0.0.1:8788` (prefix stripped)
-- public: `/moments` -> `http://127.0.0.1:8790` (prefix stripped)
+Managed process service `zo-platform` (`svc_YIhvL4JC_vw`) runs `bun server.ts` with `ROUTES_DIR=/home/workspace/Start/garden-of-zo/zo-router`. One app serves two fixed loopback listeners: 8834 for public Garden, 8835 for private Garden. Configure ports with `PLATFORM_PUBLIC_PORT` and `PLATFORM_PRIVATE_PORT`. Do not register an external endpoint for these ports. Gateway visibility and Zo sign-in remain the access boundary.
 
-Set `stripPrefix` only for upstreams that must receive root-relative paths.
-Set `assetQuery` only when static assets need a versioned URL after a cache correction.
-Set `rewriteVitePreloadBase` only for prefix-aware Vite apps whose lazy preload map still emits root-relative asset URLs.
+Install graphics dependencies with `bun install --frozen-lockfile`. Run `bun test` after changes. Restart only `zo-platform` for UI, inventory, authors or catalogue metadata changes. No gateway restart is required for these changes. See `docs/migration.md` for deployment, protected behaviour, recovery and verification.
 
-Each route also carries the catalogue metadata `title`, `description`, `category`, `kind`, `icon`, `authorId`, `repositoryUrl`, and `atlas`. `kind` is one of `app`, `workflow`, or `agent` and powers the shared Atlas/List type filter. `authorId` must resolve to a profile in `authors.json`. `repositoryUrl` must be a public GitHub repository and powers the source action in both views. Run `bun test` after changing a manifest or the author registry.
-Use optional `entryPath` when a catalogue card should open below the route root, such as PocketBase's `/_/` admin shell.
+Both existing gateway roots continue to serve `/`, `/#atlas` and `/#list`. Existing app paths bypass this process. Public Garden never serves operational inventory or its client; public/private mode is fixed by listener configuration, never selected using client headers or Host.
 
-For interaction regression checks, open a fresh `/#atlas` page with `agent-browser`, then run `agent-browser eval --stdin < tests/atlas-interaction.browser.js`. Run at desktop and mobile viewport sizes, reloading between runs. This checks continuous zoom, camera interruption, stable status text, kingdom selection, overview, mini-map, filters and view switching. The script changes only the test browser's view; it does not enter destinations or write application data.
+## Source ownership
 
-Run `bun tests/atlas-camera.browser.ts` for a temporary local preview and browser checks using real mouse, wheel, keyboard and touch events at desktop/mobile sizes. It also runs the existing interaction checks, measures layout work during continuous panning and saves screenshots under `_scratch/`. Set `ATLAS_TEST_URL` to check a running gateway instead. This requires `agent-browser` on PATH.
+| File or folder | Responsibility |
+|---|---|
+| `server.ts` | Public/private Garden request handlers and loopback listeners |
+| `config.ts` | Read router manifests and merge platform metadata; validate catalogue |
+| `catalogue.json` | Descriptions, authors, repository links, display categories, realm artwork/positions/connections and entry links, keyed by access and route label |
+| `authors.json` | Contributor profiles referenced by catalogue author IDs |
+| `view.ts` | Homepage, Atlas/List shell and favicon |
+| `client/shell.js` | Immediate navigation and public List filters; lazy Atlas import |
+| `client/atlas.ts`, `camera-motion.ts`, `atlas-connections.ts` | PixiJS canvas, camera and decorative connections |
+| `assets/` | Garden artwork |
+| `operations/` | Private read-only host/service/agent/workflow/database discovery and unified List |
 
-## Add a realm
+The platform reads current `public.routes.json` and `private.routes.json` through `ROUTES_DIR`, but imports no router runtime code. It never changes forwarding configuration. Add routing entries in the router and matching presentation entries in local `catalogue.json` for new destinations. Metadata cannot override target origins or access levels. Hidden transport routes remain excluded from both Atlas and app inventory.
 
-Add the route to `public.routes.json` or `private.routes.json`; there is no separate Atlas list in `server.ts`.
+## Protected interface behaviour
 
-Add a contributor once to `authors.json`, then reference that stable key from every realm they own:
+The landing realm and catalogue are separate full-screen states. `#atlas` opens the canvas, browser Back returns home, and `#list` opens the existing List. Preserve the teal/gold artwork, contributor/source links, private-link authentication and accessibility. Atlas and the public List contain apps/agents only; the private List also has services, workflows, databases and attention findings.
 
-```json
-"authorId": "contributor-handle"
-```
+The PixiJS 8/pixi-viewport 6 renderer is bundled locally on demand, with no runtime CDN. Keep stable-sized labels, collision suppression, offscreen culling, lazy loading and stopped hidden tickers. Preserve pointer-anchored wheel zoom, touch drag/pinch, keyboard travel, cancellation and capped release glide. Camera motion tests cover frame-rate independence. Realm selection opens details without camera travel; explicit Locate/Overview/Explore controls move it. Decorative connection dots describe declared links rather than observed traffic. Preserve reduced-motion behaviour and the accessible List fallback.
 
-```json
-"atlas": {
-  "x": 1200,
-  "y": 500,
-  "art": "my-realm",
-  "scale": 1,
-  "links": [
-    { "to": "existing-route-label", "bend": 40 }
-  ]
-}
-```
+Catalogue positions and graph links live in `catalogue.json`. Keep at least 380 horizontal or 460 vertical units between neighbouring nodes. Artwork IDs map to `assets/garden-realm-<id>.webp`. Links use stable route labels; validation rejects duplicate labels, missing/self targets and duplicate edges. `kind` is `app` or `agent`. Preserve Orin's explicit profile link and Runa's default.
 
-- `x` and `y` are the beacon centre on an Atlas canvas of at least `3600 × 2500`; the canvas expands automatically for farther placements. Leave at least 380px horizontally or 460px vertically between neighbours to accommodate artwork and expanded labels.
-- `art` is a lowercase asset ID. It resolves to `assets/garden-realm-<art>.webp`, so a new realm can add its own kingdom without changing renderer code.
-- `links` uses stable route `label` values, never array indexes. Omit it for a leaf node.
-- `bend` is optional. `0` is direct; positive and negative values curve on opposite sides of the straight route.
-- Manifest loading rejects duplicate labels, missing link targets, self-links, and duplicate edges.
+## Private inventory
+
+`operations/view.ts` and `list.css` render the unified private List. Preserve search, tabs, filters, numeric size sorting, selected entity/dependencies and URL state. Legacy `/operations[/]#entity=...` redirects into `/#list` while retaining selection. Public `/operations/*` must return 404.
+
+Inventory reads supervisor state, route manifests, PAL registry/workflows and scoped SQLite/DuckDB file metadata. It excludes secrets, raw environment/commands, conversations and database rows. Host Codex databases are host runtime. The documented YouTube last-success aggregate is the only workflow-store query. Preserve scan bounds, error reporting, stale observation times and last-good cache handling. Process state, HTTP response, declared configuration and verified application health are different facts.
+
+`operations/automations.local.json` is a private gitignored Zo schedule snapshot; page refresh does not refresh this source. Local Runa backup evidence is not proof of off-host protection or a tested restore. Inventory does not restart services, run workflows or change permissions.
+
+## Browser verification
+
+Run `python3.12 tests/unified-list.browser.py` for private List state, navigation, responsive layouts and public privacy. Set `GARDEN_PRIVATE_TEST_URL=http://127.0.0.1:9100` and `GARDEN_PUBLIC_TEST_URL=http://127.0.0.1:9101` for the deployed gateways. Run `bun tests/atlas-camera.browser.ts` for desktop/mobile Atlas interaction; `ATLAS_TEST_URL` can point to a deployed Atlas URL. Browser output/screenshots belong under `_scratch/`.
+
+These local checks do not replace verification through Zo's external authenticated edge. Public homepages remain public and private homepages require owner sign-in. See the migration document for the recorded acceptance checks.

@@ -1,8 +1,9 @@
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture } from 'pixi.js';
 import { Viewport, Decelerate } from 'pixi-viewport';
 import { AtlasGlide, AtlasWheel } from './camera-motion';
+import { AtlasConnection } from './atlas-connections';
 
-type Realm = { id: string; index: number; title: string; description: string; category: string; kind: string; access: string; accessLabel: string; href: string; repositoryUrl: string; author: { name: string; profileUrl: string }; x: number; y: number; scale: number; art: string };
+type Realm = { id: string; index: number; title: string; description: string; category: string; kind: string; access: string; accessLabel: string; href: string; displayUrl: string; oversightUrl: string; repositoryUrl: string; author: { name: string; profileUrl: string }; x: number; y: number; scale: number; art: string };
 type MapData = { width: number; height: number; realms: Realm[]; links: { from: string; to: string; path: string }[] };
 const data: MapData = JSON.parse(document.querySelector('#atlas-data')!.textContent!);
 const get = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -21,7 +22,7 @@ let dirty = true, active = false, ready = false;
 let lastCamera = '';
 const keys = new Set<string>();
 const visuals = new Map<string, { body: Container; label: Container; ring: Graphics; title: Text; subtitle: Text }>();
-const links = new Map<MapData['links'][number], Graphics>();
+const links = new Map<MapData['links'][number], AtlasConnection>();
 const visible = () => data.realms.filter(r => (access === 'all' || r.access === access) && (kind === 'all' || r.kind === kind));
 const readingScale = () => innerWidth < 620 ? .64 : .72;
 const maxScale = () => innerWidth < 620 ? 2 : 2.4;
@@ -64,7 +65,10 @@ const select = (realm: Realm | undefined, showPanel = true) => {
   const author = get<HTMLAnchorElement>('[data-realm-author]');
   author.textContent = 'By ' + realm.author.name; author.href = realm.author.profileUrl;
   get<HTMLAnchorElement>('[data-realm-enter]').href = realm.href;
+  const url = get<HTMLAnchorElement>('[data-realm-url]');
+  url.textContent = realm.displayUrl; url.href = realm.href; url.title = `Open ${realm.displayUrl}`;
   get<HTMLAnchorElement>('[data-realm-source]').href = realm.repositoryUrl;
+  get<HTMLAnchorElement>('[data-realm-oversight]').href = realm.oversightUrl;
   get<HTMLImageElement>('[data-realm-art]').src = realm.art;
   panel.dataset.access = realm.access;
   panel.hidden = !showPanel;
@@ -72,7 +76,7 @@ const select = (realm: Realm | undefined, showPanel = true) => {
     visual.ring.visible = id === realm.id;
     visual.title.style.fill = id === realm.id ? '#fff2bf' : '#e2e9df';
   }
-  for (const [link, line] of links) line.alpha = link.from === realm.id || link.to === realm.id ? .6 : .18;
+  for (const [link, line] of links) line.alpha = link.from === realm.id || link.to === realm.id ? 1 : .85;
   all('[data-minimap-node]').forEach(node => node.classList.toggle('is-active', Number(node.dataset.nodeIndex) === realm.index));
   dirty = true;
 };
@@ -139,9 +143,11 @@ async function initialise() {
     const text = new Text({ text: title, style: { fontFamily: 'Georgia', fontStyle: 'italic', fontSize: 30, fill: '#789c94', letterSpacing: 3 } });
     text.anchor.set(.5); text.position.set(x, y); text.alpha = .55; terrain.addChild(text);
   }
+  const dotArt = new Graphics().circle(0, 0, 3.8).fill(0xfff2c8).circle(0, 0, 2.6).fill(0x286459);
+  const dotTexture = app.renderer.generateTexture({ target: dotArt, resolution: 2 });
+  dotArt.destroy();
   for (const link of data.links) {
-    const n = link.path.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
-    const line = new Graphics().moveTo(n[0], n[1]).bezierCurveTo(n[2], n[3], n[4], n[5], n[6], n[7]).stroke({ color: 0xcdbb7e, width: 1.5 });
+    const line = new AtlasConnection(link.path, dotTexture);
     paths.addChild(line); links.set(link, line);
   }
   await document.fonts.ready;
@@ -190,6 +196,7 @@ async function initialise() {
     viewport.moveCenter(centre); dirty = true;
   };
   new ResizeObserver(resize).observe(host);
+  let connectionElapsed = 0;
   app.ticker.add(ticker => {
     if (!active || document.hidden) return;
     const dt = Math.min(ticker.elapsedMS, 50);
@@ -200,24 +207,33 @@ async function initialise() {
     }
     viewport.update(ticker.elapsedMS);
     const camera = `${viewport.x},${viewport.y},${viewport.scale.x}`;
-    if (camera === lastCamera && !dirty) return;
-    lastCamera = camera;
-    const occupied: { x: number; y: number; width: number; height: number }[] = [];
-    const realms = visible().sort((a, b) => Number(b === selected) - Number(a === selected));
-    for (const realm of realms) {
-      const visual = visuals.get(realm.id)!;
-      const point = viewport.toScreen(realm.x, realm.y);
-      const inFrame = point.x > -240 && point.x < viewport.screenWidth + 240 && point.y > -200 && point.y < viewport.screenHeight + 200;
-      visual.body.renderable = inFrame;
-      visual.label.position.set(point.x, point.y + Math.max(22, 95 * realm.scale * viewport.scale.x));
-      const bounds = { x: visual.label.x - visual.title.width / 2 - 10, y: visual.label.y, width: visual.title.width + 20, height: 40 };
-      const collision = occupied.some(b => bounds.x < b.x + b.width && bounds.x + bounds.width > b.x && bounds.y < b.y + b.height && bounds.y + bounds.height > b.y);
-      visual.label.visible = inFrame && !collision;
-      visual.subtitle.visible = viewport.scale.x >= .55;
-      if (visual.label.visible) occupied.push(bounds);
+    const layoutChanged = camera !== lastCamera || dirty;
+    connectionElapsed = reduced.matches ? 0 : connectionElapsed + dt;
+    let connectionsChanged = false;
+    if (layoutChanged || connectionElapsed >= 1000 / 30) {
+      for (const line of links.values()) connectionsChanged = line.update(viewport, connectionElapsed) || connectionsChanged;
+      connectionElapsed = 0;
+    }
+    if (!layoutChanged && !connectionsChanged) return;
+    if (layoutChanged) {
+      lastCamera = camera;
+      const occupied: { x: number; y: number; width: number; height: number }[] = [];
+      const realms = visible().sort((a, b) => Number(b === selected) - Number(a === selected));
+      for (const realm of realms) {
+        const visual = visuals.get(realm.id)!;
+        const point = viewport.toScreen(realm.x, realm.y);
+        const inFrame = point.x > -240 && point.x < viewport.screenWidth + 240 && point.y > -200 && point.y < viewport.screenHeight + 200;
+        visual.body.renderable = inFrame;
+        visual.label.position.set(point.x, point.y + Math.max(22, 95 * realm.scale * viewport.scale.x));
+        const bounds = { x: visual.label.x - visual.title.width / 2 - 10, y: visual.label.y, width: visual.title.width + 20, height: 40 };
+        const collision = occupied.some(b => bounds.x < b.x + b.width && bounds.x + bounds.width > b.x && bounds.y < b.y + b.height && bounds.y + bounds.height > b.y);
+        visual.label.visible = inFrame && !collision;
+        visual.subtitle.visible = viewport.scale.x >= .55;
+        if (visual.label.visible) occupied.push(bounds);
+      }
+      updateHud();
     }
     app.render(); dirty = false;
-    updateHud();
   });
   ready = true;
   host.dataset.renderer = 'webgl';
@@ -235,24 +251,34 @@ function showFallback() {
   host.dataset.renderer = 'unavailable';
 }
 function syncScreen() {
-  const catalogue = ['#atlas', '#list', '#realms'].includes(location.hash);
+  const legacy = new URLSearchParams(location.search);
+  if (legacy.has('garden-list') || location.hash.startsWith('#entity=')) {
+    legacy.delete('garden-list');
+    const selection = location.hash.startsWith('#entity=') ? '?' + location.hash.slice(1) : '';
+    history.replaceState(null, '', location.pathname + (legacy.size ? '?' + legacy : '') + '#list' + selection);
+  }
+  const route = location.hash.split('?')[0];
+  const catalogue = ['#atlas', '#list', '#realms'].includes(route);
   get('[data-screen="landing"]').hidden = catalogue;
   get('main[data-screen="catalogue"]').hidden = !catalogue;
   get('footer[data-screen="catalogue"]').hidden = !catalogue;
-  if (location.hash === '#realms') { try { view = localStorage.getItem('garden-of-zo-view') || 'atlas'; } catch {} }
-  else view = location.hash === '#list' ? 'list' : 'atlas';
+  if (route === '#realms') { try { view = localStorage.getItem('garden-of-zo-view') || 'atlas'; } catch {} }
+  else view = route === '#list' ? 'list' : 'atlas';
   active = catalogue && view === 'atlas';
   document.body.classList.toggle('is-catalogue-open', catalogue);
   document.body.classList.toggle('is-atlas-view', active);
   get('.hero').classList.toggle('is-offscreen', catalogue);
   all('[data-view-panel]').forEach(el => { el.hidden = el.dataset.viewPanel !== view; });
   all('[data-view]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.view === view)));
-  get('[data-view-eyebrow]').textContent = view === 'list' ? 'The realm directory' : 'The sky atlas';
-  get('[data-view-description]').textContent = view === 'list' ? 'Every app, workflow and agent in one directory.' : 'Explore the floating kingdoms. Choose a landmark to discover its realm.';
+  const inventory = !!document.querySelector('#inventory');
+  get('[data-view-eyebrow]').textContent = view === 'list' ? (inventory ? 'Your Garden' : 'The realm directory') : 'The sky atlas';
+  get('[data-view-title]').textContent = view === 'list' && inventory ? 'Everything in one place.' : 'Choose the next horizon.';
+  get('[data-view-description]').textContent = view === 'list' ? (inventory ? 'Apps, agents, services, workflows and databases.' : 'Every app and agent in one directory.') : 'Explore the floating kingdoms. Choose a landmark to discover its realm.';
   if (active) {
     if (!initialising) initialising = initialise().catch(error => { console.error('Sky Atlas initialisation failed', error); showFallback(); });
     else if (ready && !document.hidden) app.ticker.start();
   } else { stop(); app?.ticker.stop(); }
+  document.dispatchEvent(new Event('garden:viewchange'));
   scrollTo({ top: 0, behavior: 'instant' });
 }
 all('[data-view]').forEach(button => button.addEventListener('click', () => {

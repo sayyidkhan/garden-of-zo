@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { createHandler, findRoute, injectWebSocketBridge, loadCatalogConfigs, loadConfig, renderIndex, rewriteVitePreloadBase, validateAtlasGraph, validateAuthors } from "./server";
+import { createHandler, loadCatalogConfigs, loadConfig, renderIndex, validateAtlasGraph, validateAuthors } from "./server";
 
-const publicFile = join(import.meta.dir, "public.routes.json");
-const privateFile = join(import.meta.dir, "private.routes.json");
+const publicFile = join(import.meta.dir, "../zo-router/public.routes.json");
+const privateFile = join(import.meta.dir, "../zo-router/private.routes.json");
 
 describe("Garden of Zo catalogue", () => {
   test("catalogues every realm in canvas data and the accessible list", () => {
@@ -20,9 +20,11 @@ describe("Garden of Zo catalogue", () => {
       expect(realm).toMatchObject({ title: route.title, x: route.atlas.x, y: route.atlas.y, repositoryUrl: route.repositoryUrl });
       expect(realm.author.name).toBeTruthy();
       expect(realm.href).toBeTruthy();
+      expect(realm.displayUrl).toMatch(/^https:\/\//);
     }
     expect(data.links).toHaveLength(expected.flatMap(route => route.atlas.links ?? []).length);
-    for (const marker of ['data-realm-panel', 'data-realm-chooser', 'data-realm-enter', 'data-realm-source', 'data-panel-close', 'data-atlas-minimap', 'data-filter="private"', 'data-kind-filter="workflow"', 'data-view="list"', 'data-view="atlas"', '/atlas-client.js']) expect(html).toContain(marker);
+    for (const marker of ['data-realm-panel', 'data-realm-chooser', 'data-realm-enter', 'data-realm-source', 'data-panel-close', 'data-atlas-minimap', 'data-filter="private"', 'data-kind-filter="agent"', 'data-view="list"', 'data-view="atlas"', '/garden-client.js']) expect(html).toContain(marker);
+    expect(html).not.toContain('src="/atlas-client.js');
     expect(html).not.toContain('data-atlas-world');
     expect(html).toContain('href="#atlas"');
     expect(html).toContain('Back to home');
@@ -48,7 +50,9 @@ describe("Garden of Zo catalogue", () => {
     const riven = routes.find((route) => route.label === "riven-proj-tracker");
     const batam = routes.find((route) => route.label === "batam-100-site");
     const tampalidea = routes.find((route) => route.label === "tampalidea");
+    const tampalideaStudio = routes.find((route) => route.label === "tampalidea-studio");
     const runa = routes.find((route) => route.label === "runa");
+    const orin = routes.find((route) => route.label === "orin");
     const crow = routes.find((route) => route.label === "itachiscrow");
 
     expect(mapper?.atlas).toMatchObject({ x: 650, y: 620, art: "relationship-mapper", scale: 0.88 });
@@ -64,41 +68,12 @@ describe("Garden of Zo catalogue", () => {
     expect(riven?.atlas).toMatchObject({ x: 2470, y: 1740, art: "riven-proj-tracker", scale: 0.98 });
     expect(batam).toMatchObject({ prefix: "/staging/batam-100-site", targetOrigin: "http://127.0.0.1:8807", stripPrefix: true });
     expect(tampalidea).toMatchObject({ prefix: "/staging/tampalidea", targetOrigin: "http://127.0.0.1:8808", stripPrefix: true });
+    expect(tampalideaStudio).toMatchObject({ prefix: "/tampalidea", targetOrigin: "http://127.0.0.1:8808", stripPrefix: true });
     expect(runa).toMatchObject({ prefix: "/agent/runa", targetOrigin: "http://127.0.0.1:8812", stripPrefix: true, assetQuery: "runa-prefix-20260923-1", rewriteVitePreloadBase: true, kind: "agent" });
+    expect(orin).toMatchObject({ prefix: "/agent/orin", targetOrigin: "http://127.0.0.1:8820", stripPrefix: true, entryPath: "/chat?profile=orin", rewriteVitePreloadBase: true, kind: "agent" });
     expect(crow).toMatchObject({ prefix: "/crow", targetOrigin: "http://127.0.0.1:8806", stripPrefix: true });
     expect(crow?.atlas).toMatchObject({ x: 1770, y: 460, art: "itachis-crow", scale: 1.02 });
     expect(routes.flatMap((route) => route.atlas.links ?? [])).toHaveLength(14);
-  });
-
-  test("selects the longest matching route prefix", () => {
-    const routes = loadConfig(privateFile).routes;
-    const parent = { ...routes[0], prefix: "/agent", label: "agent-index" };
-    expect(findRoute([parent, ...routes], "/agent/runa/chat")?.label).toBe("runa");
-  });
-
-  test("keeps Vite lazy-preload assets inside a mounted route prefix", () => {
-    const script = 'const deps=["assets/ChatPage-a1.js","assets/xterm-b2.css"];import("./ChatPage-a1.js")';
-    expect(rewriteVitePreloadBase(script, "/agent/runa")).toBe(
-      'const deps=["agent/runa/assets/ChatPage-a1.js","agent/runa/assets/xterm-b2.css"];import("./ChatPage-a1.js")'
-    );
-  });
-
-  test("keeps the Runa transport hidden and rewrites only its dashboard WebSockets", async () => {
-    const publicConfig = loadConfig(publicFile);
-    const bridge = publicConfig.routes.find((route) => route.label === "runa-websocket-bridge")!;
-    expect(bridge).toMatchObject({ listed: false, websocketOnly: true, websocketPaths: ["/api/ws", "/api/pty", "/api/events"] });
-    const html = renderIndex(publicConfig, loadCatalogConfigs(publicFile));
-    expect(html).not.toContain("runa-websocket-bridge");
-
-    const privateConfig = loadConfig(privateFile);
-    const runa = privateConfig.routes.find((route) => route.label === "runa")!;
-    const injected = injectWebSocketBridge("<html><head></head></html>", runa);
-    expect(injected).toContain("public-apps-sayyidkhan.zocomputer.io/agent/runa-socket");
-    expect(injected).toContain('startsWith(source+"/api/")');
-
-    const handler = createHandler(publicFile);
-    const response = await handler(new Request("http://localhost/agent/runa-socket/api/events"));
-    expect(response.status).toBe(426);
   });
 
   test("rejects Atlas links that cannot resolve to a manifest realm", () => {
@@ -144,6 +119,9 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('href="https://private-apps-sayyidkhan.zo.computer/backlog"');
     expect(html).toContain('href="https://private-apps-sayyidkhan.zo.computer/mailhub"');
     expect(html).toContain('href="https://private-apps-sayyidkhan.zo.computer/riven-proj-tracker"');
+    expect(html).toContain('href="https://private-apps-sayyidkhan.zo.computer/stakefolio"');
+    expect(html).toContain('class="realm-row__url"');
+    expect(html).toContain('https://public-apps-sayyidkhan.zocomputer.io/mapper');
     expect(html).toContain('href="/pocketbase/_/"');
     expect(html).toContain('data-access="private"');
     expect(html).toContain("Owner access");
@@ -153,12 +131,13 @@ describe("Garden of Zo catalogue", () => {
 
   test("private view keeps private routes local and public routes on the public gateway", () => {
     const html = renderIndex(loadConfig(privateFile), loadCatalogConfigs(privateFile));
-    expect(html).toContain('href="/backlog"');
-    expect(html).toContain('href="/mailhub"');
-    expect(html).toContain('href="/riven-proj-tracker"');
-    expect(html).toContain('href="/agent/runa"');
-    expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/mapper"');
-    expect(html).toContain('href="https://public-apps-sayyidkhan.zocomputer.io/crow/explore.html"');
+    const data = JSON.parse(html.match(/<script type="application\/json" id="atlas-data">([\s\S]*?)<\/script>/)![1]);
+    const hrefs = data.realms.map((r: any) => r.href);
+    for (const path of ["/backlog", "/mailhub", "/riven-proj-tracker", "/stakefolio", "/agent/runa", "/agent/orin/chat?profile=orin",
+      "https://public-apps-sayyidkhan.zocomputer.io/mapper", "https://public-apps-sayyidkhan.zocomputer.io/crow/explore.html"]) {
+      expect(hrefs).toContain(path);
+    }
+    expect(html).toContain('id="inventory"');
   });
 
   test("serves catalogue metadata and the layered hero assets", async () => {

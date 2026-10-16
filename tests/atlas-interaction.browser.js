@@ -24,8 +24,8 @@
   await pause(100);
   check('Private filter retains camera position', api.state().x === pan.x && api.state().y === pan.y && api.state().scale === pan.scale);
   check('Private filter shows only private realms', api.state().visible.length === data.realms.filter(r => r.access === 'private').length);
-  click('[data-kind-filter="workflow"]');
-  check('Empty filter has a visible explanation', api.state().visible.length === 0 && !get('[data-atlas-empty]').hidden);
+  click('[data-kind-filter="agent"]');
+  check('Agent filter shows only private agents', api.state().visible.length === data.realms.filter(r => r.access === 'private' && r.kind === 'agent').length);
   click('[data-filter="all"]'); click('[data-kind-filter="all"]');
   click('[data-atlas-reset]'); await settle();
   check('Overview fits all kingdoms', api.state().scale < .5);

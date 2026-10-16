@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oversight · Garden of Zo</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+:root{color-scheme:dark;--bg:#07181c;--panel:#10282d;--line:#274147;--text:#e3eeeb;--muted:#9db8b7;--gold:#e7c685;--green:#8ed9bd;--red:#ffada9}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}a{color:var(--gold)}button,input,select{font:inherit}button,a,input,select{touch-action:manipulation}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+main{max-width:1400px;margin:auto;padding:28px}nav.top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:18px}.top a{text-decoration:none}.links{display:flex;gap:20px}
+header{display:flex;align-items:end;justify-content:space-between;gap:24px;margin:32px 0 22px}h1{font:normal clamp(32px,5vw,52px)/1.1 Georgia,serif;margin:6px 0 12px}h2{font-size:20px}.eyebrow{color:var(--gold);font-size:12px;letter-spacing:.16em;text-transform:uppercase}.muted{color:var(--muted)}p{margin:6px 0 12px}.button,select,input{border:1px solid var(--line);border-radius:9px;color:var(--text);background:var(--panel);padding:10px 14px}.button:hover{border-color:var(--gold)}.summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:24px 0}.summary button{text-align:left;padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--text)}.summary strong{display:block;font-size:28px;font-weight:500}.summary span{color:var(--muted)}
+.alert{border:1px solid #b47c4c;background:#33291d;padding:14px 18px;border-radius:10px;margin-bottom:16px}.alert[hidden]{display:none}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:24px 0 16px}.tabs{display:flex;gap:6px;flex-wrap:wrap}.tabs button{border:1px solid transparent;background:transparent;color:var(--muted);padding:10px 13px;border-radius:8px}.tabs button[aria-pressed=true]{background:var(--panel);border-color:var(--gold);color:var(--gold)}.search{display:flex;gap:8px;flex-wrap:wrap}input{width:260px}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0b2025}table{border-collapse:collapse;width:100%;min-width:730px;text-align:left}th{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--panel)}th,td{padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top}td{font-size:14px}tbody tr:last-child td{border-bottom:0}.entity{background:none;border:0;color:var(--text);text-align:left;padding:0;font-weight:600;cursor:pointer}.entity:hover{text-decoration:underline;color:var(--gold)}small{display:block;color:var(--muted);font-size:12px;max-width:480px;overflow-wrap:anywhere}.badge{display:inline-block;border:1px solid var(--line);padding:2px 8px;border-radius:20px;font-size:12px;white-space:nowrap}.bad{color:var(--red);border-color:#774340}.good{color:var(--green);border-color:#366050}.warn{color:var(--gold);border-color:#665735}#caption{margin:10px 0;color:var(--muted);font-size:13px}
+dialog{color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:26px;width:min(760px,94vw);max-height:85vh;overflow:auto}dialog::backdrop{background:#000a}.dialog-head{display:flex;justify-content:space-between;align-items:start;gap:20px}dl{display:grid;grid-template-columns:130px 1fr;gap:10px}dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}.related{display:flex;gap:8px;flex-wrap:wrap}.related button{font-size:13px}.coverage{margin-top:28px;padding:18px;border:1px solid var(--line);border-radius:12px;color:var(--muted)}.coverage summary{cursor:pointer;color:var(--text)}.coverage p{margin-top:12px;overflow-wrap:anywhere}footer{margin-top:24px;color:var(--muted);font-size:12px}
+@media(max-width:760px){main{padding:18px}header{align-items:start;flex-direction:column}.summary{grid-template-columns:repeat(2,1fr)}.summary button:last-child{grid-column:1/-1}.toolbar{align-items:stretch}.search,input{width:100%}dl{grid-template-columns:1fr;gap:4px}dd{margin-bottom:10px}}
+</style>
+<script src="/operations/client.js" defer></script>
+</head>
+<body><main>
+<nav class="top" aria-label="Garden navigation"><a href="/">Garden of Zo</a><div class="links"><a href="/#atlas">Sky Atlas</a><a href="/usage/">Resource usage</a></div></nav>
+<header><div><span class="eyebrow">Owner access · Operations</span><h1>Know what is running.</h1><p class="muted">Your apps, agents, workflows and data, connected to the services behind them.</p><p id="updated" class="muted" aria-live="polite">Collecting the first observation…</p></div><button class="button" id="refresh">Refresh</button></header>
+<div id="notice" class="alert" hidden role="status"></div>
+<section class="summary" id="summary" aria-label="Inventory counts"></section>
+<div class="toolbar"><nav class="tabs" id="tabs" aria-label="Inventory sections"></nav><div class="search"><label><span class="eyebrow">Search</span><br><input id="search" type="search" placeholder="Name, owner or location"></label><label><span class="eyebrow">Filter</span><br><select id="filter" aria-label="Filter inventory"><option value="">All records</option></select></label></div></div>
+<p id="caption" aria-live="polite"></p>
+<div class="table-wrap"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+<details class="coverage"><summary>Discovery coverage and evidence</summary><div id="coverage">Waiting for inventory.</div></details>
+<footer>Read-only oversight · Observations refresh every minute while this page is open · Times shown in Singapore</footer>
+</main>
+<dialog id="detail"><div class="dialog-head"><h2 id="detail-title"></h2><button class="button" id="close" aria-label="Close details">Close</button></div><div id="detail-body"></div></dialog>
+</body></html>
