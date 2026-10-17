@@ -121,7 +121,7 @@ describe("Garden of Zo catalogue", () => {
     expect(html).toContain('href="https://private-apps-sayyidkhan.zo.computer/riven-proj-tracker"');
     expect(html).toContain('href="https://private-apps-sayyidkhan.zo.computer/stakefolio"');
     expect(html).toContain('class="realm-row__url"');
-    expect(html).toContain('https://public-apps-sayyidkhan.zocomputer.io/mapper');
+    expect(html).toContain('https://public-apps-sayyidkhan.zocomputer.io/relationship-mapper');
     expect(html).toContain('href="/pocketbase/_/"');
     expect(html).toContain('data-access="private"');
     expect(html).toContain("Owner access");
@@ -134,7 +134,7 @@ describe("Garden of Zo catalogue", () => {
     const data = JSON.parse(html.match(/<script type="application\/json" id="atlas-data">([\s\S]*?)<\/script>/)![1]);
     const hrefs = data.realms.map((r: any) => r.href);
     for (const path of ["/backlog", "/mailhub", "/riven-proj-tracker", "/stakefolio", "/agent/runa", "/agent/orin/chat?profile=orin",
-      "https://public-apps-sayyidkhan.zocomputer.io/mapper", "https://public-apps-sayyidkhan.zocomputer.io/crow/explore.html"]) {
+      "https://public-apps-sayyidkhan.zocomputer.io/relationship-mapper", "https://public-apps-sayyidkhan.zocomputer.io/crow/explore.html"]) {
       expect(hrefs).toContain(path);
     }
     expect(html).toContain('id="inventory"');

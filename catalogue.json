@@ -1,5 +1,21 @@
 {
   "public": {
+    "zo-order-tracker": {
+      "title": "zorder",
+      "description": "A lightweight storefront, order tracker and payment-proof workspace for small merchants.",
+      "category": "Commerce",
+      "kind": "app",
+      "icon": "compass",
+      "authorId": "sayyidkhan",
+      "repositoryUrl": "https://github.com/sayyidkhan/zo-order-tracker",
+      "entryPath": "/",
+      "atlas": {
+        "x": 3650,
+        "y": 2350,
+        "art": "zo-backlog",
+        "scale": 0.88
+      }
+    },
     "zo-relationship-mapper": {
       "title": "Relationship Mapper",
       "description": "Reveal the people, systems and connections shaping an idea.",
