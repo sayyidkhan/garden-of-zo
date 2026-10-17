@@ -12,6 +12,10 @@ Both existing gateway roots continue to serve `/`, `/#atlas` and `/#list`. Exist
 
 ## Source ownership
 
+The workspace project ownership legend and category/sub-category mapping are maintained in [Project labels](docs/project-labels.md). This reference includes pending decisions and folder aliases; it does not yet implement labels in Garden's interface.
+
+For classification, label reviews and ownership metadata updates, use the [Garden Project Labels skill](skills/garden-project-labels/SKILL.md), maintained in this repository and linked from workspace `Skills/garden-project-labels`. The legend remains the canonical mapping.
+
 | File or folder | Responsibility |
 |---|---|
 | `server.ts` | Public/private Garden request handlers and loopback listeners |

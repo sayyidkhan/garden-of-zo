@@ -1,5 +1,6 @@
 # Garden of Zo platform
 
+- Canonical project ownership labels and role legend: `docs/project-labels.md`. Use `skills/garden-project-labels/SKILL.md` when classifying projects, reviewing labels or maintaining ownership metadata; workspace `Skills/garden-project-labels` links to this repository's skill. Keep category/sub-category separate from catalogue display categories and access levels. Consult pending ownership entries before applying labels; recording the legend does not move folders or change services.
 - This is the `GOZ | PLATFORM` app: Garden homepage, Atlas, catalogue and read-only private inventory. Repository remote: `sayyidkhan/garden-of-zo`. Router infrastructure is the sibling `../zo-router` checkout with its own repository and services.
 - Managed process service `zo-platform` serves public Garden on loopback 8834 and private Garden on loopback 8835. Listener configuration determines access; never trust a request header, Host or query parameter to grant private access. Never expose these listeners directly.
 - Existing public/private gateway roots `/`, `/#atlas`, `/#list`, Garden assets and private `/operations/*` are forwarded by zo-router. Existing app routes and transports bypass this app. `/health` on either gateway reports router health; platform health is checked directly on its loopback listeners.
