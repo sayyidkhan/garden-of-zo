@@ -1,6 +1,6 @@
 ---
 name: garden-project-labels
-description: Standardise Garden of Zo project ownership labels, classify new projects and supporting services, audit existing mappings, and maintain the canonical category and sub-category legend. Use when reviewing or updating PAL, GOZ, GITHUB or GR project labels.
+description: Standardise Garden of Zo project ownership labels, classify new projects and supporting services, audit existing mappings, and maintain the canonical category and sub-category legend. Use when reviewing or updating PAL, GOZ, GITHUB, GR or PERSONAL project labels.
 metadata:
   author: sayyidkhan.zo.computer
   display-name: Garden Project Labels
@@ -21,7 +21,7 @@ Read `/home/workspace/Start/garden-of-zo/zo-platform/README.md` and `AGENTS.md` 
 ## Classify projects
 
 - Present reviews as `Category | Sub-category | Projects`. Combined labels use `PAL | AGENT` syntax.
-- Use categories `PAL`, `GOZ`, `GITHUB` and `GR`, with uppercase singular roles from the legend, such as `PRODUCT`, `AGENT` and `WORKFLOW`. Do not restore the `-APPS` suffix or plural `AGENTS`.
+- Use categories `PAL`, `GOZ`, `GITHUB`, `GR` and `PERSONAL`, with uppercase singular roles from the legend, such as `PRODUCT`, `AGENT` and `WORKFLOW`. Do not restore the `-APPS` suffix or plural `AGENTS`.
 - Classify by ownership and purpose. Garden hosting alone does not imply GOZ ownership; a GitHub remote alone does not imply GITHUB ownership. GITHUB is the workspace folder grouping.
 - Artifex, Agent One, Rick and Scribe are agents even when planned or incomplete. Classification does not establish runtime health or deployment.
 - Treat services as belonging to their owning project. Resolve relationships from the legend and current configuration; for example, Project Ledger Service supports Stakefolio but retains `PAL | DATA`.

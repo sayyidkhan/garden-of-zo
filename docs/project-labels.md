@@ -12,6 +12,7 @@ Use three columns: **Category | Sub-category | Projects**. A combined label is w
 | GOZ | Garden of Zo projects | `Start/garden-of-zo/` |
 | GITHUB | Projects grouped under the workspace Github folder | `Github/` |
 | GR | GigRadar | Intended `gr/`; currently `Start/gigradarapp/` |
+| PERSONAL | Apps and tools built for the owner's own use | Suggested `Start/personal/`; not yet created |
 
 GITHUB refers to the workspace grouping, not every project with a GitHub repository. Hosting an app through Garden does not transfer its ownership to GOZ.
 
@@ -51,6 +52,7 @@ GITHUB refers to the workspace grouping, not every project with a GitHub reposit
 | GITHUB | APP | Itachi's Crow, Afterimage |
 | GITHUB | WEBSITE | Long Taa Borneo |
 | GR | MAIL | GigRadar MailHub |
+| PERSONAL | APP | Personal budgeting app — planned; not yet created |
 
 ## Folder names, aliases and supporting services
 
