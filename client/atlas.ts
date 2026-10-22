@@ -3,7 +3,7 @@ import { Viewport, Decelerate } from 'pixi-viewport';
 import { AtlasGlide, AtlasWheel } from './camera-motion';
 import { AtlasConnection } from './atlas-connections';
 
-type Realm = { id: string; index: number; title: string; description: string; category: string; kind: string; access: string; accessLabel: string; href: string; displayUrl: string; oversightUrl: string; repositoryUrl: string; author: { name: string; profileUrl: string }; x: number; y: number; scale: number; art: string };
+type Realm = { id: string; index: number; title: string; description: string; category: string; ownershipLabel: string; kind: string; access: string; accessLabel: string; href: string; displayUrl: string; oversightUrl: string; repositoryUrl: string; author: { name: string; profileUrl: string }; x: number; y: number; scale: number; art: string };
 type MapData = { width: number; height: number; realms: Realm[]; links: { from: string; to: string; path: string }[] };
 const data: MapData = JSON.parse(document.querySelector('#atlas-data')!.textContent!);
 const get = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -60,6 +60,7 @@ const select = (realm: Realm | undefined, showPanel = true) => {
   get('[data-atlas-current-index]').textContent = String(visible().indexOf(realm) + 1).padStart(2, '0') + ' / ' + String(visible().length).padStart(2, '0');
   get('[data-realm-title]').textContent = realm.title;
   get('[data-realm-category]').textContent = realm.category;
+  get('[data-realm-ownership]').textContent = realm.ownershipLabel;
   get('[data-realm-description]').textContent = realm.description;
   get('[data-realm-access]').textContent = realm.accessLabel;
   const author = get<HTMLAnchorElement>('[data-realm-author]');

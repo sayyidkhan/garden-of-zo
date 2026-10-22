@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RouterConfig } from "../config";
+import { projectOwnership, ownershipLabel } from "../project-labels";
 
 const kingdom = "/home/workspace/Start/pal/kingdom-of-pal";
 type Row = Record<string, any>;
@@ -179,6 +180,11 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     if (!s.mapped) issues.push({ severity: "info", entity: s.id, message: s.name + " is discovered but has no app, agent or workflow mapping." });
   }
   const unknownOwners = databases.filter(d => !d.owner && d.category === "application").length;
+  for (const row of [...apps, ...agents, ...services, ...workflows]) {
+    const ownership = projectOwnership(row.id.slice(row.id.indexOf(":") + 1));
+    row.ownership = ownership || null;
+    row.ownershipLabel = ownershipLabel(ownership);
+  }
   if (unknownOwners) issues.push({ severity: "warning", message: unknownOwners + " application databases need an owner mapping." });
   const unknownBackups = databases.filter(d => ["application", "agent runtime"].includes(d.category) && d.backup.status === "unknown").length;
   if (unknownBackups) issues.push({ severity: "warning", message: unknownBackups + " application / agent databases have no verified backup evidence." });

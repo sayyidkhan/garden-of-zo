@@ -29,8 +29,56 @@ async def main():
             requested = []
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.on("request", lambda request: requested.append(request.url))
+            await page.route("**/garden-client.js?v=unified-list-2", lambda route: route.fulfill(
+                status=200, content_type="text/javascript",
+                body="throw new Error('Cached pre-legend script was reused')"))
+            async def check_label_legend():
+                original_viewport = page.viewport_size
+                original_url = page.url
+                for width in [320, 390, 1440]:
+                    await page.set_viewport_size({"width": width, "height": 844})
+                    trigger = page.get_by_role("button", name="Label legend", exact=True)
+                    await trigger.click()
+                    dialog = page.get_by_role("dialog", name="Label legend", exact=True)
+                    assert await dialog.is_visible()
+                    assert await dialog.locator(".label-legend__categories dt").count() == 5
+                    assert "Garden of Zo projects" in await dialog.inner_text()
+                    assert "a label has not been assigned" in await dialog.inner_text()
+                    assert "Proposed" not in await dialog.inner_text()
+                    assert await dialog.evaluate("e => e.scrollWidth <= e.clientWidth")
+                    bounds = await dialog.bounding_box()
+                    assert bounds["x"] >= 0 and bounds["x"] + bounds["width"] <= width
+                    body = dialog.get_by_role("region", name="Label definitions")
+                    assert await dialog.get_by_role("tab").count() == 0
+                    expected_roles = {
+                        "PAL": ["PRODUCT", "AGENT", "WORKFLOW", "PLATFORM", "GOVERNANCE", "DATA", "LEGACY"],
+                        "GOZ": ["PLATFORM", "INFRASTRUCTURE", "APP", "MONITORING", "WEBSITE", "AGENT"],
+                        "GITHUB": ["APP", "WEBSITE"], "GR": ["MAIL"], "PERSONAL": ["APP"]
+                    }
+                    for category, roles in expected_roles.items():
+                        group = dialog.locator(f'[data-legend-category="{category}"]')
+                        assert await group.locator(".label-legend__roles dt").all_text_contents() == roles
+                        assert await group.locator(".label-legend__roles").evaluate("e => e.getBoundingClientRect().top > e.previousElementSibling.getBoundingClientRect().bottom")
+                    await body.evaluate("e => e.scrollTop = e.scrollHeight")
+                    assert await body.evaluate("e => e.scrollWidth <= e.clientWidth")
+                    assert await dialog.locator(".label-legend__note").evaluate("e => e.getBoundingClientRect().bottom <= innerHeight")
+                    assert await dialog.get_by_role("button", name="Close", exact=True).evaluate("e => { const r=e.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }")
+                    await body.focus()
+                    await page.keyboard.press("Home")
+                    await page.keyboard.press("Escape")
+                    assert not await dialog.is_visible()
+                    assert await trigger.evaluate("e => e === document.activeElement")
+                    await page.keyboard.press("Enter")
+                    assert await dialog.is_visible()
+                    await dialog.get_by_role("button", name="Close", exact=True).click()
+                    assert not await dialog.is_visible()
+                    assert page.url == original_url
+                await page.set_viewport_size(original_viewport)
+
             await page.goto(private + "/#list")
             await page.wait_for_selector("#rows .entity", timeout=60000)
+            await check_label_legend()
+            checks.append("Private List legend explains all labels, fits mobile and supports keyboard close")
             assert not any("/atlas-client.js" in url for url in requested)
             checks.append("List opens without downloading the Atlas renderer")
             assert await page.locator("#inventory").is_visible()
@@ -38,6 +86,12 @@ async def main():
             assert await page.locator("#list-view [data-list-card]").count() == 0
             assert await page.locator("#rows a[href='/backlog']").count() == 1
             checks.append("One private List with direct destination links")
+            stakefolio = page.locator("#rows .inventory-realm").filter(has=page.locator("[data-entity='app:stakefolio']"))
+            assert await stakefolio.locator(".project-label").inner_text() == "PAL | PRODUCT"
+            mapper = page.locator("#rows .inventory-realm").filter(has=page.locator("[data-entity='app:zo-relationship-mapper']"))
+            assert await mapper.locator(".project-label").inner_text() == "GOZ | APP"
+            assert "Proposed" not in await page.locator("#rows").inner_text()
+            checks.append("Private app labels display confirmed ownership and roles")
             for section in ["agents", "services", "workflows", "databases", "issues", "apps"]:
                 await page.locator("#tabs [data-tab='" + section + "']").click()
                 assert await page.locator("#rows tr").count() > 0
@@ -87,6 +141,8 @@ async def main():
             assert await page.locator("#search").input_value() == "runa"
             checks.append("Shared search and selected tab survive reload")
             await page.locator("#search").fill("")
+            runa = page.locator("#rows .inventory-realm").filter(has=page.locator("[data-entity='agent:runa']"))
+            assert await runa.locator(".project-label").inner_text() == "PAL | AGENT"
             await page.locator("#rows [data-entity='agent:runa']").first.click()
             assert await page.locator("#detail").is_visible()
             assert await page.locator("#detail-body .related [data-entity]").count() > 0
@@ -107,9 +163,13 @@ async def main():
             checks.append("Bare Operations redirects into List")
             await page.locator("[data-view='atlas']").click()
             await page.wait_for_selector("[data-atlas] canvas", timeout=30000)
+            await check_label_legend()
+            checks.append("Private Atlas legend remains available after renderer loading")
             assert any("/atlas-client.js" in url for url in requested)
             assert await page.locator("#atlas-view").is_visible()
             assert not await page.locator("#inventory").is_visible()
+            await page.locator("[data-realm-chooser]").select_option("stakefolio")
+            assert await page.locator("[data-realm-ownership]").inner_text() == "PAL | PRODUCT"
             await page.locator("[data-view='list']").click()
             assert await page.locator("#inventory").is_visible()
             checks.append("Atlas and List switch within the same Garden page")
@@ -137,11 +197,22 @@ async def main():
                 requested.clear()
                 await page.goto(public + "/#list")
                 await page.wait_for_selector("[data-list-card]")
+                await check_label_legend()
+                checks.append("Public List legend uses the same definitions and responsive dialog")
+                assert await page.locator("[data-list-card] .project-label").count() == await page.locator("[data-list-card]").count()
+                assert "Proposed" not in await page.locator("#list-view").inner_text()
                 assert await page.locator("#inventory").count() == 0
                 assert not any("/operations/" in url for url in requested)
                 for path in ["/operations", "/operations/client.js", "/operations/api/inventory"]:
                     assert (await page.request.get(public + path)).status == 404
                 checks.append("Public catalogue never loads operational data")
+                await page.locator("[data-view='atlas']").click()
+                await page.wait_for_selector("[data-atlas] canvas", timeout=30000)
+                await check_label_legend()
+                checks.append("Public Atlas legend supports pointer and keyboard access")
+                await page.locator("[data-realm-chooser]").select_option("zo-relationship-mapper")
+                assert await page.locator("[data-realm-ownership]").inner_text() == "GOZ | APP"
+                checks.append("Both Atlas detail panels display ownership labels")
             assert not errors, errors
             await browser.close()
             print(json.dumps({"checks": checks, "pageErrors": errors}, indent=2))

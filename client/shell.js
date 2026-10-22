@@ -2,6 +2,11 @@ const get = selector => document.querySelector(selector);
 const all = selector => [...document.querySelectorAll(selector)];
 let atlasLoading;
 
+get('[data-open-label-legend]').addEventListener('click', () => {
+  get('#label-legend').showModal();
+  get('.label-legend__body').scrollTop = 0;
+});
+
 function syncListFilters() {
   const access = get('[data-filter][aria-pressed="true"]')?.dataset.filter || 'all';
   const kind = get('[data-kind-filter][aria-pressed="true"]')?.dataset.kindFilter || 'all';

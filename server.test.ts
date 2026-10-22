@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { categoryRoles, ownershipCategories, ownershipRoles, type ProjectOwnership } from "./project-labels";
 import { createHandler, loadCatalogConfigs, loadConfig, renderIndex, validateAtlasGraph, validateAuthors } from "./server";
 
 const publicFile = join(import.meta.dir, "../zo-router/public.routes.json");
@@ -28,6 +31,70 @@ describe("Garden of Zo catalogue", () => {
     expect(html).not.toContain('data-atlas-world');
     expect(html).toContain('href="#atlas"');
     expect(html).toContain('Back to home');
+  });
+
+  test("both catalogues display confirmed ownership badges", () => {
+    const catalog = loadCatalogConfigs(publicFile);
+    for (const file of [publicFile, privateFile]) {
+      const html = renderIndex(loadConfig(file), catalog);
+      const data = JSON.parse(html.match(/id="atlas-data">([\s\S]*?)<\/script>/)![1]);
+      const label = (id: string) => data.realms.find((realm: any) => realm.id === id).ownershipLabel;
+      expect(data.realms.every((realm: any) => realm.ownershipLabel && realm.ownershipLabel !== "Ownership pending")).toBe(true);
+      expect(label("stakefolio")).toBe("PAL | PRODUCT");
+      expect(label("stakefolio-studio")).toBe("PAL | PRODUCT");
+      expect(label("riven-proj-tracker")).toBe("PAL | AGENT");
+      expect(label("itachiscrow")).toBe("GITHUB | APP");
+      expect(label("gigradar-mailhub")).toBe("GR | MAIL");
+      expect(label("zo-relationship-mapper")).toBe("GOZ | APP");
+      expect(label("zo-expert")).toBe("GOZ | AGENT");
+      expect(html).not.toContain("Proposed");
+      expect(data.realms.find((realm: any) => realm.id === "zo-order-tracker").category).toBe("Commerce");
+      expect(html).toContain('data-realm-ownership');
+      if (file === publicFile) expect(html).toContain('<span class="project-label">PAL | PRODUCT</span>');
+      expect(JSON.stringify(data)).not.toContain("project-ledger-data");
+      expect(JSON.stringify(data)).not.toContain("pal-north-star");
+    }
+  });
+
+  test("both catalogues explain every category and role from the canonical legend", () => {
+    const canonical = readFileSync(join(import.meta.dir, "docs/project-labels.md"), "utf8");
+    const definitions = { ...ownershipCategories, ...ownershipRoles };
+    for (const [label, meaning] of Object.entries(definitions)) {
+      expect(canonical).toContain(`| ${label} | ${meaning} |`);
+    }
+    for (const category of Object.keys(ownershipCategories) as ProjectOwnership["category"][]) {
+      const roles = [...new Set([...canonical.matchAll(new RegExp(`\\| ${category} \\| ([A-Z]+) \\|`, "g"))].map(match => match[1]))];
+      expect(categoryRoles(category).toSorted()).toEqual(roles.toSorted());
+    }
+    const catalog = loadCatalogConfigs(publicFile);
+    for (const file of [publicFile, privateFile]) {
+      const html = renderIndex(loadConfig(file), catalog);
+      expect(html).toContain('data-open-label-legend aria-haspopup="dialog" aria-controls="label-legend"');
+      const legend = html.match(/<dialog class="label-legend"[\s\S]*?<\/dialog>/)![0];
+      for (const label of Object.keys(definitions)) expect(legend).toContain(`<dt>${label}</dt>`);
+      expect(legend).not.toContain('role="tab"');
+      for (const category of Object.keys(ownershipCategories) as ProjectOwnership["category"][]) {
+        const group = legend.match(new RegExp(`data-legend-category="${category}"[\\s\\S]*?</section>`))![0];
+        expect([...group.matchAll(/<dt>([A-Z]+)<\/dt>/g)].map(match => match[1])).toEqual([category, ...categoryRoles(category)]);
+      }
+      expect(legend).toContain('form method="dialog"');
+      expect(legend).toContain("a label has not been assigned");
+      expect(legend).not.toContain("project-ledger-data");
+      expect(legend).not.toContain("/home/workspace");
+    }
+  });
+
+  test("both pages version the shell script by its content to avoid stale cached handlers", async () => {
+    const catalog = loadCatalogConfigs(publicFile);
+    for (const file of [publicFile, privateFile]) {
+      const html = renderIndex(loadConfig(file), catalog);
+      const src = html.match(/src="(\/garden-client\.js\?v=[^"]+)"/)![1];
+      const url = new URL(src, "http://localhost");
+      const script = await (await createHandler(file)(new Request(url))).text();
+      expect(url.searchParams.get("v")).toBe(createHash("sha256").update(script).digest("hex").slice(0, 12));
+      expect(src).not.toContain("unified-list-2");
+      expect(script).toContain("showModal()");
+    }
   });
 
   test("escapes embedded map data without exposing internal routing targets", () => {

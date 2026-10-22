@@ -1,5 +1,6 @@
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
+import { projectOwnership, type ProjectOwnership } from "./project-labels";
 
 export type Access = "public" | "private";
 export type RealmKind = "app" | "agent";
@@ -30,6 +31,7 @@ export type RouteConfig = {
   title: string;
   description: string;
   category: string;
+  ownership: ProjectOwnership;
   kind: RealmKind;
   icon: string;
   authorId: string;
@@ -95,8 +97,10 @@ export function loadConfig(file: string): RouterConfig {
   parsed.routes = parsed.routes.map(route => {
     const metadata = catalogue[parsed.access]?.[route.label];
     if (!metadata) throw new Error(`Missing catalogue metadata for ${parsed.access}:${route.label}`);
+    const ownership = projectOwnership(route.label);
+    if (!ownership) throw new Error(`Missing project ownership for ${route.label}; review docs/project-labels.md`);
     return { ...route, ...Object.fromEntries(Object.entries(metadata).filter(([key]) => fields.includes(key))),
-      prefix: normalizePrefix(route.prefix), targetOrigin: route.targetOrigin.replace(/\/+$/, "") };
+      ownership, prefix: normalizePrefix(route.prefix), targetOrigin: route.targetOrigin.replace(/\/+$/, "") };
   });
   validateAuthors(parsed.routes, authors);
   for (const route of parsed.routes) {

@@ -1,6 +1,6 @@
 # Project label legend
 
-Recorded: 17 October 2026. This is the canonical reference for workspace project ownership and role labels. The category/sub-category format and mapping below were reviewed in chat; the two entries explicitly marked proposed remain pending ownership confirmation.
+Recorded: 17 October 2026. This is the canonical reference for workspace project ownership and role labels. The category/sub-category format and mapping below were reviewed in chat. On 22 October 2026, the owner confirmed GOZ ownership for Zo Expert and Relationship Mapper and requested removal of their Proposed markers.
 
 ## Format and meaning
 
@@ -47,8 +47,8 @@ GITHUB refers to the workspace grouping, not every project with a GitHub reposit
 | GOZ | APP | Zo Drive, Zo Tube, Zo Moments, Zo Backlog, zorder |
 | GOZ | MONITORING | Zo Usage |
 | GOZ | WEBSITE | OpenZo |
-| GOZ | AGENT | Zo Expert — proposed; ownership pending |
-| GOZ | APP | Relationship Mapper — proposed; ownership pending |
+| GOZ | AGENT | Zo Expert |
+| GOZ | APP | Relationship Mapper |
 | GITHUB | APP | Itachi's Crow, Afterimage |
 | GITHUB | WEBSITE | Long Taa Borneo |
 | GR | MAIL | GigRadar MailHub |
@@ -62,7 +62,7 @@ GITHUB refers to the workspace grouping, not every project with a GitHub reposit
 - Stakefolio uses `stakefolio`; `tampalidea` is a compatibility alias, not an additional product. Project Ledger Service uses `project-ledger-service`; its managed service `project-ledger-data` inherits `PAL | DATA` and supports Stakefolio.
 - Retained OpenClaw source uses `pal-openclaw` and `pal-agent-orin-openclaw-backup`. These labels do not authorise reactivating retired services or changing rollback state.
 - Garden uses `zo-platform`; routing uses the independent `zo-router` checkout. zorder uses `zo-order-tracker`, Zo Moments uses `zo-memories`, Zo Tube uses `zo-tube`, and Kasm Browser uses `kasm-browser`.
-- Zo Expert and Relationship Mapper currently live under `hackathon/suphackathon2026/zo-expert` and `hackathon/suphackathon2026/zo-relationship-mapper`. Their proposed GOZ ownership does not imply that their folders have moved.
+- Zo Expert and Relationship Mapper currently live under `hackathon/suphackathon2026/zo-expert` and `hackathon/suphackathon2026/zo-relationship-mapper`. Their confirmed GOZ ownership does not imply that their folders have moved.
 - GITHUB projects use `Github/itachiscrow`, `Github/afterimage` and `Github/longtaaborneo`.
 - GigRadar MailHub currently uses `Start/gigradarapp/`. `gr/` is the requested folder convention; relocation is not part of recording this legend.
 - Services inherit their owning project's label: Orin and Runa dashboard/gateway services use `PAL | AGENT`; public/private Garden gateways use `GOZ | INFRASTRUCTURE`; the platform process uses `GOZ | PLATFORM`. Riven's tracker belongs to the Riven agent.
@@ -74,4 +74,8 @@ Update this document when a project is added or reclassified. Keep workspace and
 
 Use the [Garden Project Labels skill](../skills/garden-project-labels/SKILL.md) for classification, reviews and ownership metadata updates. It is maintained in this repository and linked from workspace `Skills/garden-project-labels`. The skill defines the workflow; this document remains the canonical legend and mapping.
 
-This records the legend only. It does not implement Garden labels or filters, move folders, rename services, change routes, alter visibility or change repository remotes. Existing catalogue display categories such as Commerce and Insight are separate from this ownership legend; implementation should preserve that distinction.
+Garden displays these labels in public/private List entries and Atlas details. `../project-labels.ts` maintains the corresponding identifier mapping, including aliases and confirmation status; update it alongside this legend. All current catalogue ownership labels are confirmed. Private inventory labels known apps, agents, services and workflows, with “Ownership pending” for unmapped records. Public output includes only ownership for already catalogued destinations, never the full private inventory or project registry. Ownership filters are not implemented.
+
+Both catalogues provide a **Label legend** button beside the List/Atlas view and filter controls. Its dialog explains the categories, roles and pending status without exposing the project registry or private operational details. Definitions in `project-labels.ts` are checked against this document by the platform tests.
+
+Labels do not move folders, rename services, change routes, alter visibility or change repository remotes. Existing catalogue display categories such as Commerce and Insight remain separate from ownership.

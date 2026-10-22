@@ -12,7 +12,13 @@ Both existing gateway roots continue to serve `/`, `/#atlas` and `/#list`. Exist
 
 ## Source ownership
 
-The workspace project ownership legend and category/sub-category mapping are maintained in [Project labels](docs/project-labels.md). This reference includes pending decisions and folder aliases; it does not yet implement labels in Garden's interface.
+The workspace project ownership legend and category/sub-category mapping are maintained in [Project labels](docs/project-labels.md). `project-labels.ts` maps catalogue, registry and service identifiers to that legend. Update both when adding or reclassifying a project. Public and private catalogues show these labels in List entries and Atlas details. Private inventory also labels known services and workflows; unmapped entries show “Ownership pending”. All current catalogue ownership labels are confirmed.
+
+Both catalogues have a **Label legend** button beside the view/filter controls, available in List and Atlas. It opens an accessible dialog explaining all five categories, the singular roles and pending status. Public definitions contain no private project registry or operational details. Keep the definitions in `project-labels.ts` aligned with the canonical legend; tests check this alignment.
+
+The legend nests each category's roles and definitions directly beneath its coloured category row, following the canonical project mapping, including planned roles. All groups are expanded in one scrollable reference, with an example label above. The title and status footer stay visible while definitions scroll.
+
+The shell script URL includes a content hash generated at platform startup. Restart `zo-platform` after shell changes so updated pages fetch the matching script even when the external edge caches JavaScript. Browser checks also cover a stale response at the former fixed script URL.
 
 For classification, label reviews and ownership metadata updates, use the [Garden Project Labels skill](skills/garden-project-labels/SKILL.md), maintained in this repository and linked from workspace `Skills/garden-project-labels`. The legend remains the canonical mapping.
 
@@ -21,6 +27,7 @@ For classification, label reviews and ownership metadata updates, use the [Garde
 | `server.ts` | Public/private Garden request handlers and loopback listeners |
 | `config.ts` | Read router manifests and merge platform metadata; validate catalogue |
 | `catalogue.json` | Descriptions, authors, repository links, display categories, realm artwork/positions/connections and entry links, keyed by access and route label |
+| `project-labels.ts` | Ownership category, sub-category, confirmation status and identifier aliases, following `docs/project-labels.md` |
 | `authors.json` | Contributor profiles referenced by catalogue author IDs |
 | `view.ts` | Homepage, Atlas/List shell and favicon |
 | `client/shell.js` | Immediate navigation and public List filters; lazy Atlas import |

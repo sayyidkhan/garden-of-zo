@@ -1,5 +1,10 @@
 import type { RouterConfig } from "./config";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { renderInventory } from "./operations/view";
+import { categoryRoles, ownershipLabel, ownershipCategories, ownershipRoles, type ProjectOwnership } from "./project-labels";
+
+const shellVersion = createHash("sha256").update(readFileSync(new URL("./client/shell.js", import.meta.url))).digest("hex").slice(0, 12);
 
 const iconPaths: Record<string, string> = {
   network: '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="m8 7 3 9m5-9-3 9M8 6h8"/>',
@@ -97,6 +102,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       <div class="realm-row__identity">
         <span class="realm-row__category">${escapeHtml(route.category)}</span>
         <h3>${escapeHtml(route.title)}</h3>
+        <span class="project-label">${escapeHtml(ownershipLabel(route.ownership))}</span>
         <a class="realm-row__author" href="${escapeHtml(author.profileUrl)}" target="_blank" rel="noreferrer">By ${escapeHtml(author.name)} <span>${escapeHtml(author.handle)}</span></a>
       </div>
       <div class="realm-row__details">
@@ -122,7 +128,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     width: atlasWidth, height: atlasHeight,
     realms: appEntries.map(({ gateway, route, index, href, displayUrl, accessLabel }) => ({
       id: route.label, index, title: route.title, description: route.description,
-      category: route.category, kind: route.kind, access: gateway.access, accessLabel,
+      category: route.category, ownershipLabel: ownershipLabel(route.ownership), kind: route.kind, access: gateway.access, accessLabel,
       href, displayUrl, oversightUrl: catalog.find(g => g.access === "private")!.gatewayUrl + "/#list?entity=" + encodeURIComponent((route.kind === "agent" ? "agent:" : "app:") + route.label), repositoryUrl: route.repositoryUrl, author: gateway.authors[route.authorId],
       x: route.atlas.x, y: route.atlas.y, scale: route.atlas.scale,
       art: `/assets/garden-realm-${route.atlas.art}.webp`
@@ -200,7 +206,71 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .catalogue__nav + .catalogue__head { margin-top: 54px; }
     .catalogue__head h2 { margin: 0; max-width: none; font: 500 clamp(2.8rem, 6vw, 5.2rem)/.94 var(--serif); letter-spacing: -.035em; white-space: nowrap; }
     .catalogue__head p { max-width: none; margin: 18px 0 0; color: var(--muted); line-height: 1.65; white-space: nowrap; }
-    .catalogue__tools { display: flex; justify-content: flex-end; min-width: 0; width: 100%; }
+    .catalogue__tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; width: 100%; }
+    .label-legend-button { flex: none; border: 1px solid rgba(228,193,120,.45); border-radius: 12px; padding: 12px 15px; background: #10282d; color: var(--gold); font: 700 .75rem var(--sans); cursor: pointer; }
+    .label-legend-button:hover { background: #19383c; }
+    .label-legend-button:focus-visible, .label-legend:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+    .label-legend { box-sizing: border-box; width: min(780px, calc(100% - 40px)); max-height: calc(100svh - 64px); padding: 0; overflow: hidden; border: 1px solid #3d524e; border-radius: 16px; background: #0c2026; color: var(--ink); box-shadow: 0 32px 120px #000a; }
+    .label-legend[open] { display: flex; flex-direction: column; }
+    .label-legend::backdrop { background: rgba(2,12,18,.78); backdrop-filter: blur(6px); }
+    .label-legend__head { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 18px; padding: 22px 26px 12px; }
+    .label-legend__head h2 { margin: 0; font: 500 28px/1.2 var(--serif); letter-spacing: -.02em; }
+    .label-legend__head button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: #a4b8b2; cursor: pointer; }
+    .label-legend__head button:hover { color: var(--ink); background: #1d3339; }
+    .label-legend__head button svg { width: 20px; height: 20px; }
+    .label-legend button:focus-visible, .label-legend [tabindex="0"]:focus-visible { outline: 2px solid var(--gold); outline-offset: -3px; }
+    .label-legend form { margin: 0; }
+    .label-legend__intro { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px; margin: 0 26px 20px; }
+    .label-legend p { margin: 0; color: #b7ccc5; font: 400 13px/1.6 var(--sans); }
+    .label-legend__sample { display: inline-flex; align-items: center; flex: none; gap: 10px; padding: 7px 10px; border: 1px solid #405a51; border-radius: 6px; color: #c5d9cf; font: 600 11px/1.4 var(--sans); letter-spacing: .04em; }
+    .label-legend__sample span { color: #637d74; }
+    .label-legend__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #537169 #0c2026; scrollbar-width: thin; padding: 0 26px 8px; border-top: 1px solid #2c4143; }
+    .label-legend dl { display: grid; margin: 0; font: 400 13px/1.5 var(--sans); }
+    .label-legend__category { padding: 20px 0; border-bottom: 1px solid #2c4143; }
+    .label-legend__category:last-child { border-bottom: 0; }
+    .label-legend dl > div { min-width: 0; }
+    .label-legend dt { color: var(--ink); font: 600 11px/1.5 var(--sans); letter-spacing: .04em; }
+    .label-legend dd { margin: 5px 0 0; color: #b7ccc5; overflow-wrap: anywhere; }
+    .label-legend dl.label-legend__categories > div { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 20px; }
+    .label-legend__categories dt { justify-self: start; min-width: 92px; padding: 5px 10px; border-radius: 5px; background: #29362c; color: #e4c178; font-size: 11px; }
+    .label-legend__category:nth-child(2) .label-legend__categories dt { color: #8dd3bf; background: #163e37; }
+    .label-legend__category:nth-child(3) .label-legend__categories dt { color: #b8bcea; background: #2b2e46; }
+    .label-legend__category:nth-child(4) .label-legend__categories dt { color: #e8ad98; background: #3d302d; }
+    .label-legend__category:nth-child(5) .label-legend__categories dt { color: #aacde8; background: #23384a; }
+    .label-legend__categories dd { margin: 0; }
+    .label-legend dl.label-legend__roles { gap: 10px; margin: 16px 0 0 16px; padding-left: 20px; border-left: 1px solid #38504e; }
+    .label-legend__roles > div { display: grid; grid-template-columns: 132px minmax(0, 1fr); column-gap: 16px; }
+    .label-legend__roles dt { padding-top: 2px; color: #c4d2cc; font-size: 10px; }
+    .label-legend__roles dd { margin: 0; color: #93aaa2; font-size: 12px; }
+    .label-legend__foot { flex: none; padding: 14px 26px 18px; border-top: 1px solid #2c4143; background: #0a1c22; }
+    .label-legend__status { display: flex; flex-wrap: wrap; gap: 6px 24px; }
+    .label-legend__status p { color: #93aaa1; font-size: 11px; }
+    .label-legend__status strong { color: #d8bd80; font-weight: 500; }
+    .label-legend__status p:last-child strong { color: #bfd0c8; }
+    .label-legend p.label-legend__note { margin-top: 8px; color: #819c92; font-size: 10px; }
+    @media (max-width: 580px) {
+      .label-legend { width: calc(100% - 24px); max-height: calc(100svh - 32px); border-radius: 12px; }
+      .label-legend__head { padding: 16px 18px 8px; }
+      .label-legend__head h2 { font-size: 25px; }
+      .label-legend__intro { align-items: flex-start; flex-direction: column; gap: 10px; margin: 0 18px 12px; }
+      .label-legend__intro p { font-size: 12px; }
+      .label-legend__body { padding: 0 18px 6px; }
+      .label-legend__category { padding-block: 16px; }
+      .label-legend dl.label-legend__categories > div { grid-template-columns: 86px minmax(0, 1fr); gap: 12px; }
+      .label-legend__categories dt { min-width: 80px; padding-inline: 7px; font-size: 10px; }
+      .label-legend dd { font-size: 12px; }
+      .label-legend dl.label-legend__roles { margin: 14px 0 0 8px; padding-left: 14px; gap: 12px; }
+      .label-legend__roles > div { grid-template-columns: 1fr; gap: 3px; }
+      .label-legend__foot { padding: 12px 18px 14px; }
+    }
+    @media (max-height: 500px) {
+      .label-legend { max-height: calc(100svh - 16px); }
+      .label-legend__head { padding-block: 8px 4px; }
+      .label-legend__intro { margin-bottom: 6px; flex-direction: row; align-items: center; }
+      .label-legend__intro p { font-size: 11px; }
+      .label-legend__foot { padding-block: 8px; }
+      .label-legend p.label-legend__note { margin-top: 4px; }
+    }
     .catalogue__commandbar { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; max-width: 100%; padding: 5px; border: 1px solid rgba(228,193,120,.24); border-radius: 18px; background: rgba(3,18,23,.78); box-shadow: 0 14px 34px rgba(0,0,0,.2); overflow-x: auto; scrollbar-width: none; }
     .catalogue__commandbar::-webkit-scrollbar { display: none; }
     .view-toggle, .filters, .realm-kind-filters { display: flex; flex: none; gap: 3px; }
@@ -286,6 +356,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .access-badge { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 999px; color: #b7ddd1; background: rgba(87,148,130,.14); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .access-badge--private { color: #e9c9a6; background: rgba(221,125,102,.12); }
     .badge-icon { width: 12px; height: 12px; }
+    .project-label { display: block; width: fit-content; max-width: 100%; margin: 7px 0; padding: 4px 8px; border: 1px solid rgba(228,193,120,.32); border-radius: 7px; color: #f1d296; background: rgba(228,193,120,.07); font: 700 10px/1.5 var(--sans); letter-spacing: .025em; overflow-wrap: anywhere; }
     .atlas__progress { position: relative; z-index: 3; height: 3px; background: rgba(255,255,255,.06); }
     .atlas__progress span { display: block; width: 18%; height: 100%; transform: translateX(0); background: linear-gradient(90deg, var(--mint), var(--gold)); box-shadow: 0 0 16px rgba(228,193,120,.5); transition: width .2s ease-out, transform .2s ease-out; }
     .atlas__minimap { position: absolute; z-index: 7; right: 22px; bottom: 22px; width: 190px; height: 154px; padding: 24px 10px 10px; border: 1px solid rgba(228,193,120,.36); border-radius: 14px; background: rgba(3,18,23,.94); box-shadow: 0 18px 44px rgba(0,0,0,.42); cursor: crosshair; touch-action: none; }
@@ -509,6 +580,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
               <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents ${kindCounts.agent}</button>
             </div>
           </div>
+          <button class="label-legend-button" type="button" data-open-label-legend aria-haspopup="dialog" aria-controls="label-legend">Label legend</button>
         </div>
       </div>
       <section class="atlas" id="atlas-view" data-view-panel="atlas" aria-label="Sky atlas">
@@ -544,6 +616,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
             </div>
           </div>
           <div class="realm-panel__body">
+            <span class="project-label" data-realm-ownership></span>
             <p data-realm-description></p>
             <a class="realm-panel__url" data-realm-url></a>
             <div class="realm-panel__byline"><span>Keeper</span><a data-realm-author target="_blank" rel="noreferrer"></a></div>
@@ -574,10 +647,32 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <span class="legend__mark">Built on Zo Computer</span>
       </div>
     </main>
+    <dialog class="label-legend" id="label-legend" aria-labelledby="label-legend-title" aria-describedby="label-legend-description">
+      <div class="label-legend__head">
+        <h2 id="label-legend-title">Label legend</h2>
+        <form method="dialog"><button aria-label="Close" autofocus><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></form>
+      </div>
+      <div class="label-legend__intro">
+        <p id="label-legend-description">Category is the owner. Sub-category is the role.</p>
+        <span class="label-legend__sample" aria-label="PAL | AGENT means a Kingdom of PAL agent">PAL <span aria-hidden="true">|</span> AGENT</span>
+      </div>
+      <div class="label-legend__body" tabindex="0" role="region" aria-label="Label definitions">
+        ${Object.entries(ownershipCategories).map(([category, meaning]) => `<section class="label-legend__category" data-legend-category="${category}" aria-label="${category}">
+          <dl class="label-legend__categories"><div><dt>${escapeHtml(category)}</dt><dd>${escapeHtml(meaning)}</dd></div></dl>
+          <dl class="label-legend__roles" aria-label="${category} roles">${categoryRoles(category as ProjectOwnership["category"]).map(role => `<div><dt>${escapeHtml(role)}</dt><dd>${escapeHtml(ownershipRoles[role])}</dd></div>`).join("")}</dl>
+        </section>`).join("")}
+      </div>
+      <div class="label-legend__foot">
+        <div class="label-legend__status" aria-label="Ownership status">
+          <p><strong>Pending</strong> · a label has not been assigned.</p>
+        </div>
+        <p class="label-legend__note">“Ownership pending” appears on unlabelled entries. Labels do not change Open/Private access or display categories.</p>
+      </div>
+    </dialog>
     <footer class="footer" data-screen="catalogue" hidden><span>Garden of Zo</span><span>One server. Many worlds.</span></footer>
   </div>
   <script type="application/json" id="atlas-data">${JSON.stringify(atlasData).replace(/</g, '\\u003c')}</script>
-  <script type="module" src="/garden-client.js?v=unified-list-2"></script>
+  <script type="module" src="/garden-client.js?v=${shellVersion}"></script>
   ${current.access === "private" ? '<script type="module" src="/operations/client.js?v=unified-list-1"></script>' : ""}
 </body>
 </html>`;
