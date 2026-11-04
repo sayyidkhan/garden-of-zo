@@ -1,6 +1,18 @@
 const root = document.querySelector("#inventory");
-const $ = selector => root.querySelector(selector);
+const controls = document.querySelector(".catalogue__filters");
+const $ = selector => root.querySelector(selector) || controls.querySelector(selector);
 const catalogue = JSON.parse(document.querySelector("#atlas-data").textContent).realms;
+const cardTemplates = new Map([...document.querySelector("#directory-card-templates").content.querySelectorAll("[data-realm-id]")].map(card => [card.dataset.realmId, card]));
+function catalogueCard(row, realm) {
+  const card = cardTemplates.get(realm.id).cloneNode(true);
+  card.classList.add("inventory-realm");
+  card.querySelector("h3").innerHTML = link(row.id);
+  const actions = card.querySelector(".realm-row__actions");
+  actions.insertAdjacentHTML("beforeend", '<button class="realm-row__link realm-row__link--detail" data-entity="' + escape(row.id) + '" aria-label="Details for ' + escape(row.name) + '">Details <span aria-hidden="true">→</span></button>');
+  card.querySelector(".realm-row__details").insertAdjacentHTML("beforeend", '<div class="realm-row__observation">' + status(row.status) + (current === "apps" ? 'HTTP check ' + escape(row.httpStatus || "Unknown") : escape(row.runtime || "Runtime unknown")) + '</div>');
+  return '<tr><td colspan="4" class="realm-cell">' + card.outerHTML + '</td></tr>';
+}
+
 const sections = { apps: "Apps", agents: "Agents", services: "Services", workflows: "Workflows", databases: "Databases", issues: "Needs attention" };
 const glyphs = {
   apps: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
@@ -27,7 +39,26 @@ const when = value => value ? new Date(typeof value === "number" ? value * 1000 
 const bytes = value => value >= 1073741824 ? (value / 1073741824).toFixed(2) + " GB" : value >= 1048576 ? (value / 1048576).toFixed(1) + " MB" : Math.round(value / 1024) + " KB";
 const all = () => Object.keys(sections).filter(k => k !== "issues").flatMap(k => snapshot?.[k] || []);
 const entity = id => all().find(row => row.id === id);
+const rowOwnership = row => row.ownership || entity(row.owner || row.entity)?.ownership;
+function matchesOwnership(row) {
+  const category = document.querySelector('[data-ownership-category]').value;
+  const role = document.querySelector('[data-ownership-role]').value;
+  const ownership = rowOwnership(row);
+  return (!category || ownership?.category === category) && (!role || ownership?.subcategory === role);
+}
 const visible = () => location.hash.split("?")[0] === "#list" && !document.hidden;
+const observing = () => !document.hidden && (visible() || !document.querySelector(".hero").hidden);
+function updateHome(error = false) {
+  for (const count of document.querySelectorAll("[data-home-count]")) {
+    count.textContent = snapshot ? snapshot[count.dataset.homeCount].length : "—";
+  }
+  const freshness = document.querySelector("[data-home-freshness]");
+  freshness.dataset.state = error ? "error" : snapshot?.stale ? "stale" : "ready";
+  freshness.textContent = snapshot
+    ? "Last observed " + when(snapshot.observedAt) + " SGT" + (error ? " · Refresh failed; showing previous observation" : snapshot.stale ? " · Stale observation" : "") +
+      (snapshot.coverage.automations.status === "stale snapshot" ? " · Schedule snapshot is older than 24 hours" : "")
+    : "Inventory unavailable · Open List to retry";
+}
 let selectedId;
 const params = () => new URLSearchParams(location.hash.split("?")[1] || "");
 function writeLocation() {
@@ -140,12 +171,15 @@ function render() {
   const query = $("#search").value.trim().toLowerCase();
   const filter = $("#filter").value;
   const owner = $("#owner").value;
+  const access = document.querySelector('[data-filter][aria-pressed="true"]').dataset.filter;
   const rows = sortRows(snapshot[current].filter(row => (!query || (JSON.stringify(row) + name(row.owner)).toLowerCase().includes(query)) &&
-    matchesFilter(row, filter) && (current !== "databases" || !owner || (row.owner || "__unmapped__") === owner)));
+    matchesOwnership(row) && matchesFilter(row, filter) && (current !== "databases" || !owner || (row.owner || "__unmapped__") === owner) &&
+    (!realms || access === "all" || (row.access || catalogue.find(realm => (realm.kind === "agent" ? "agent:" : "app:") + realm.id === row.id)?.access || "private") === access)));
   $("#head").innerHTML = "<tr>" + definitions[current].map(v => "<th scope='col'>" + v + "</th>").join("") + "</tr>";
   $("#rows").innerHTML = rows.map(row => {
     if (realms) {
       const realm = catalogue.find(r => (r.kind === "agent" ? "agent:" : "app:") + r.id === row.id);
+      if (realm && cardTemplates.has(realm.id)) return catalogueCard(row, realm);
       const art = realm ? '<img src="' + escape(realm.art) + '" alt="" loading="lazy" decoding="async">' : glyph(current);
       const category = realm?.category || (current === "agents" ? row.role : "Private tool");
       const access = current === "apps" ? (row.access === "private" ? "Owner access" : "Public access") : (row.runtime || "Agent");
@@ -172,7 +206,8 @@ function render() {
   }).join("") || '<tr><td colspan="4" class="empty">No matching records. Try another search or filter.</td></tr>';
   const total = current === "databases" ? " · " + bytes(rows.reduce((sum, r) => sum + r.bytes + r.walBytes, 0)) + " including WAL" : "";
   const scheduleNote = current === "workflows" ? " · Zo schedules: snapshot from " + when(snapshot.coverage.automations.observedAt) + " SGT; run history unavailable." : "";
-  $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total + (current === "services" || current === "agents" || current === "apps" ? " · Running confirms a process exists; application health is not verified." : "") + scheduleNote;
+  $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total;
+  $("#evidence-caption").textContent = (["services", "agents", "apps"].includes(current) ? "Running confirms a process exists; application health is not verified." : "") + scheduleNote;
 }
 function detail(id) {
   const row = entity(id);
@@ -202,7 +237,7 @@ async function refresh(fresh = false) {
   try {
     const response = await fetch("/operations/api/inventory" + (fresh ? "?fresh=1" : ""), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(45000) });
     if (!response.ok) throw new Error("Inventory request failed (" + response.status + ").");
-    snapshot = await response.json();
+    snapshot = await response.json();    updateHome();
     $("#updated").textContent = "Observed " + when(snapshot.observedAt) + " SGT" + (snapshot.stale ? " · STALE" : "");
     $("#notice").hidden = false;
     const failures = snapshot.issues.filter(i => i.severity === "error").length;
@@ -218,12 +253,12 @@ async function refresh(fresh = false) {
     if (!$("#sort").selectedOptions.length) $("#sort").value = sortChoices[current][0][0];
     render();
     if (visible() && params().get("entity")) detail(params().get("entity"));
-    if (snapshot.stale && visible() && staleRetries < 3) {
+    if (snapshot.stale && observing() && staleRetries < 3) {
       staleRetries++;
-      setTimeout(() => { if (visible()) void refresh(); }, 2500);
+      setTimeout(() => { if (observing()) void refresh(); }, 2500);
     } else if (!snapshot.stale) staleRetries = 0;
   } catch (error) {
-    $("#notice").hidden = false;
+    $("#notice").hidden = false;    updateHome(true);
     $("#notice").textContent = error.message + (snapshot ? " Showing the previous observation." : " No inventory is available yet.");
   } finally { busy = false; $("#refresh").disabled = false; $("#refresh").textContent = "Refresh"; }
 }
@@ -241,7 +276,11 @@ $("#owner").addEventListener("change", () => { writeLocation(); render(); });
 $("#sort").addEventListener("change", () => { writeLocation(); render(); });
 $("#refresh").addEventListener("click", () => refresh(true));
 function sync() {
-  if (!visible()) { if ($("#detail").open) $("#detail").close(); return; }
+  if (!visible()) {
+    if ($("#detail").open) $("#detail").close();
+    if (observing() && !snapshot) refresh();
+    return;
+  }
   const state = params();
   current = sections[state.get("tab")] ? state.get("tab") : "apps";
   options();
@@ -257,8 +296,10 @@ function sync() {
   if (!snapshot) refresh();
 }
 document.addEventListener("garden:viewchange", sync);
+document.addEventListener("garden:cataloguefilterchange", render);
+document.addEventListener("garden:ownershipchange", render);
 addEventListener("hashchange", sync);
 document.addEventListener("visibilitychange", sync);
 options();
 sync();
-setInterval(() => { if (visible()) refresh(); }, 60000);
+setInterval(() => { if (observing()) refresh(); }, 60000);

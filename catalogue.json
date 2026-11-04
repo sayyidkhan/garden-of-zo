@@ -205,22 +205,6 @@
         "scale": 0.82
       }
     },
-    "tampalidea": {
-      "title": "Stakefolio",
-      "description": "A consent-first contributor and ownership tracker, built as a browser-local MVP.",
-      "category": "Hackathon",
-      "kind": "app",
-      "icon": "compass",
-      "authorId": "sayyidkhan",
-      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
-      "atlas": {
-        "x": 1930,
-        "y": 2020,
-        "art": "relationship-mapper",
-        "scale": 0.82
-      },
-      "listed": false
-    },
     "shouldijoin": {
       "title": "Should I Join",
       "description": "A company-evaluation workspace for professionals weighing an employer or monitoring their current company.",
@@ -446,22 +430,6 @@
         "art": "relationship-mapper",
         "scale": 0.8
       }
-    },
-    "tampalidea-studio": {
-      "title": "Stakefolio Studio",
-      "description": "Owner-only image management for Stakefolio project records.",
-      "category": "Project IP",
-      "kind": "app",
-      "icon": "image",
-      "authorId": "sayyidkhan",
-      "repositoryUrl": "https://github.com/sayyidkhan/stakefolio",
-      "atlas": {
-        "x": 2220,
-        "y": 2600,
-        "art": "relationship-mapper",
-        "scale": 0.8
-      },
-      "listed": false
     }
   }
 }

@@ -1,10 +1,12 @@
 import type { RouterConfig } from "./config";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { renderInventory } from "./operations/view";
+import { renderInventory, renderInventorySearch } from "./operations/view";
 import { categoryRoles, ownershipLabel, ownershipCategories, ownershipRoles, type ProjectOwnership } from "./project-labels";
 
 const shellVersion = createHash("sha256").update(readFileSync(new URL("./client/shell.js", import.meta.url))).digest("hex").slice(0, 12);
+const atlasVersion = createHash("sha256").update(readFileSync(new URL("./client/atlas.ts", import.meta.url))).digest("hex").slice(0, 12);
+const inventoryVersion = createHash("sha256").update(readFileSync(new URL("./operations/client.js", import.meta.url))).digest("hex").slice(0, 12);
 
 const iconPaths: Record<string, string> = {
   network: '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="m8 7 3 9m5-9-3 9M8 6h8"/>',
@@ -75,7 +77,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     const routeHref = `${route.prefix}${route.entryPath ?? ""}`;
     const href = sameGateway ? routeHref : `${gateway.gatewayUrl}${routeHref}`;
     const displayUrl = `${gateway.gatewayUrl}${routeHref}`;
-    const accessLabel = restricted ? "Owner access" : "Open access";
+    const accessLabel = restricted ? "Owner access" : "Public access";
     const action = "Enter realm";
 
     return { gateway, route, index, restricted, href, displayUrl, accessLabel, action };
@@ -93,7 +95,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   const listCards = appEntries.map(({ gateway, route, index, restricted, href, displayUrl, accessLabel, action }) => {
     const author = gateway.authors[route.authorId];
     const artFile = `garden-realm-${route.atlas.art}.webp`;
-    return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-access="${gateway.access}" data-kind="${route.kind}" data-author="${escapeHtml(route.authorId)}" style="--order:${index}">
+    return `<article class="realm-row ${restricted ? "realm-row--private" : ""}" data-list-card data-realm-id="${escapeHtml(route.label)}" data-access="${gateway.access}" data-kind="${route.kind}" data-ownership-category="${route.ownership.category}" data-ownership-role="${route.ownership.subcategory}" data-author="${escapeHtml(route.authorId)}" style="--order:${index}">
       <span class="realm-row__number">${String(index + 1).padStart(2, "0")}</span>
       <span class="realm-row__visual realm-row__visual--${route.atlas.art}" aria-hidden="true">
         <img class="realm-row__kingdom" src="/assets/${artFile}" alt="" loading="lazy" decoding="async" />
@@ -128,7 +130,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     width: atlasWidth, height: atlasHeight,
     realms: appEntries.map(({ gateway, route, index, href, displayUrl, accessLabel }) => ({
       id: route.label, index, title: route.title, description: route.description,
-      category: route.category, ownershipLabel: ownershipLabel(route.ownership), kind: route.kind, access: gateway.access, accessLabel,
+      category: route.category, ownershipCategory: route.ownership.category, ownershipRole: route.ownership.subcategory, ownershipLabel: ownershipLabel(route.ownership), kind: route.kind, access: gateway.access, accessLabel,
       href, displayUrl, oversightUrl: catalog.find(g => g.access === "private")!.gatewayUrl + "/#list?entity=" + encodeURIComponent((route.kind === "agent" ? "agent:" : "app:") + route.label), repositoryUrl: route.repositoryUrl, author: gateway.authors[route.authorId],
       x: route.atlas.x, y: route.atlas.y, scale: route.atlas.scale,
       art: `/assets/garden-realm-${route.atlas.art}.webp`
@@ -136,6 +138,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     links: graphLinks.map(({ from, to, geometry }) => ({ from: from.route.label, to: to.route.label, path: geometry.path }))
   };
   const heroCopy = "A constellation of tools, agents and experiments growing on one personal cloud computer.";
+  const privateHome = current.access === "private";
+  const homeSections = privateHome ? ["apps", "agents", "services", "workflows", "databases"] : ["apps", "agents"];
+  const homeSummary = `<section class="hero-summary${privateHome ? "" : " hero-summary--catalogue"}" aria-label="${privateHome ? "Private inventory" : "Catalogue destinations"}">
+    <p class="hero-summary__label">${privateHome ? "Your private garden" : "Explore the catalogue"}</p>
+    <nav class="hero-summary__grid" aria-label="Browse Garden records">
+      ${homeSections.map(section => `<a class="hero-summary__item" data-home-section="${section}" href="/#list?${privateHome ? "tab=" + section : "kind=" + (section === "apps" ? "app" : "agent")}"><strong ${privateHome ? 'data-home-count="' + section + '"' : ""}>${privateHome ? "…" : section === "apps" ? kindCounts.app : kindCounts.agent}</strong><span>${section[0].toUpperCase() + section.slice(1)}</span></a>`).join("")}
+    </nav>
+    ${privateHome ? "" : `<p class="hero-summary__note">${allApps.length} catalogue destinations · ${publicCount} public · ${privateCount} owner-only</p>`}
+    ${privateHome ? '<p class="hero-summary__freshness" data-home-freshness role="status">Loading inventory…</p>' : ""}
+  </section>`;
 
   return `<!doctype html>
 <html lang="en">
@@ -169,7 +181,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     button { font: inherit; }
     .shell { position: relative; overflow: hidden; min-height: 100vh; background: radial-gradient(circle at 20% 5%, #174b55 0, transparent 36rem), linear-gradient(180deg, #071721 0%, #0b2830 55%, #06151d 100%); }
     .shell::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .12; z-index: 10; background-image: radial-gradient(circle, rgba(255,255,255,.42) 0 .6px, transparent .8px); background-size: 5px 5px; }
-    .hero { position: relative; min-height: 100svh; isolation: isolate; }
+    .hero { position: relative; display: flex; flex-direction: column; min-height: 100svh; isolation: isolate; }
     .hero__art { position: absolute; inset: 0; background: url('/assets/garden-sky-v2.webp') center center / cover no-repeat; transform: scale(1.025); animation: reveal-art 1.6s cubic-bezier(.2,.7,.2,1) both; }
     .hero__art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(3,16,22,.89) 0%, rgba(3,16,22,.57) 38%, rgba(3,16,22,.03) 72%), linear-gradient(180deg, rgba(4,18,25,.48) 0%, transparent 28%, rgba(6,21,29,.18) 64%, #0a252d 100%); }
     .hero__kingdom, .hero__pegasus { position: absolute; z-index: 2; pointer-events: none; }
@@ -187,18 +199,35 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .brand__mark svg { width: 21px; }
     .nav__status { display: flex; align-items: center; gap: 9px; padding: 9px 13px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px; background: rgba(5,20,27,.46); backdrop-filter: blur(12px); color: #e7eee8; font-size: .76rem; font-weight: 700; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
     .nav__status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 14px var(--mint); }
-    .hero__content { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 132px 0 190px; }
+    .nav__label--compact { display: none; }
+    .hero__content { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); margin: auto; padding: clamp(16px, 3svh, 40px) 0 24px; }
+    .hero .eyebrow { margin-bottom: 16px; }
     .eyebrow { margin: 0 0 22px; color: #f1d9a2; font-size: .76rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
-    .hero h1 { max-width: 720px; margin: 0; font: 600 clamp(4.6rem, 10vw, 8.6rem)/.78 var(--serif); letter-spacing: -.055em; text-wrap: balance; text-shadow: 0 8px 50px rgba(0,0,0,.4); }
+    .hero h1 { max-width: 720px; margin: 0; font: 600 clamp(4rem, min(9vw, 10svh), 7.6rem)/.86 var(--serif); letter-spacing: -.055em; text-wrap: balance; text-shadow: 0 8px 50px rgba(0,0,0,.4); }
     .hero h1 em { display: block; color: #f2d59b; font-weight: 400; }
-    .hero__lede { max-width: 590px; margin: 34px 0 0; color: #e4ebe5; font: 400 clamp(1rem, 2vw, 1.2rem)/1.7 var(--sans); text-shadow: 0 2px 20px #06151d; }
-    .hero__footer { display: flex; align-items: center; gap: 26px; margin-top: 42px; }
+    .hero__lede { max-width: 560px; margin: 20px 0 0; color: #e4ebe5; font: 400 1.05rem/1.5 var(--sans); text-shadow: 0 2px 20px #06151d; }
+    .hero__footer { display: flex; align-items: center; gap: 26px; margin-top: 20px; }
     .explore { display: inline-flex; align-items: center; gap: 12px; padding: 14px 19px; border-radius: 999px; color: #142026; background: var(--ink); font-size: .82rem; font-weight: 800; letter-spacing: .04em; text-decoration: none; transition: transform .25s ease, background .25s ease; }
     .explore:hover { transform: translateY(-3px); background: #fffaf0; }
     .hero__count { color: #d9e3dd; font: 500 .78rem/1.4 var(--sans); letter-spacing: .08em; text-transform: uppercase; }
     .hero__count strong { color: var(--gold); }
+    .hero-summary { width: min(100%, 600px); margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); text-shadow: 0 2px 12px var(--night); }
+    .hero-summary--catalogue { width: min(100%, 400px); }
+    .hero-summary__label { margin: 0 0 14px; color: var(--muted); font-size: .65rem; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; }
+    .hero-summary__grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .hero-summary--catalogue .hero-summary__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero-summary__item { position: relative; display: grid; min-width: 0; gap: 6px; padding: 0 16px 6px; border-left: 1px solid var(--line); text-decoration: none; transition: background .2s; }
+    .hero-summary__item:first-child { padding-left: 0; border-left: 0; }
+    .hero-summary__item::after { content: "↗"; position: absolute; right: 12px; top: 4px; color: var(--mint); font-size: .8rem; opacity: .65; transition: color .2s, transform .2s; }
+    .hero-summary__item:hover { background: rgba(244,216,155,.04); }
+    .hero-summary__item:hover::after { color: var(--gold); transform: translate(2px, -2px); opacity: 1; }
+    .hero-summary__item:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+    .hero-summary__item strong { color: #f2d59b; font: 400 2.6rem/.95 var(--serif); font-variant-numeric: lining-nums tabular-nums; letter-spacing: -.035em; }
+    .hero-summary__item span { color: #e4ebe5; font-size: .72rem; line-height: 1.5; }
+    .hero-summary__note, .hero-summary__freshness { margin: 12px 0 0; color: var(--muted); font-size: .68rem; line-height: 1.6; }
+    .hero-summary__freshness[data-state="error"], .hero-summary__freshness[data-state="stale"] { color: var(--gold); }
     .hero[hidden], .catalogue[hidden], .footer[hidden] { display: none; }
-    .catalogue { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); min-height: 100svh; margin: 0 auto; padding: 28px 0 70px; }
+    .catalogue { position: relative; z-index: 3; width: min(1180px, calc(100% - 40px)); min-height: 100svh; margin: 0 auto; padding: 28px 0 24px; }
     .catalogue__nav { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22px; border-bottom: 1px solid rgba(255,255,255,.14); }
     .catalogue__return { display: inline-flex; align-items: center; gap: 9px; padding: 10px 14px; border: 1px solid rgba(228,193,120,.28); border-radius: 999px; color: #d5e1dc; background: rgba(3,18,23,.48); font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; transition: transform .2s, border-color .2s; }
     .catalogue__return:hover { transform: translateY(-2px); border-color: rgba(228,193,120,.65); }
@@ -206,9 +235,38 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .catalogue__nav + .catalogue__head { margin-top: 54px; }
     .catalogue__head h2 { margin: 0; max-width: none; font: 500 clamp(2.8rem, 6vw, 5.2rem)/.94 var(--serif); letter-spacing: -.035em; white-space: nowrap; }
     .catalogue__head p { max-width: none; margin: 18px 0 0; color: var(--muted); line-height: 1.65; white-space: nowrap; }
-    .catalogue__tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; width: 100%; }
-    .label-legend-button { flex: none; border: 1px solid rgba(228,193,120,.45); border-radius: 12px; padding: 12px 15px; background: #10282d; color: var(--gold); font: 700 .75rem var(--sans); cursor: pointer; }
-    .label-legend-button:hover { background: #19383c; }
+    .catalogue__tools { display: grid; gap: 16px; min-width: 0; width: 100%; }
+    .catalogue__navigation { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+    .catalogue__help { display: flex; align-items: center; gap: 16px; }
+    .catalogue__filters { display: grid; grid-template-columns: 1.2fr 1.15fr .85fr 1fr; align-items: end; gap: 20px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: rgba(5,23,29,.62); }
+    .filter-field, .ownership-field { display: grid; gap: 9px; min-width: 0; }
+    .filter-field__title, .ownership-filters label { color: #a2b9b2; font: 600 10px var(--sans); letter-spacing: .1em; text-transform: uppercase; }
+    .ownership-filters { display: contents; }
+    .ownership-filters select { width: 100%; min-width: 0; min-height: 40px; appearance: none; border: 1px solid #34504f; border-radius: 8px; padding: 9px 32px 9px 12px; color: #e1eae5; background: #0c252c url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239db7af' stroke-width='1.5' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 11px center / 14px no-repeat; font: 500 12px var(--sans); cursor: pointer; color-scheme: dark; transition: border-color .2s, background-color .2s; }
+    .ownership-filters select:hover { border-color: #7a9b8d; }
+    .ownership-filters select:has(option:checked:not([value=""])) { border-color: #8ac7b470; background-color: #163a3c; color: #c5e8dc; }
+    .label-combobox { position: relative; min-width: 0; }
+    .label-combobox input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 9px 36px 9px 12px; border: 1px solid #34504f; border-radius: 8px; color: #e1eae5; background: #0c252c; font: 500 12px var(--sans); text-overflow: ellipsis; transition: border-color .2s, background-color .2s; }
+    .label-combobox input::placeholder { color: #d3dfd9; opacity: 1; }
+    .label-combobox input:hover { border-color: #7a9b8d; }
+    .label-combobox input:focus { border-color: #8ac7b4; outline: 2px solid #8ac7b430; outline-offset: 1px; }
+    .label-combobox[data-selected="true"] input { border-color: #8ac7b470; background: #163a3c; color: #c5e8dc; }
+    .label-combobox__toggle { position: absolute; inset: 1px 1px 1px auto; width: 34px; padding: 0; border: 0; border-radius: 0 7px 7px 0; color: #9db7af; background: transparent; cursor: pointer; }
+    .label-combobox__toggle::after { content: ""; display: block; width: 6px; height: 6px; margin: -3px auto 0; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); }
+    .label-combobox__toggle[aria-expanded="true"]::after { margin-top: 3px; transform: rotate(225deg); }
+    .label-combobox__options { position: fixed; z-index: 1000; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; padding: 5px; border: 1px solid #42615b; border-radius: 10px; background: #102c33; box-shadow: 0 12px 32px #0007; scrollbar-width: thin; scrollbar-color: #537169 #102c33; color: #e1eae5; font: 500 12px/1.5 var(--sans); }
+    .label-combobox__options[hidden] { display: none; }
+    .label-combobox__options [role="option"] { position: relative; padding: 9px 26px 9px 9px; border-radius: 5px; cursor: pointer; overflow-wrap: anywhere; }
+    .label-combobox__options [role="option"]:hover, .label-combobox__options [data-active="true"] { color: #f2f4e9; background: #294b4d; }
+    .label-combobox__options [aria-selected="true"]::after { content: "✓"; position: absolute; right: 9px; color: var(--mint); }
+    .label-combobox__empty { padding: 12px 9px; color: #a2b9b2; }
+    .clear-labels { padding: 8px 0; border: 0; color: var(--mint); background: transparent; font: 500 11px var(--sans); cursor: pointer; white-space: nowrap; }
+    .clear-labels:disabled { color: #829991; opacity: .65; cursor: default; }
+    .catalogue__tools :is(select, button):focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+    .realm-list__empty { color: var(--muted); padding: 36px 0; text-align: center; font-size: 14px; }
+    .label-legend-button { display: inline-flex; flex: none; align-items: center; gap: 7px; border: 0; border-radius: 6px; padding: 8px 0 8px 8px; background: transparent; color: #b7c5c2; font: 500 12px var(--sans); cursor: pointer; white-space: nowrap; }
+    .label-legend-button svg { width: 15px; height: 15px; color: var(--gold); }
+    .label-legend-button:hover { color: var(--gold); }
     .label-legend-button:focus-visible, .label-legend:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
     .label-legend { box-sizing: border-box; width: min(780px, calc(100% - 40px)); max-height: calc(100svh - 64px); padding: 0; overflow: hidden; border: 1px solid #3d524e; border-radius: 16px; background: #0c2026; color: var(--ink); box-shadow: 0 32px 120px #000a; }
     .label-legend[open] { display: flex; flex-direction: column; }
@@ -237,6 +295,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .label-legend__category:nth-child(3) .label-legend__categories dt { color: #b8bcea; background: #2b2e46; }
     .label-legend__category:nth-child(4) .label-legend__categories dt { color: #e8ad98; background: #3d302d; }
     .label-legend__category:nth-child(5) .label-legend__categories dt { color: #aacde8; background: #23384a; }
+    .label-legend__category:nth-child(6) .label-legend__categories dt { color: #dbb5dc; background: #3a2c40; }
     .label-legend__categories dd { margin: 0; }
     .label-legend dl.label-legend__roles { gap: 10px; margin: 16px 0 0 16px; padding-left: 20px; border-left: 1px solid #38504e; }
     .label-legend__roles > div { display: grid; grid-template-columns: 132px minmax(0, 1fr); column-gap: 16px; }
@@ -271,15 +330,16 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .label-legend__foot { padding-block: 8px; }
       .label-legend p.label-legend__note { margin-top: 4px; }
     }
-    .catalogue__commandbar { display: flex; align-items: center; justify-content: flex-end; gap: 5px; min-width: 0; max-width: 100%; padding: 5px; border: 1px solid rgba(228,193,120,.24); border-radius: 18px; background: rgba(3,18,23,.78); box-shadow: 0 14px 34px rgba(0,0,0,.2); overflow-x: auto; scrollbar-width: none; }
-    .catalogue__commandbar::-webkit-scrollbar { display: none; }
-    .view-toggle, .filters, .realm-kind-filters { display: flex; flex: none; gap: 3px; }
-    .view-toggle__button { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 12px; padding: 9px 11px; color: #94aaa6; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: color .2s, background .2s, box-shadow .2s; }
+    .view-toggle { display: inline-flex; flex: none; gap: 3px; padding: 4px; border: 1px solid var(--line); border-radius: 10px; background: rgba(3,18,23,.55); }
+    .filters, .realm-kind-filters { display: flex; gap: 2px; min-width: 0; min-height: 40px; padding: 3px; border-radius: 8px; background: #071c23; }
+    .view-toggle__button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; border: 0; border-radius: 6px; padding: 8px 14px; color: #a2b9b2; background: transparent; cursor: pointer; font-size: 12px; font-weight: 600; white-space: nowrap; transition: color .2s, background .2s; }
     .view-toggle__button svg { width: 16px; height: 16px; }
-    .view-toggle__button[aria-pressed="true"] { color: #101b20; background: linear-gradient(135deg, #fff0bd, var(--gold)); box-shadow: 0 0 0 1px rgba(255,240,189,.72), 0 7px 22px rgba(228,193,120,.38); }
-    .filter { border: 0; border-radius: 10px; padding: 9px 10px; color: #aebfbb; background: transparent; cursor: pointer; font-size: .66rem; font-weight: 800; letter-spacing: .03em; white-space: nowrap; transition: color .2s, background .2s; }
-    .filter[aria-pressed="true"] { color: #101b20; background: #fff7e3; box-shadow: 0 0 0 1px rgba(255,255,255,.72), 0 5px 16px rgba(248,242,223,.2); }
-    .commandbar__divider { flex: none; width: 1px; height: 24px; margin: 0 3px; background: rgba(228,193,120,.2); }
+    .view-toggle__button[aria-pressed="true"] { color: #172825; background: #e4cf9d; }
+    .filter, .realm-kind-filter { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 5px; min-width: 0; border: 0; border-radius: 6px; padding: 7px 8px; color: #a2b9b2; background: transparent; cursor: pointer; font: 500 12px var(--sans); white-space: nowrap; transition: color .2s, background .2s; }
+    .filter:hover, .realm-kind-filter:hover, .view-toggle__button:hover { color: var(--ink); background: #203e40; }
+    .filter[aria-pressed="true"], .realm-kind-filter[aria-pressed="true"] { color: #d3ebe1; background: #284c49; box-shadow: inset 0 0 0 1px #8ac7b438; }
+    .filter__count { color: #88a59b; font-size: 10px; font-variant-numeric: tabular-nums; }
+    :is(.filter, .realm-kind-filter)[aria-pressed="true"] .filter__count { color: #b6d3c7; }
     body.is-atlas-view { overflow: hidden; }
     body.is-atlas-view .shell { height: 100svh; min-height: 0; overflow: hidden; }
     body.is-atlas-view .catalogue { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); width: 100%; height: 100svh; min-height: 0; margin: 0; padding: 0; overflow: hidden; }
@@ -288,12 +348,13 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     body.is-atlas-view .catalogue__nav + .catalogue__head { margin-top: 0; }
     body.is-atlas-view .catalogue__head { display: block; grid-row: 3; width: 100%; min-width: 0; margin: 0; padding: 9px max(20px, calc((100vw - 1180px) / 2)) max(9px, env(safe-area-inset-bottom)); border-top: 1px solid rgba(228,193,120,.13); background: linear-gradient(180deg, rgba(3,18,23,.9), rgba(3,18,23,.98)); box-shadow: 0 -16px 42px rgba(0,0,0,.24); overflow: hidden; }
     body.is-atlas-view .catalogue__intro { display: none; }
-    body.is-atlas-view .catalogue__tools { display: flex; justify-content: center; width: 100%; }
-    body.is-atlas-view .catalogue__commandbar { width: max-content; }
-    body.is-atlas-view .atlas { display: grid; grid-row: 2; grid-template-rows: auto minmax(0, 1fr) 3px; width: 100%; max-width: 100vw; min-height: 0; margin: 0; }
+    body.is-atlas-view .catalogue__tools { gap: 8px; width: min(1180px, 100%); margin: auto; }
+    body.is-atlas-view .catalogue__filters { padding: 10px 14px; gap: 16px; }
+    body.is-atlas-view :is(.filter-field, .ownership-field) { gap: 6px; }
+    body.is-atlas-view .atlas { display: grid; grid-row: 2; grid-template-rows: auto minmax(0, 1fr) 3px; grid-template-columns: minmax(0, 1fr); width: 100%; max-width: 100vw; min-height: 0; margin: 0; }
     body.is-atlas-view .atlas__bar { padding-block: 10px; }
     body.is-atlas-view .atlas__viewport { height: auto; min-height: 0; }
-    body.is-atlas-view .legend, body.is-atlas-view .footer { display: none; }
+    body.is-atlas-view .footer { display: none; }
     .atlas { position: relative; width: 100vw; margin-left: calc(50% - 50vw); border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 16% 18%, rgba(58,111,115,.18), transparent 24rem), radial-gradient(circle at 78% 64%, rgba(221,125,102,.09), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.64), rgba(6,29,35,.94)); overflow: hidden; }
     .atlas::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .3; background-image: radial-gradient(circle, rgba(244,230,196,.8) 0 1px, transparent 1.5px); background-size: 67px 67px; mask-image: linear-gradient(90deg, transparent, black 12%, black 88%, transparent); }
     .atlas__bar { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 20px; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 20px 0; }
@@ -379,8 +440,40 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
     .realm-list__bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 18px; color: #849c99; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     .realm-list__bar strong { color: var(--gold); }
-    .realm-kind-filter { border: 0; border-radius: 10px; padding: 9px 10px; color: #91aaa6; background: transparent; cursor: pointer; font-size: .64rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; transition: color .2s, background .2s; }
-    .realm-kind-filter[aria-pressed="true"] { color: #101b20; background: linear-gradient(135deg, #fff0bd, var(--gold)); box-shadow: 0 0 0 1px rgba(255,240,189,.72), 0 5px 16px rgba(228,193,120,.3); }
+    .directory-search { display: grid; grid-column: 1 / -1; gap: 9px; min-width: 0; }
+    .directory-search label, .inventory-filter-field label { color: #a2b9b2; font: 600 10px var(--sans); letter-spacing: .1em; text-transform: uppercase; }
+    .directory-search__input { position: relative; }
+    .directory-search__input svg { position: absolute; left: 13px; top: 12px; width: 18px; height: 18px; color: #8da79f; pointer-events: none; }
+    .directory-search input { width: 100%; min-width: 0; height: 42px; padding: 9px 14px 9px 40px; border: 1px solid #34504f; border-radius: 8px; background: #0c252c; color: #e1eae5; font: 500 12px var(--sans); }
+    .directory-search input::placeholder { color: #8da79f; opacity: 1; }
+    .directory-search input:focus { border-color: #8ac7b4; outline: 2px solid #8ac7b430; outline-offset: 1px; }
+    body.is-atlas-view .directory-search { display: none; }
+    body:not(.is-atlas-view) .filter-kind-field { display: none; }
+    body:not(.is-atlas-view) .catalogue__filters { grid-template-columns: 1.4fr 1fr 1fr; }
+    .directory-tabs { display: flex; gap: 6px; overflow-x: auto; min-width: 0; padding: 0 0 12px; margin: 0 0 20px; border-bottom: 1px solid var(--line); scrollbar-width: thin; }
+    .directory-tabs button { display: inline-flex; flex: none; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; color: #a7bcb6; background: transparent; font: 500 12px/16px var(--sans); cursor: pointer; white-space: nowrap; min-height: 40px; }
+    .directory-tabs button[aria-pressed="true"] { color: #f2d59b; border-color: rgba(228,193,120,.28); background: rgba(228,193,120,.09); }
+    .directory-tabs button:hover { background: rgba(138,199,180,.07); }
+    .directory-tabs svg { width: 16px; height: 16px; }
+    .directory-tabs .tab-count { padding: 1px 6px; border-radius: 4px; color: #9fb7ae; background: rgba(138,199,180,.08); font-size: 10px; font-variant-numeric: tabular-nums; }
+    .directory-results { display: flex; justify-content: space-between; align-items: end; gap: 20px; min-width: 0; margin-bottom: 18px; }
+    .directory-title { margin: 0; font: 500 28px/1.2 var(--serif); color: var(--ink); }
+    .directory-count { margin: 8px 0 0; color: #94aea5; font: 400 12px/1.5 var(--sans); }
+    .directory-count strong { color: var(--gold); font-weight: 600; }
+    .directory-options { display: flex; align-items: end; gap: 12px; min-width: 0; max-width: 70%; }
+    .inventory-filter-field { display: grid; gap: 9px; min-width: 0; width: 170px; }
+    .inventory-filter-field[hidden] { display: none !important; }
+    .inventory-filter-field select { width: 100%; min-width: 0; height: 40px; border: 1px solid #34504f; border-radius: 8px; padding: 9px 30px 9px 12px; color: #e1eae5; background: #0c252c; font: 500 12px var(--sans); color-scheme: dark; cursor: pointer; text-overflow: ellipsis; }
+    .directory-tabs button:focus-visible, .directory-options select:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+    .realm-row__observation { margin-top: 8px; color: #94aea5; font: 400 10px/1.5 var(--sans); }
+    .realm-row__observation .badge { margin-right: 8px; }
+    @media (max-width: 760px) {
+      .directory-results { flex-direction: column; align-items: stretch; gap: 16px; }
+      .directory-options { max-width: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .inventory-filter-field { width: 100%; }
+      .directory-options:has(.inventory-owner-field:not([hidden])) .inventory-owner-field { grid-column: 1 / -1; }
+      .directory-tabs { margin-bottom: 16px; }
+    }
     .realm-list__rows { border-top: 1px solid rgba(228,193,120,.18); }
     .realm-row { display: grid; grid-template-columns: 42px 104px minmax(150px, .85fr) minmax(240px, 1.5fr) auto 132px; align-items: center; gap: 18px; min-height: 144px; border-bottom: 1px solid rgba(228,193,120,.14); animation: rise .55s calc(var(--order) * 45ms) both; transition: background .2s, transform .2s; }
     .realm-row[hidden] { display: none; }
@@ -408,10 +501,17 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-row__author:hover { color: var(--gold); }
     .realm-row__link span:last-child { color: var(--gold); font-size: 1.05rem; transition: transform .2s; }
     .realm-row__link:hover span:last-child { transform: translate(3px,-3px); }
-    .legend { display: flex; justify-content: space-between; gap: 24px; margin-top: 34px; padding: 22px 0; border-top: 1px solid var(--line); color: #8fa5a2; font-size: .73rem; line-height: 1.6; }
-    .legend strong { color: #d6e3df; }
-    .legend__mark { color: var(--gold); text-transform: uppercase; letter-spacing: .14em; }
-    .footer { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 30px 0 40px; border-top: 1px solid var(--line); color: #829895; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; }
+    .footer { position: relative; z-index: 3; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 28px; width: min(1180px, calc(100% - 40px)); margin: 0 auto; padding: 20px 0 24px; border-top: 1px solid var(--line); color: #8fa5a2; font-size: 11px; line-height: 1.6; }
+    .footer__identity { display: grid; gap: 2px; }
+    .footer__identity strong { color: #d6e3df; font-size: 12px; font-weight: 600; }
+    .footer__identity span { color: #718b85; }
+    .footer__access { margin: 0; text-align: center; }
+    .footer__access strong { color: #b8cbc4; font-weight: 600; }
+    .footer__credit { color: var(--gold); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+    @media (max-width: 900px) {
+      .footer { grid-template-columns: 1fr auto; gap: 12px 20px; }
+      .footer__access { grid-row: 2; grid-column: 1 / -1; text-align: left; }
+    }
     @keyframes reveal-art { from { opacity: 0; transform: scale(1.09); } to { opacity: 1; transform: scale(1.025); } }
     @keyframes rise { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes beacon-pulse { 0% { opacity: .7; transform: scale(.82); } 75%, 100% { opacity: 0; transform: scale(1.38); } }
@@ -434,33 +534,61 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .hero__pegasus { right: -20%; bottom: 42px; width: min(84vw, 690px); }
       .catalogue__head { grid-template-columns: 1fr; align-items: start; }
       .catalogue__tools { justify-items: start; }
-      .realm-row { grid-template-columns: 36px 44px minmax(140px, .8fr) minmax(210px, 1.3fr) 126px; }
+      .catalogue__navigation, .catalogue__filters { width: 100%; }
+      .catalogue__filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .realm-row { grid-template-columns: 28px 64px minmax(0, .85fr) minmax(0, 1.2fr) 126px; gap: 14px; }
+      .realm-row__actions { min-width: 0; }
+      .realm-row__identity { min-width: 0; overflow-wrap: anywhere; }
+      .realm-row__author { white-space: normal; flex-wrap: wrap; }
       .realm-row .access-badge { display: none; }
       .atlas__viewport { height: min(680px, 72vh); }
     }
     @media (max-width: 620px) {
-      .nav { width: min(100% - 28px, 1180px); padding-top: 18px; }
-      .nav__status { font-size: 0; padding: 11px; }
+      .nav { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; width: min(100% - 28px, 1180px); padding-top: 18px; }
+      .nav .brand { gap: 8px; font-size: 1rem; white-space: nowrap; }
+      .nav .brand__mark { width: 32px; height: 32px; flex-shrink: 0; }
+      .nav__status { justify-content: center; min-width: 44px; min-height: 44px; padding: 9px; font-size: .64rem; white-space: nowrap; }
+      .nav__status::before, .nav__label--full { display: none; }
+      .nav__label--compact { display: inline; }
       .hero { min-height: 100svh; }
       .hero__art { background-position: 67% center; }
       .hero__kingdom--main { top: 25px; right: -35%; width: 94vw; opacity: .78; }
       .hero__kingdom--observatory { top: 105px; right: 54%; width: 37vw; opacity: .8; }
       .hero__kingdom--outpost { top: 315px; right: 15%; width: 30vw; opacity: .76; }
       .hero__pegasus { top: 210px; right: -42%; bottom: auto; width: 94vw; z-index: 2; opacity: .72; }
-      .hero__content { width: min(100% - 32px, 1180px); padding: 98px 0 130px; }
-      .hero h1 { font-size: clamp(4.1rem, 22vw, 6rem); }
+      .hero__content { width: min(100% - 32px, 1180px); }
+      .hero h1 { font-size: clamp(3.5rem, min(19vw, 9svh), 5rem); }
+      .hero-summary__grid { grid-template-columns: repeat(6, minmax(0, 1fr)); row-gap: 14px; }
+      .hero-summary__item { grid-column: span 2; padding-inline: 12px; }
+      .hero-summary__item:nth-child(n+4) { grid-column: span 3; }
+      .hero-summary__item:nth-child(4) { padding-left: 0; border-left: 0; }
+      .hero-summary--catalogue .hero-summary__item { grid-column: auto; }
+      .hero-summary__item strong { font-size: 2rem; }
+      .hero-summary__item::after { right: 8px; top: 2px; }
       .hero__lede { max-width: 92%; font-size: .98rem; }
       .hero__footer { align-items: flex-start; flex-direction: column; gap: 18px; }
       .hero__count { padding: 6px 8px; margin-left: -8px; border-radius: 999px; background: rgba(3, 16, 22, .48); backdrop-filter: blur(8px); }
       .catalogue { width: min(100% - 28px, 1180px); padding-top: 72px; }
       .catalogue__nav { margin-top: -48px; }
       .catalogue__return { padding: 10px 12px; font-size: .62rem; }
+      .catalogue__return { white-space: nowrap; }
+      .catalogue__nav .brand > span:last-child { display: none; }
       .catalogue__head h2 { font-size: 3.3rem; }
       .catalogue__head h2, .catalogue__head p { white-space: normal; }
       .catalogue__tools { width: 100%; }
-      .catalogue__commandbar { justify-content: flex-start; border-radius: 14px; }
-      .view-toggle__button { justify-content: center; }
-      .filter { flex: none; }
+      .catalogue__tools { gap: 12px; }
+      .catalogue__navigation { flex-wrap: wrap; gap: 8px; }
+      .catalogue__help { gap: 12px; margin-left: auto; }
+      .catalogue__filters { padding: 14px 12px; gap: 14px 12px; }
+      body:not(.is-atlas-view) .catalogue__filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      body:not(.is-atlas-view) .catalogue__filters > .filter-field:not(.filter-kind-field) { grid-column: 1 / -1; }
+      .view-toggle__button { min-height: 36px; padding: 8px 10px; font-size: 11px; }
+      .filter, .realm-kind-filter { min-height: 38px; gap: 0; padding: 7px 4px; font-size: 11px; }
+      .filter__count { display: none; }
+      .filter-field__title, .ownership-filters label { font-size: 9px; }
+      .label-legend-button { gap: 5px; font-size: 11px; }
+      body.is-atlas-view .catalogue__head { padding-inline: 14px; }
+      body.is-atlas-view .catalogue__filters { padding: 10px; gap: 10px; }
       .atlas__bar { width: min(100% - 28px, 1180px); }
       .atlas__hint { display: none; }
       .atlas__viewport { min-height: 520px; height: 66vh; }
@@ -477,26 +605,25 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .atlas__minimap { right: 10px; bottom: 10px; width: 120px; height: 96px; padding: 20px 7px 7px; border-radius: 9px; }
       .realm-list { padding-inline: 14px; }
       .realm-list__bar { align-items: flex-start; flex-direction: column; gap: 12px; }
-      .realm-kind-filter { flex: none; }
       .hero__kingdom, .hero__pegasus, .kingdom-node, .kingdom-node__art, .atlas__pegasus, .sky-routes path, .sky-route-terminals path, .kingdom-node__beacon i { animation: none; }
       .kingdom-node__art { will-change: auto; }
       .shell::before { display: none; }
       .brand__mark, .nav__status, .hero__count { backdrop-filter: none; }
-      .realm-row { grid-template-columns: 34px 78px 1fr auto; gap: 12px; min-height: 132px; padding: 16px 2px; }
+      .realm-row { grid-template-columns: 24px 64px minmax(0, 1fr); gap: 12px; min-height: 132px; padding: 16px 2px; }
       .realm-row__visual { width: 78px; height: 88px; }
       .realm-row__kingdom { top: 26px; width: 78px; height: 62px; }
       .realm-row__visual--main .realm-row__kingdom { width: 86px; }
       .realm-row__icon { width: 40px; height: 40px; }
-      .realm-row__identity { align-self: center; }
-      .realm-row__details { grid-column: 3 / -1; }
-      .realm-row__actions { grid-column: 3 / -1; grid-template-columns: 1fr 1fr; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
+      .realm-row__identity { align-self: center; min-width: 0; overflow-wrap: anywhere; }
+      .realm-row__identity .project-label { max-width: 100%; font-size: 9px; white-space: normal; }
+      .realm-row__author { flex-wrap: wrap; white-space: normal; }
+      .realm-row__details { grid-column: 2 / -1; }
+      .realm-row__actions { grid-column: 2 / -1; grid-template-columns: 1fr 1fr; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
       .realm-row__link--github { padding-top: 0; border-top: 0; }
-      .legend, .footer { align-items: flex-start; flex-direction: column; }
-      .footer { width: min(100% - 28px, 1180px); }
+      .footer { width: min(100% - 28px, 1180px); padding: 16px 0 20px; gap: 10px 14px; }
       body.is-atlas-view .catalogue { width: 100%; padding: 0; }
       body.is-atlas-view .catalogue__nav { width: calc(100% - 28px); margin: 0 auto; padding: 10px 0; }
       body.is-atlas-view .catalogue__head { padding: 8px 14px max(8px, env(safe-area-inset-bottom)); }
-      body.is-atlas-view .catalogue__commandbar { width: 100%; }
       body.is-atlas-view .atlas__bar { padding-block: 8px; }
       body.is-atlas-view .atlas__viewport { height: auto; min-height: 0; }
     }
@@ -504,6 +631,22 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .atlas__controls { grid-template-columns: 1fr; }
       .atlas__node-controls, .atlas__zoom-controls { width: 100%; }
       .atlas__zoom-controls { justify-content: flex-end; }
+    }
+    @media (max-height: 500px) and (min-width: 621px) {
+      body.is-atlas-view .catalogue__filters { grid-template-columns: 1.2fr 1.15fr .85fr 1fr; gap: 12px; padding: 8px 12px; }
+      body.is-atlas-view .filter__count { display: none; }
+      body.is-atlas-view :is(.filter, .realm-kind-filter) { padding-inline: 5px; font-size: 11px; }
+      body.is-atlas-view .filter-field__title, body.is-atlas-view .ownership-filters label { font-size: 9px; }
+      body.is-atlas-view .atlas__hint { display: none; }
+    }
+    @media (max-height: 700px) {
+      .hero .nav { padding-top: 14px; padding-bottom: 14px; }
+      .hero__content { padding-top: 16px; }
+      .hero .eyebrow { margin-bottom: 12px; }
+      .hero h1 { font-size: clamp(2.5rem, min(8vw, 9svh), 4rem); }
+      .hero h1 em { display: inline; }
+      .hero__lede { margin-top: 14px; }
+      .hero__footer, .hero-summary { margin-top: 16px; }
     }
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
@@ -536,8 +679,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       <div class="hero__pegasus" aria-hidden="true"><img src="/assets/garden-pegasus.webp" alt="" decoding="async" /></div>
       <nav class="nav" aria-label="Primary navigation">
         <a class="brand" href="/"><span class="brand__mark">${icon("spark")}</span><span>Garden of Zo</span></a>
-        <a class="nav__status" href="${escapeHtml(catalog.find(g => g.access === "private")!.gatewayUrl)}/#list">List · Owner access</a>
-        <a class="nav__status" href="#atlas">${escapeHtml(viewLabel)}</a>
+        <a class="nav__status" href="${escapeHtml(catalog.find(g => g.access === "private")!.gatewayUrl)}/#list" aria-label="List · Owner access"><span class="nav__label--full">List · Owner access</span><span class="nav__label--compact" aria-hidden="true">List</span></a>
+        <a class="nav__status" href="#atlas" aria-label="${escapeHtml(viewLabel)}"><span class="nav__label--full">${escapeHtml(viewLabel)}</span><span class="nav__label--compact" aria-hidden="true">Atlas</span></a>
       </nav>
       <div class="hero__content">
         <p class="eyebrow">A personal cloud realm</p>
@@ -545,8 +688,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <p class="hero__lede">${escapeHtml(heroCopy)}</p>
         <div class="hero__footer">
           <a class="explore" href="#atlas" aria-controls="realms">Open the sky atlas <span aria-hidden="true">&rarr;</span></a>
-          <span class="hero__count"><strong>${allApps.length}</strong> realms &nbsp; / &nbsp; ${publicCount} open &nbsp; / &nbsp; ${privateCount} owner-only</span>
         </div>
+        ${homeSummary}
       </div>
     </header>
     <main class="catalogue" id="realms" data-screen="catalogue" hidden>
@@ -562,25 +705,39 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
           <p data-view-description>Travel from node to node across your apps and agents. Every stop is a live destination in the Garden of Zo.</p>
         </div>
         <div class="catalogue__tools">
-          <div class="catalogue__commandbar" aria-label="Catalogue view and filters">
+          <div class="catalogue__navigation">
             <div class="view-toggle" role="group" aria-label="Choose catalogue view">
-              <button class="view-toggle__button" type="button" data-view="atlas" aria-pressed="true" aria-controls="atlas-view">${icon("compass")}Sky Atlas View</button>
-              <button class="view-toggle__button" type="button" data-view="list" aria-pressed="false" aria-controls="list-view">${icon("list")}List View</button>
+              <button class="view-toggle__button" type="button" data-view="atlas" aria-pressed="true" aria-controls="atlas-view">${icon("compass")}Sky Atlas</button>
+              <button class="view-toggle__button" type="button" data-view="list" aria-pressed="false" aria-controls="list-view">${icon("list")}List</button>
             </div>
-            <span class="commandbar__divider" aria-hidden="true"></span>
-            <div class="filters" role="group" aria-label="Filter realms">
-              <button class="filter" type="button" data-filter="all" aria-pressed="true">All ${allApps.length}</button>
-              <button class="filter" type="button" data-filter="public" aria-pressed="false">Open ${publicCount}</button>
-              <button class="filter" type="button" data-filter="private" aria-pressed="false">Private ${privateCount}</button>
-            </div>
-            <span class="commandbar__divider" aria-hidden="true"></span>
-            <div class="realm-kind-filters" role="group" aria-label="Filter realms by type">
-              <button class="realm-kind-filter" type="button" data-kind-filter="all" aria-pressed="true">All types</button>
-              <button class="realm-kind-filter" type="button" data-kind-filter="app" aria-pressed="false">Apps ${kindCounts.app}</button>
-              <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents ${kindCounts.agent}</button>
+            <div class="catalogue__help">
+              <button class="clear-labels" type="button" data-clear-ownership disabled>Clear labels</button>
+              <button class="label-legend-button" type="button" data-open-label-legend aria-haspopup="dialog" aria-controls="label-legend">${icon("list")}Label legend</button>
             </div>
           </div>
-          <button class="label-legend-button" type="button" data-open-label-legend aria-haspopup="dialog" aria-controls="label-legend">Label legend</button>
+          <div class="catalogue__filters" role="group" aria-label="Catalogue filters">
+            ${renderInventorySearch()}
+            <div class="filter-field">
+              <span class="filter-field__title">Access</span>
+              <div class="filters" role="group" aria-label="Filter realms">
+                <button class="filter" type="button" data-filter="all" aria-pressed="true">All <span class="filter__count">${allApps.length}</span></button>
+                <button class="filter" type="button" data-filter="public" aria-pressed="false">Public <span class="filter__count">${publicCount}</span></button>
+                <button class="filter" type="button" data-filter="private" aria-pressed="false">Private <span class="filter__count">${privateCount}</span></button>
+              </div>
+            </div>
+            <div class="filter-field filter-kind-field">
+              <span class="filter-field__title">Type</span>
+              <div class="realm-kind-filters" role="group" aria-label="Filter realms by type">
+                <button class="realm-kind-filter" type="button" data-kind-filter="all" aria-pressed="true">All types</button>
+                <button class="realm-kind-filter" type="button" data-kind-filter="app" aria-pressed="false">Apps <span class="filter__count">${kindCounts.app}</span></button>
+                <button class="realm-kind-filter" type="button" data-kind-filter="agent" aria-pressed="false">Agents <span class="filter__count">${kindCounts.agent}</span></button>
+              </div>
+            </div>
+            <div class="ownership-filters" role="group" aria-label="Filter by project label">
+              <div class="ownership-field"><label for="ownership-category">Category</label><select id="ownership-category" data-ownership-category aria-label="Project category"><option value="">All categories</option>${Object.keys(ownershipCategories).map(category => `<option value="${category}">${category}</option>`).join("")}</select></div>
+              <div class="ownership-field"><label for="ownership-role">Sub-category</label><select id="ownership-role" data-ownership-role aria-label="Project sub-category"><option value="">All roles</option>${Object.keys(ownershipRoles).map(role => `<option value="${role}">${role}</option>`).join("")}</select></div>
+            </div>
+          </div>
         </div>
       </div>
       <section class="atlas" id="atlas-view" data-view-panel="atlas" aria-label="Sky atlas">
@@ -634,18 +791,21 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <div class="atlas__progress" aria-hidden="true"></div>
       </section>
       <section class="realm-list" id="list-view" data-view-panel="list" aria-label="Garden list" hidden>
-        ${current.access === "private" ? renderInventory() : ""}
+        ${current.access === "private" ? renderInventory(listCards.replaceAll("data-list-card ", "")) : ""}
         <div ${current.access === "private" ? "hidden" : ""}>
-        <div class="realm-list__bar">
-          <span><strong data-list-count>${allApps.length}</strong> destinations in view</span>
+        <nav class="directory-tabs" aria-label="Directory sections">
+          <button type="button" data-directory-kind="all" aria-pressed="true">All destinations <span class="tab-count">${allApps.length}</span></button>
+          <button type="button" data-directory-kind="app" aria-pressed="false">Apps <span class="tab-count">${kindCounts.app}</span></button>
+          <button type="button" data-directory-kind="agent" aria-pressed="false">Agents <span class="tab-count">${kindCounts.agent}</span></button>
+        </nav>
+        <div class="directory-results">
+          <div><h3 class="directory-title" data-directory-title>All destinations</h3><p class="directory-count" aria-live="polite"><strong data-list-count>${allApps.length}</strong> of <span data-list-total>${allApps.length}</span> records</p></div>
+          <div class="directory-options"><div class="inventory-filter-field"><label for="directory-sort">Sort by</label><select id="directory-sort"><option value="default">Garden order</option><option value="name_asc">Name A–Z</option><option value="name_desc">Name Z–A</option></select></div></div>
         </div>
         <div class="realm-list__rows">${current.access === "private" ? "" : listCards}</div>
+        ${current.access === "public" ? '<div class="realm-list__empty" data-list-empty hidden role="status">No destinations match. Adjust your filters.</div>' : ""}
         </div>
       </section>
-      <div class="legend">
-        <span><strong>Open nodes</strong> can be visited by anyone. <strong>Owner nodes</strong> pass through Zo's private authentication boundary.</span>
-        <span class="legend__mark">Built on Zo Computer</span>
-      </div>
     </main>
     <dialog class="label-legend" id="label-legend" aria-labelledby="label-legend-title" aria-describedby="label-legend-description">
       <div class="label-legend__head">
@@ -666,14 +826,19 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         <div class="label-legend__status" aria-label="Ownership status">
           <p><strong>Pending</strong> · a label has not been assigned.</p>
         </div>
-        <p class="label-legend__note">“Ownership pending” appears on unlabelled entries. Labels do not change Open/Private access or display categories.</p>
+        <p class="label-legend__note">“Ownership pending” appears on unlabelled entries. Labels do not change Public/Private access or display categories.</p>
       </div>
     </dialog>
-    <footer class="footer" data-screen="catalogue" hidden><span>Garden of Zo</span><span>One server. Many worlds.</span></footer>
+    <footer class="footer" data-screen="catalogue" hidden>
+      <div class="footer__identity"><strong>Garden of Zo</strong><span>One server. Many worlds.</span></div>
+      <p class="footer__access"><strong>Public realms</strong> are accessible to everyone. <strong>Owner realms</strong> require Zo sign-in.</p>
+      <span class="footer__credit">Built on Zo Computer</span>
+    </footer>
   </div>
   <script type="application/json" id="atlas-data">${JSON.stringify(atlasData).replace(/</g, '\\u003c')}</script>
-  <script type="module" src="/garden-client.js?v=${shellVersion}"></script>
-  ${current.access === "private" ? '<script type="module" src="/operations/client.js?v=unified-list-1"></script>' : ""}
+  <script type="application/json" id="ownership-filter-data">${JSON.stringify(Object.fromEntries(Object.keys(ownershipCategories).map(category => [category, categoryRoles(category as ProjectOwnership["category"])])))}</script>
+  <script type="module" src="/garden-client.js?v=${shellVersion}" data-atlas-client="/atlas-client.js?v=${atlasVersion}"></script>
+  ${current.access === "private" ? `<script type="module" src="/operations/client.js?v=${inventoryVersion}"></script>` : ""}
 </body>
 </html>`;
 }

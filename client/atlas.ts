@@ -3,7 +3,7 @@ import { Viewport, Decelerate } from 'pixi-viewport';
 import { AtlasGlide, AtlasWheel } from './camera-motion';
 import { AtlasConnection } from './atlas-connections';
 
-type Realm = { id: string; index: number; title: string; description: string; category: string; ownershipLabel: string; kind: string; access: string; accessLabel: string; href: string; displayUrl: string; oversightUrl: string; repositoryUrl: string; author: { name: string; profileUrl: string }; x: number; y: number; scale: number; art: string };
+type Realm = { id: string; index: number; title: string; description: string; category: string; ownershipCategory: string; ownershipRole: string; ownershipLabel: string; kind: string; access: string; accessLabel: string; href: string; displayUrl: string; oversightUrl: string; repositoryUrl: string; author: { name: string; profileUrl: string }; x: number; y: number; scale: number; art: string };
 type MapData = { width: number; height: number; realms: Realm[]; links: { from: string; to: string; path: string }[] };
 const data: MapData = JSON.parse(document.querySelector('#atlas-data')!.textContent!);
 const get = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
@@ -14,7 +14,7 @@ const chooser = get<HTMLSelectElement>('[data-realm-chooser]');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const miniCanvas = get<HTMLCanvasElement>('[data-atlas-minimap-window]');
 const miniContext = miniCanvas.getContext('2d');
-let access = 'all', kind = 'all', view = 'atlas';
+let access = get('[data-filter][aria-pressed="true"]').dataset.filter || 'all', kind = get('[data-kind-filter][aria-pressed="true"]').dataset.kindFilter || 'all', view = 'atlas';
 let selected = data.realms.find(r => r.id === 'zo-drive') || data.realms[0];
 let app: Application, viewport: Viewport;
 let initialising: Promise<void> | undefined;
@@ -23,7 +23,14 @@ let lastCamera = '';
 const keys = new Set<string>();
 const visuals = new Map<string, { body: Container; label: Container; ring: Graphics; title: Text; subtitle: Text }>();
 const links = new Map<MapData['links'][number], AtlasConnection>();
-const visible = () => data.realms.filter(r => (access === 'all' || r.access === access) && (kind === 'all' || r.kind === kind));
+const visible = () => {
+  access = get('[data-filter][aria-pressed="true"]').dataset.filter || 'all';
+  kind = get('[data-kind-filter][aria-pressed="true"]').dataset.kindFilter || 'all';
+  const category = get<HTMLSelectElement>('[data-ownership-category]').value;
+  const role = get<HTMLSelectElement>('[data-ownership-role]').value;
+  return data.realms.filter(r => (access === 'all' || r.access === access) && (kind === 'all' || r.kind === kind) &&
+    (!category || r.ownershipCategory === category) && (!role || r.ownershipRole === role));
+};
 const readingScale = () => innerWidth < 620 ? .64 : .72;
 const maxScale = () => innerWidth < 620 ? 2 : 2.4;
 const minScale = () => Math.min(.24, (viewport?.screenWidth ?? host.clientWidth) / data.width);
@@ -83,8 +90,7 @@ const select = (realm: Realm | undefined, showPanel = true) => {
 };
 function filters() {
   const realms = visible(), ids = new Set(realms.map(r => r.id));
-  all('[data-list-card]').forEach(card => { card.hidden = (access !== 'all' && card.dataset.access !== access) || (kind !== 'all' && card.dataset.kind !== kind); });
-  get('[data-list-count]').textContent = String(realms.length);
+  document.dispatchEvent(new Event('garden:cataloguefilterchange'));
   chooser.replaceChildren(...realms.map(realm => new Option(realm.title, realm.id)));
   chooser.disabled = !realms.length;
   for (const [id, visual] of visuals) { visual.body.visible = ids.has(id); visual.label.visible = ids.has(id); }
@@ -271,10 +277,9 @@ function syncScreen() {
   get('.hero').classList.toggle('is-offscreen', catalogue);
   all('[data-view-panel]').forEach(el => { el.hidden = el.dataset.viewPanel !== view; });
   all('[data-view]').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.view === view)));
-  const inventory = !!document.querySelector('#inventory');
-  get('[data-view-eyebrow]').textContent = view === 'list' ? (inventory ? 'Your Garden' : 'The realm directory') : 'The sky atlas';
-  get('[data-view-title]').textContent = view === 'list' && inventory ? 'Everything in one place.' : 'Choose the next horizon.';
-  get('[data-view-description]').textContent = view === 'list' ? (inventory ? 'Apps, agents, services, workflows and databases.' : 'Every app and agent in one directory.') : 'Explore the floating kingdoms. Choose a landmark to discover its realm.';
+  get('[data-view-eyebrow]').textContent = view === 'list' ? 'The realm directory' : 'The sky atlas';
+  get('[data-view-title]').textContent = 'Choose the next horizon.';
+  get('[data-view-description]').textContent = view === 'list' ? 'Find your next destination in the Garden of Zo.' : 'Explore the floating kingdoms. Choose a landmark to discover its realm.';
   if (active) {
     if (!initialising) initialising = initialise().catch(error => { console.error('Sky Atlas initialisation failed', error); showFallback(); });
     else if (ready && !document.hidden) app.ticker.start();
@@ -290,6 +295,7 @@ all('[data-view]').forEach(button => button.addEventListener('click', () => {
 all('[data-close-catalogue]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); history.replaceState(null, '', location.pathname + location.search); syncScreen(); }));
 all('[data-filter]').forEach(button => button.addEventListener('click', () => { access = button.dataset.filter!; all('[data-filter]').forEach(b => b.setAttribute('aria-pressed', String(b === button))); filters(); }));
 all('[data-kind-filter]').forEach(button => button.addEventListener('click', () => { kind = button.dataset.kindFilter!; all('[data-kind-filter]').forEach(b => b.setAttribute('aria-pressed', String(b === button))); filters(); }));
+document.addEventListener('garden:ownershipchange', filters);
 get('[data-panel-close]').addEventListener('click', () => { panel.hidden = true; host.focus(); });
 get('[data-realm-locate]').addEventListener('click', () => { if (ready && selected) travel(selected.x, selected.y); });
 chooser.addEventListener('change', () => { select(data.realms.find(r => r.id === chooser.value)); if (ready) travel(selected.x, selected.y); });

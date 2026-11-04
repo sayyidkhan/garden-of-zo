@@ -41,10 +41,10 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     if (!dependencies.some(d => d.from === from && d.to === to)) dependencies.push({ from, to, evidence });
   };
   const service = (name: string) => services.find(s => s.name === name);
-  const apps = configs.flatMap(gateway => gateway.routes.filter(r => !r.websocketOnly && r.kind === "app").map(route => {
+  const apps = configs.flatMap(gateway => gateway.routes.filter(r => r.listed !== false && !r.websocketOnly && r.kind === "app").map(route => {
     const port = Number(new URL(route.targetOrigin).port);
     const aliases: Record<string, string> = { "gigradar-mailhub": "gr-mailhub", "runa": "runa-hermes-dashboard",
-      "batam-100-site": "batam-100-staging", "stakefolio": "stakefolio-staging", "stakefolio-studio": "stakefolio-staging", "tampalidea": "stakefolio-staging", "tampalidea-studio": "stakefolio-staging",
+      "batam-100-site": "batam-100-staging", "stakefolio": "stakefolio-staging", "stakefolio-studio": "stakefolio-staging",
       "shouldijoin": "shouldijoin-staging", "ideas-bank": "ideas-bank-review" };
     const match = service(aliases[route.label] || route.label) || services.find(s => s.ports.includes(port));
     const id = "app:" + route.label;
@@ -71,15 +71,9 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   }));
   const platform = service("zo-platform");
   if (platform) {
-    const id = "app:zo-platform";
-    const gateway = configs.find(config => config.access === "private");
-    apps.push({ id, name: "Garden of Zo", description: "Garden homepage, Atlas, catalogue and private inventory.",
-      kind: "app", access: "private", listed: true, href: (gateway?.gatewayUrl || "") + "/#list",
-      service: platform.id, status: platform.status, source: "platform deployment mapping" });
-    relate(id, platform.id, "Garden platform managed service");
     for (const label of ["public-apps", "private-apps"]) {
       const proxy = service(label);
-      if (proxy) relate(id, proxy.id, "Garden homepage forwarding only");
+      if (proxy) relate(proxy.id, platform.id, "Garden homepage forwarding only");
     }
   }
   const agents: Row[] = [];
@@ -190,6 +184,7 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   if (unknownBackups) issues.push({ severity: "warning", message: unknownBackups + " application / agent databases have no verified backup evidence." });
   return { observedAt, services, apps, agents, workflows, databases, dependencies, issues,
     coverage: { databases: host.coverage, automations: automationCoverage,
+      apps: "Listed catalogue apps, matching the public Apps filter. Compatibility aliases and hidden tools are excluded; their managed services remain under Services. Garden itself is represented by zo-platform under Services.",
       services: "Live supervisor configuration and process state. Running does not prove application health.",
       agents: "Kingdom of PAL manifests; permissions and enabled flags are declarations, not runtime enforcement checks.",
       backups: "Local Runa snapshots only. No external backup or restore verification.",

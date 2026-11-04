@@ -117,6 +117,10 @@ def database_inventory(services):
                         category = "agent runtime"
                     owners = [s for s in services if s["workdir"] and real.startswith(os.path.realpath(s["workdir"]).rstrip("/") + "/")]
                     owner = max(owners, key=lambda s: len(s["workdir"])) if owners else None
+                    ledger_owner = next((s for s in owners if s["name"] == "stakefolio-ledger-data"
+                                         and real.startswith(os.path.realpath(s["workdir"]).rstrip("/") + "/stakefolio-ledger/")), None)
+                    if ledger_owner:
+                        owner = ledger_owner
                     wal = Path(str(path) + "-wal")
                     wal_bytes = wal.stat().st_size if wal.exists() else 0
                     databases.append({

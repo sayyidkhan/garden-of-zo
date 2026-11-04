@@ -1,17 +1,11 @@
-body:has(#inventory):not(.is-atlas-view) .catalogue__commandbar > :not(.view-toggle) { display:none }
-body:has(#inventory):not(.is-atlas-view) .catalogue__head { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:24px; margin:32px 0 }
-body:has(#inventory):not(.is-atlas-view) .catalogue__head h2 { font-size:clamp(2.5rem,4vw,3.5rem); white-space:normal; line-height:1.05 }
-body:has(#inventory):not(.is-atlas-view) .catalogue__head p { white-space:normal; margin-top:10px; font-size:13px }
-body:has(#inventory):not(.is-atlas-view) .catalogue__head .eyebrow { color:var(--gold); font-size:10px; margin:0 0 10px }
-body:has(#inventory):not(.is-atlas-view) .realm-list { background:linear-gradient(180deg,rgba(4,18,25,.46),rgba(6,29,35,.8)); padding-top:0 }
 #inventory { --text:#f8f2df; --muted:#a7bcb6; --panel:#10282d; --line:rgba(224,205,157,.18); --green:#8ed9bd; --red:#ffada9; min-width:0; font:13px/1.6 var(--sans); color:var(--text) }
 #inventory [hidden] { display:none!important }
-#inventory button,#inventory input,#inventory select { font:inherit; touch-action:manipulation }
+#inventory button,#inventory input,#inventory select { touch-action:manipulation }
 #inventory button { cursor:pointer }
 #inventory button:disabled { cursor:wait; opacity:.6 }
 #inventory :is(button,a,input,select,summary):focus-visible { outline:2px solid var(--gold); outline-offset:4px }
-#inventory a { color:var(--gold); text-decoration:none }
-#inventory a:hover { text-decoration:underline }
+#inventory a:not(.realm-row a) { color:var(--gold); text-decoration:none }
+#inventory a:not(.realm-row a):hover { text-decoration:underline }
 #inventory p { margin:0 }
 #inventory .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
 #inventory .inventory-status { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 0; color:var(--muted); font-size:11px }
@@ -22,24 +16,22 @@ body:has(#inventory):not(.is-atlas-view) .realm-list { background:linear-gradien
 #inventory .inventory-layout { display:grid; grid-template-columns:190px minmax(0,1fr); gap:32px; align-items:start }
 #inventory .inventory-sidebar { position:sticky; top:24px; padding-top:8px }
 #inventory .inventory-label { color:#aeaca0; font-size:9px; font-weight:800; letter-spacing:.16em; text-transform:uppercase }
-#inventory .tabs { display:grid; gap:6px; margin-top:18px }
-#inventory .tabs button { display:flex; align-items:center; gap:10px; width:100%; padding:12px; border:1px solid transparent; border-radius:11px; background:transparent; color:var(--muted); text-align:left; white-space:nowrap; font-size:12px; transition:background .2s,color .2s }
+#inventory .tabs button { display:inline-flex; flex:none; align-items:center; gap:8px; width:auto; padding:10px 12px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--muted); text-align:left; white-space:nowrap; font-size:12px }
 #inventory .tabs button:hover { background:rgba(138,199,180,.07); color:var(--text) }
-#inventory .tabs button[aria-pressed=true] { background:linear-gradient(110deg,rgba(228,193,120,.17),rgba(228,193,120,.04)); border-color:rgba(228,193,120,.35); color:#f2d59b }
+#inventory .tabs button[aria-pressed=true] { background:rgba(228,193,120,.09); border-color:rgba(228,193,120,.28); color:#f2d59b }
 #inventory .tabs .tab-count { margin-left:auto; font-size:10px; padding:1px 6px; border-radius:5px; background:rgba(138,199,180,.08); font-variant-numeric:tabular-nums }
 #inventory .tabs svg { width:16px; height:16px; flex:none; opacity:.8 }
-#inventory .tabs button:last-child { margin-top:14px; border-top-color:var(--line) }
+#inventory .tabs button:last-child { margin:0 }
 #inventory .sidebar-note { margin-top:32px; padding-left:12px; color:#78938a; font:italic 19px/1.4 var(--serif) }
 #inventory .inventory-content { min-width:0 }
 #inventory .toolbar { display:flex; align-items:center; justify-content:space-between; gap:18px; margin:0 0 12px; flex-wrap:wrap }
-#inventory h3 { margin:2px 0 0; font:500 32px/1.2 var(--serif); color:var(--text) }
-#inventory .search { display:flex; gap:8px; min-width:0; flex-wrap:wrap; justify-content:flex-end }
-#inventory .search label { min-width:0 }
-#inventory .search select { max-width:180px }
-#inventory input,#inventory select { min-width:0; min-height:42px; border:1px solid var(--line); border-radius:10px; background:rgba(10,34,41,.8); color:var(--text); padding:9px 12px; font-size:12px }
-#inventory input { width:240px }
-#inventory input::placeholder { color:#8da79f }
-#inventory #caption { color:#94aea5; font-size:11px; margin:0 0 20px; max-width:730px }
+#inventory h3:not(.directory-title):not(.realm-row h3) { margin:2px 0 0; font:500 32px/1.2 var(--serif); color:var(--text) }
+#inventory #caption { margin:8px 0 0 }
+#inventory #evidence-caption { color:#94aea5; font-size:11px; margin:0 0 14px }
+#inventory .realm-row__details p { color:#a9bbb7; font-size:.78rem; line-height:1.55 }
+#inventory .realm-row .entity { font:inherit; color:inherit }
+#inventory .realm-row__link { text-decoration:none }
+#inventory .realm-row__link--detail { padding:0; border:0; background:none; text-align:left; cursor:pointer; font-size:.62rem; font-weight:800 }
 #inventory .table-wrap { border-top:1px solid var(--line) }
 #inventory table { border-collapse:collapse; width:100%; text-align:left; table-layout:fixed }
 #inventory th { color:#9eafa5; font-size:9px; letter-spacing:.1em; text-transform:uppercase; font-weight:700 }
@@ -76,10 +68,12 @@ body:has(#inventory):not(.is-atlas-view) .realm-list { background:linear-gradien
 #inventory .backup-evidence.is-old { color:var(--gold) }
 #inventory .backup-evidence.is-old::before { background:var(--gold) }
 #inventory .database-table td:last-child small { margin-left:13px; color:#8ea9a1 }
-#inventory .realm-table { border-collapse:separate; border-spacing:0 10px }
+#inventory .realm-table { border-collapse:collapse }
+#inventory .realm-table .realm-row { animation:none }
+#inventory .realm-table tbody tr:hover { background:none }
 #inventory .realm-cell { padding:0; border:0 }
-#inventory .inventory-realm { display:grid; grid-template-columns:88px minmax(0,1fr); column-gap:20px; padding:20px 24px 0 18px; border:1px solid rgba(224,205,157,.17); border-radius:14px; background:linear-gradient(112deg,rgba(26,65,68,.31),rgba(7,27,34,.34) 55%); transition:border-color .2s,background .2s }
-#inventory tbody tr:hover .inventory-realm { border-color:rgba(224,205,157,.36); background:linear-gradient(112deg,rgba(26,65,68,.43),rgba(7,27,34,.43) 55%) }
+#inventory .inventory-realm:not(.realm-row) { display:grid; grid-template-columns:88px minmax(0,1fr); column-gap:20px; padding:20px 24px 0 18px; border:1px solid rgba(224,205,157,.17); border-radius:14px; background:linear-gradient(112deg,rgba(26,65,68,.31),rgba(7,27,34,.34) 55%); transition:border-color .2s,background .2s }
+#inventory tbody tr:hover .inventory-realm:not(.realm-row) { border-color:rgba(224,205,157,.36); background:linear-gradient(112deg,rgba(26,65,68,.43),rgba(7,27,34,.43) 55%) }
 #inventory .inventory-art { grid-row:1 / 3; width:88px; height:90px; display:grid; place-items:center; align-self:start; background:radial-gradient(ellipse,rgba(138,199,180,.13),transparent 70%) }
 #inventory .inventory-art img { width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 10px 12px rgba(0,0,0,.4)) }
 #inventory .inventory-art svg { width:36px; height:36px; color:var(--gold); opacity:.7 }
@@ -120,23 +114,14 @@ body:has(#inventory):not(.is-atlas-view) .realm-list { background:linear-gradien
   #inventory .inventory-layout { grid-template-columns:1fr; gap:22px }
   #inventory .inventory-sidebar { position:static; padding:0; min-width:0 }
   #inventory .inventory-sidebar>.inventory-label,#inventory .sidebar-note { display:none }
-  #inventory .tabs { display:flex; overflow:auto; margin:0; padding-bottom:6px }
-  #inventory .tabs button { width:auto; flex:none; padding:10px }
-  #inventory .tabs button:last-child { margin:0 }
   body:has(#inventory):not(.is-atlas-view) .catalogue__head { grid-template-columns:1fr }
   body:has(#inventory):not(.is-atlas-view) .catalogue__tools { justify-content:flex-start }
 }
 @media(max-width:600px) {
-  body:has(#inventory):not(.is-atlas-view) .catalogue__head { margin:24px 0; gap:18px }
   #inventory .toolbar { align-items:stretch; flex-direction:column; gap:14px }
-  #inventory .search { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); width:100% }
-  #inventory .search-field { grid-column:1 / -1 }
-  #inventory .search label,#inventory input,#inventory select { width:100%; min-width:0 }
-  #inventory .search select { max-width:none }
-  #inventory .search label:last-child { grid-column:1 / -1 }
   #inventory .inventory-status { font-size:10px }
   #inventory .alert { align-items:flex-start; font-size:11px; gap:8px; padding:12px }
-  #inventory .inventory-realm { grid-template-columns:64px minmax(0,1fr); column-gap:12px; padding:16px 15px 0 12px }
+  #inventory .inventory-realm:not(.realm-row) { grid-template-columns:64px minmax(0,1fr); column-gap:12px; padding:16px 15px 0 12px }
   #inventory .inventory-art { width:64px; height:76px }
   #inventory .realm-heading { align-items:flex-start; flex-direction:column; gap:5px }
   #inventory .realm-name { font-size:22px; margin-top:5px }

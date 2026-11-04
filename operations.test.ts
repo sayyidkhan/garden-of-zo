@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { createHandler, loadConfig, loadCatalogConfigs, renderIndex } from "./server";
-import { createSnapshotCache } from "./operations/inventory";
+import { collectInventory, createSnapshotCache } from "./operations/inventory";
 
 const publicFile = join(import.meta.dir, "../zo-router/public.routes.json");
 const privateFile = join(import.meta.dir, "../zo-router/private.routes.json");
@@ -48,6 +48,27 @@ describe("private oversight boundary", () => {
     expect(body).not.toContain("targetOrigin");
     expect(body).not.toContain("127.0.0.1");
   });
+});
+
+test("private Apps matches catalogue apps while platform services retain their dependencies", async () => {
+  const catalog = loadCatalogConfigs(publicFile);
+  const expected = catalog.flatMap(g => g.routes.filter(r => r.listed !== false && r.kind === "app").map(r => "app:" + r.label)).sort();
+  const configs = structuredClone(catalog);
+  for (const gateway of configs) for (const route of gateway.routes) route.targetOrigin = "https://example.invalid";
+  const snapshot = await collectInventory(configs, async () => ({
+    services: ["zo-platform", "public-apps", "private-apps", "kasm-browser"].map(name => ({
+      id: "service:" + name, name, status: "running", ports: []
+    })),
+    issues: [], databases: [], coverage: {}, youtubeEvidence: { status: "unknown" }
+  }));
+  expect(snapshot.apps.map(app => app.id).sort()).toEqual(expected);
+  expect(snapshot.apps.every(app => app.listed)).toBe(true);
+  expect(snapshot.apps.some(app => ["app:zo-platform", "app:tampalidea", "app:tampalidea-studio", "app:kasm-browser"].includes(app.id))).toBe(false);
+  expect(snapshot.services.find(s => s.name === "zo-platform")).toMatchObject({ mapped: true, ownershipLabel: "GOZ | PLATFORM" });
+  expect(snapshot.services.some(s => s.name === "kasm-browser")).toBe(true);
+  for (const gateway of ["public-apps", "private-apps"]) {
+    expect(snapshot.dependencies).toContainEqual({ from: "service:" + gateway, to: "service:zo-platform", evidence: "Garden homepage forwarding only" });
+  }
 });
 
 describe("inventory freshness", () => {

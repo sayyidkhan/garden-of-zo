@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { categoryRoles, ownershipCategories, ownershipRoles, type ProjectOwnership } from "./project-labels";
+import { categoryRoles, ownershipCategories, ownershipRoles, projectOwnership, type ProjectOwnership } from "./project-labels";
 import { createHandler, loadCatalogConfigs, loadConfig, renderIndex, validateAtlasGraph, validateAuthors } from "./server";
 
 const publicFile = join(import.meta.dir, "../zo-router/public.routes.json");
@@ -40,8 +40,11 @@ describe("Garden of Zo catalogue", () => {
       const data = JSON.parse(html.match(/id="atlas-data">([\s\S]*?)<\/script>/)![1]);
       const label = (id: string) => data.realms.find((realm: any) => realm.id === id).ownershipLabel;
       expect(data.realms.every((realm: any) => realm.ownershipLabel && realm.ownershipLabel !== "Ownership pending")).toBe(true);
-      expect(label("stakefolio")).toBe("PAL | PRODUCT");
-      expect(label("stakefolio-studio")).toBe("PAL | PRODUCT");
+      expect(data.realms.every((realm: any) => realm.ownershipCategory && realm.ownershipRole)).toBe(true);
+      expect(html).toContain('aria-label="Project category"');
+      expect(html).toContain('aria-label="Project sub-category"');
+      expect(label("stakefolio")).toBe("STAKEFOLIO | PRODUCT");
+      expect(label("stakefolio-studio")).toBe("STAKEFOLIO | PRODUCT");
       expect(label("riven-proj-tracker")).toBe("PAL | AGENT");
       expect(label("itachiscrow")).toBe("GITHUB | APP");
       expect(label("gigradar-mailhub")).toBe("GR | MAIL");
@@ -50,10 +53,22 @@ describe("Garden of Zo catalogue", () => {
       expect(html).not.toContain("Proposed");
       expect(data.realms.find((realm: any) => realm.id === "zo-order-tracker").category).toBe("Commerce");
       expect(html).toContain('data-realm-ownership');
-      if (file === publicFile) expect(html).toContain('<span class="project-label">PAL | PRODUCT</span>');
-      expect(JSON.stringify(data)).not.toContain("project-ledger-data");
+      if (file === publicFile) expect(html).toContain('<span class="project-label">STAKEFOLIO | PRODUCT</span>');
+      expect(JSON.stringify(data)).not.toContain("stakefolio-ledger-data");
       expect(JSON.stringify(data)).not.toContain("pal-north-star");
     }
+  });
+
+  test("Stakefolio portfolio aliases and backend share its category without absorbing unrelated PAL projects", () => {
+    for (const id of ["stakefolio", "stakefolio-studio", "stakefolio-staging", "shouldijoin", "shouldijoin-staging", "ideas-bank", "ideas-bank-review", "idea-backlog", "batam-100", "batam-100-site", "batam-100-staging", "saji-by-syam"]) {
+      expect(projectOwnership(id)).toEqual({ category: "STAKEFOLIO", subcategory: "PRODUCT", status: "confirmed" });
+    }
+    for (const id of ["stakefolio-ledger", "stakefolio-ledger-data"]) {
+      expect(projectOwnership(id)).toEqual({ category: "STAKEFOLIO", subcategory: "DATA", status: "confirmed" });
+    }
+    expect(projectOwnership("stock-surfers")?.category).toBe("PAL");
+    expect(projectOwnership("orin")?.category).toBe("PAL");
+    expect(categoryRoles("STAKEFOLIO")).toEqual(["PRODUCT", "DATA"]);
   });
 
   test("both catalogues explain every category and role from the canonical legend", () => {
@@ -79,12 +94,12 @@ describe("Garden of Zo catalogue", () => {
       }
       expect(legend).toContain('form method="dialog"');
       expect(legend).toContain("a label has not been assigned");
-      expect(legend).not.toContain("project-ledger-data");
+      expect(legend).not.toContain("stakefolio-ledger-data");
       expect(legend).not.toContain("/home/workspace");
     }
   });
 
-  test("both pages version the shell script by its content to avoid stale cached handlers", async () => {
+  test("both pages version client scripts to avoid stale cached handlers", async () => {
     const catalog = loadCatalogConfigs(publicFile);
     for (const file of [publicFile, privateFile]) {
       const html = renderIndex(loadConfig(file), catalog);
@@ -94,6 +109,12 @@ describe("Garden of Zo catalogue", () => {
       expect(url.searchParams.get("v")).toBe(createHash("sha256").update(script).digest("hex").slice(0, 12));
       expect(src).not.toContain("unified-list-2");
       expect(script).toContain("showModal()");
+      const atlas = html.match(/data-atlas-client="(\/atlas-client\.js\?v=[^"]+)"/)![1];
+      expect(new URL(atlas, "http://localhost").searchParams.get("v")).toBe(createHash("sha256").update(readFileSync(join(import.meta.dir, "client/atlas.ts"))).digest("hex").slice(0, 12));
+      if (file === privateFile) {
+        const inventory = html.match(/src="(\/operations\/client\.js\?v=[^"]+)"/)![1];
+        expect(new URL(inventory, "http://localhost").searchParams.get("v")).toBe(createHash("sha256").update(readFileSync(join(import.meta.dir, "operations/client.js"))).digest("hex").slice(0, 12));
+      }
     }
   });
 
@@ -116,8 +137,8 @@ describe("Garden of Zo catalogue", () => {
     const mailhub = routes.find((route) => route.label === "gigradar-mailhub");
     const riven = routes.find((route) => route.label === "riven-proj-tracker");
     const batam = routes.find((route) => route.label === "batam-100-site");
-    const tampalidea = routes.find((route) => route.label === "tampalidea");
-    const tampalideaStudio = routes.find((route) => route.label === "tampalidea-studio");
+    const stakefolio = routes.find((route) => route.label === "stakefolio");
+    const stakefolioStudio = routes.find((route) => route.label === "stakefolio-studio");
     const runa = routes.find((route) => route.label === "runa");
     const orin = routes.find((route) => route.label === "orin");
     const crow = routes.find((route) => route.label === "itachiscrow");
@@ -134,8 +155,9 @@ describe("Garden of Zo catalogue", () => {
     expect(riven).toMatchObject({ prefix: "/riven-proj-tracker", targetOrigin: "http://127.0.0.1:8798" });
     expect(riven?.atlas).toMatchObject({ x: 2470, y: 1740, art: "riven-proj-tracker", scale: 0.98 });
     expect(batam).toMatchObject({ prefix: "/staging/batam-100-site", targetOrigin: "http://127.0.0.1:8807", stripPrefix: true });
-    expect(tampalidea).toMatchObject({ prefix: "/staging/tampalidea", targetOrigin: "http://127.0.0.1:8808", stripPrefix: true });
-    expect(tampalideaStudio).toMatchObject({ prefix: "/tampalidea", targetOrigin: "http://127.0.0.1:8808", stripPrefix: true });
+    expect(stakefolio).toMatchObject({ prefix: "/staging/stakefolio", targetOrigin: "http://127.0.0.1:8808", stripPrefix: true });
+    expect(stakefolioStudio).toMatchObject({ prefix: "/stakefolio", targetOrigin: "http://127.0.0.1:8808", stripPrefix: true });
+    expect(routes.some(route => route.label.includes("tampalidea"))).toBe(false);
     expect(runa).toMatchObject({ prefix: "/agent/runa", targetOrigin: "http://127.0.0.1:8812", stripPrefix: true, assetQuery: "runa-prefix-20260923-1", rewriteVitePreloadBase: true, kind: "agent" });
     expect(orin).toMatchObject({ prefix: "/agent/orin", targetOrigin: "http://127.0.0.1:8820", stripPrefix: true, entryPath: "/chat?profile=orin", rewriteVitePreloadBase: true, kind: "agent" });
     expect(crow).toMatchObject({ prefix: "/crow", targetOrigin: "http://127.0.0.1:8806", stripPrefix: true });

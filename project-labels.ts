@@ -1,6 +1,6 @@
 export type ProjectOwnership = {
-  category: "PAL" | "GOZ" | "GITHUB" | "GR" | "PERSONAL";
-  subcategory: "PRODUCT" | "AGENT" | "WORKFLOW" | "PLATFORM" | "GOVERNANCE" | "DATA" | "LEGACY" | "INFRASTRUCTURE" | "APP" | "MONITORING" | "WEBSITE" | "MAIL";
+  category: "PAL" | "GOZ" | "GITHUB" | "GR" | "PERSONAL" | "STAKEFOLIO";
+  subcategory: "PRODUCT" | "AGENT" | "WORKFLOW" | "SKILL" | "PLATFORM" | "GOVERNANCE" | "DATA" | "LEGACY" | "INFRASTRUCTURE" | "APP" | "MONITORING" | "WEBSITE" | "MAIL";
   status: "confirmed" | "proposed";
 };
 
@@ -9,13 +9,15 @@ export const ownershipCategories: Record<ProjectOwnership["category"], string> =
   GOZ: "Garden of Zo projects",
   GITHUB: "Projects grouped under the workspace Github folder",
   GR: "GigRadar",
-  PERSONAL: "Apps and tools built for the owner's own use"
+  PERSONAL: "Apps and tools built for the owner's own use",
+  STAKEFOLIO: "Stakefolio portfolio projects and supporting services"
 };
 
 export const ownershipRoles: Record<ProjectOwnership["subcategory"], string> = {
   PRODUCT: "Standalone product or venture",
   AGENT: "Named AI agent, including planned agents",
   WORKFLOW: "Reusable automated research or processing workflow",
+  SKILL: "Reusable method or instructions shared across agents",
   PLATFORM: "Shared application or coordination platform",
   GOVERNANCE: "Charter, policy or strategic direction",
   DATA: "Independent data service supporting a product",
@@ -28,12 +30,14 @@ export const ownershipRoles: Record<ProjectOwnership["subcategory"], string> = {
 };
 
 const groups: [ProjectOwnership["category"], ProjectOwnership["subcategory"], string[]][] = [
-  ["PAL", "PRODUCT", ["stakefolio", "stakefolio-studio", "stakefolio-staging", "tampalidea", "tampalidea-studio", "shouldijoin", "shouldijoin-staging", "ideas-bank", "ideas-bank-review", "idea-backlog", "stock-surfers", "batam-100-site", "batam-100-staging"]],
+  ["PAL", "PRODUCT", ["stock-surfers"]],
+  ["STAKEFOLIO", "PRODUCT", ["stakefolio", "stakefolio-studio", "stakefolio-staging", "shouldijoin", "shouldijoin-staging", "ideas-bank", "ideas-bank-review", "idea-backlog", "batam-100", "batam-100-site", "batam-100-staging", "saji-by-syam"]],
+  ["STAKEFOLIO", "DATA", ["stakefolio-ledger", "stakefolio-ledger-data"]],
   ["PAL", "AGENT", ["orin", "orin-hermes-dashboard", "orin-hermes-gateway", "orin-websocket-bridge", "runa", "runa-hermes-dashboard", "runa-hermes-gateway", "runa-websocket-bridge", "bastion", "durik", "kensho", "kensho-reviewer", "riven", "riven-buildsmith", "riven-proj-tracker", "artifex", "agent-one", "rick", "scribe"]],
   ["PAL", "WORKFLOW", ["youtube-research", "pal-youtube-research", "socialmediawhisperer", "instagram-media-research"]],
+  ["PAL", "SKILL", ["pal-skills-startup-validator"]],
   ["PAL", "PLATFORM", ["kingdom-of-pal", "sleeping-prince", "pal-agent-registry"]],
   ["PAL", "GOVERNANCE", ["pal-north-star"]],
-  ["PAL", "DATA", ["project-ledger-service", "project-ledger-data"]],
   ["PAL", "LEGACY", ["pal-openclaw", "pal-agent-orin-openclaw-backup", "openclaw-dashboard"]],
   ["GOZ", "PLATFORM", ["zo-platform"]],
   ["GOZ", "INFRASTRUCTURE", ["zo-router", "public-apps", "private-apps", "zo-pocketbase", "kasm-browser"]],
