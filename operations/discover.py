@@ -115,7 +115,9 @@ def database_inventory(services):
                         category = "host runtime"
                     elif real.startswith(("/root/.openclaw/", "/root/.hermes/")):
                         category = "agent runtime"
-                    owners = [s for s in services if s["workdir"] and real.startswith(os.path.realpath(s["workdir"]).rstrip("/") + "/")]
+                    owners = [s for s in services if s["workdir"]
+                              and os.path.realpath(s["workdir"]) not in {"/", "/root", "/home", str(ROOT)}
+                              and real.startswith(os.path.realpath(s["workdir"]).rstrip("/") + "/")]
                     owner = max(owners, key=lambda s: len(s["workdir"])) if owners else None
                     ledger_owner = next((s for s in owners if s["name"] == "stakefolio-ledger-data"
                                          and real.startswith(os.path.realpath(s["workdir"]).rstrip("/") + "/stakefolio-ledger/")), None)

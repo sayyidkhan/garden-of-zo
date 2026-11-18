@@ -18,15 +18,18 @@ export function renderInventory(cards = "") {
     <div id="summary" hidden></div>
     <nav class="directory-tabs tabs" id="tabs" aria-label="Inventory sections"></nav>
     <div class="directory-results">
-      <div><h3 class="directory-title" id="section-title">Apps</h3><p class="directory-count" id="caption" aria-live="polite"></p></div>
+      <div class="inventory-result-heading"><div><h3 class="directory-title" id="section-title">Apps</h3><p class="directory-count" id="caption" aria-live="polite"></p></div><div class="inventory-actions"><span class="badge" id="inventory-stale" role="status" hidden>Older data</span><button class="button inventory-info-button" id="inventory-info" aria-haspopup="dialog" aria-controls="inventory-info-dialog">Inventory info</button><button class="button" id="refresh">Refresh</button></div></div>
       <div class="directory-options">${renderInventoryFilters()}</div>
     </div>
     <div class="table-wrap"><table aria-label="Inventory records"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
-    <div class="inventory-status"><p id="updated" aria-live="polite">Loading your inventory…</p><button class="button" id="refresh">Refresh</button></div>
     <div id="notice" class="alert" hidden role="status"></div>
     <p id="evidence-caption"></p>
-    <details class="coverage"><summary>Discovery coverage & evidence</summary><div id="coverage">Waiting for inventory.</div></details>
-    <footer>Read-only · Refreshed every minute while home or List is open · Singapore time</footer>
+    <dialog id="inventory-info-dialog" aria-labelledby="inventory-info-title">
+      <div class="dialog-head"><div><p class="inventory-label">About this inventory</p><h2 id="inventory-info-title">Sources & coverage</h2></div><button class="button" id="close-inventory-info" aria-label="Close inventory info">Close</button></div>
+      <div class="inventory-freshness"><p id="updated" aria-live="polite">Loading your inventory…</p><p>Updates every minute while Home or List is open. Refresh checks again now.</p></div>
+      <p class="coverage-note">Garden only reads these sources. It does not change services or data. Each source has its own limits; a running process does not confirm application health.</p>
+      <div id="coverage" class="coverage">Waiting for inventory.</div>
+    </dialog>
     <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><div><p class="inventory-label">In your garden</p><h2 id="detail-title"></h2></div><button class="button" id="close" aria-label="Close details">Close</button></div><div id="detail-body"></div></dialog>
   </div>`;
 }

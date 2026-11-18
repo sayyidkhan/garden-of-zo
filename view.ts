@@ -463,7 +463,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .directory-options { display: flex; align-items: end; gap: 12px; min-width: 0; max-width: 70%; }
     .inventory-filter-field { display: grid; gap: 9px; min-width: 0; width: 170px; }
     .inventory-filter-field[hidden] { display: none !important; }
-    .inventory-filter-field select { width: 100%; min-width: 0; height: 40px; border: 1px solid #34504f; border-radius: 8px; padding: 9px 30px 9px 12px; color: #e1eae5; background: #0c252c; font: 500 12px var(--sans); color-scheme: dark; cursor: pointer; text-overflow: ellipsis; }
+    .inventory-filter-field select { width: 100%; min-width: 0; height: 40px; appearance: none; -webkit-appearance: none; border: 1px solid #34504f; border-radius: 8px; padding: 9px 38px 9px 12px; color: #e1eae5; background: #0c252c url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239db7af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") right 12px center / 14px no-repeat; font: 500 12px var(--sans); color-scheme: dark; cursor: pointer; text-overflow: ellipsis; }
     .directory-tabs button:focus-visible, .directory-options select:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
     .realm-row__observation { margin-top: 8px; color: #94aea5; font: 400 10px/1.5 var(--sans); }
     .realm-row__observation .badge { margin-right: 8px; }

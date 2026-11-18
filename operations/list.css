@@ -8,7 +8,15 @@
 #inventory a:not(.realm-row a):hover { text-decoration:underline }
 #inventory p { margin:0 }
 #inventory .sr-only { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap }
-#inventory .inventory-status { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 0; color:var(--muted); font-size:11px }
+#inventory .inventory-result-heading { display:flex; flex:1; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px; min-width:0 }
+#inventory .inventory-actions { display:flex; align-items:center; flex:none; gap:8px }
+#inventory .inventory-actions .button { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; height:40px; min-height:40px; border-radius:8px; font:500 12px var(--sans); white-space:nowrap }
+#inventory .inventory-info-button { color:var(--muted); background:transparent }
+#inventory .inventory-freshness { padding:14px 16px; border-radius:10px; background:rgba(138,199,180,.06); margin-bottom:16px }
+#inventory #updated { color:var(--text); margin-bottom:4px }
+#inventory .inventory-freshness p + p,#inventory .coverage-note { color:var(--muted); font-size:12px }
+#inventory .coverage-note { margin-bottom:20px }
+#inventory #evidence-caption:empty { display:none }
 #inventory .button { border:1px solid var(--line); border-radius:10px; background:rgba(138,199,180,.05); color:var(--text); padding:8px 14px }
 #inventory .button:hover { border-color:var(--gold); background:rgba(228,193,120,.08) }
 #inventory .alert { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 24px; padding:12px 16px; border:1px solid rgba(228,193,120,.22); border-radius:12px; background:rgba(228,193,120,.055); color:#decda8; font-size:12px }
@@ -95,10 +103,12 @@
 #inventory .realm-detail span { margin-left:3px }
 #inventory .realm-actions .open-link { color:#f2d59b; font-size:11px; font-weight:700; white-space:nowrap }
 #inventory .empty { padding:40px 16px; text-align:center; color:var(--muted) }
-#inventory .coverage { margin-top:28px; padding:16px 0; border-block:1px solid var(--line); color:var(--muted); font-size:11px }
-#inventory .coverage summary { cursor:pointer; color:#c6d2c6 }
-#inventory .coverage p { margin-top:12px; overflow-wrap:anywhere; white-space:pre-wrap }
-#inventory footer { padding:18px 0; color:#88a198; font-size:10px }
+#inventory .coverage { display:grid; gap:20px; min-width:0; color:var(--muted); font-size:12px }
+#inventory .coverage-source { min-width:0; padding-top:16px; border-top:1px solid var(--line) }
+#inventory #coverage h3 { margin:0 0 8px; color:var(--text); font:600 14px/1.5 var(--sans) }
+#inventory .coverage-source p { overflow-wrap:anywhere }
+#inventory .coverage-source dl { margin:0; grid-template-columns:130px minmax(0,1fr) }
+#inventory .coverage-source :is(dt,dd) { font-size:12px; padding:7px 0; border:0; text-transform:none }
 #inventory dialog { color:var(--text); background:linear-gradient(135deg,#102b30,#07181e); border:1px solid rgba(228,193,120,.3); border-radius:20px; box-shadow:0 24px 100px #0009; padding:28px; width:min(800px,calc(100vw - 28px)); max-height:88svh; overflow:auto }
 #inventory dialog::backdrop { background:rgba(2,12,17,.75); backdrop-filter:blur(8px) }
 #inventory .dialog-head { display:flex; justify-content:space-between; align-items:start; gap:20px; padding-bottom:20px; border-bottom:1px solid var(--line); margin-bottom:20px }
@@ -119,7 +129,10 @@
 }
 @media(max-width:600px) {
   #inventory .toolbar { align-items:stretch; flex-direction:column; gap:14px }
-  #inventory .inventory-status { font-size:10px }
+  #inventory #inventory-info-dialog { padding:20px }
+  #inventory .coverage-source dl { grid-template-columns:1fr; gap:0 }
+  #inventory .coverage-source dt { padding-bottom:0 }
+  #inventory .coverage-source dd { padding-top:2px; margin-bottom:8px }
   #inventory .alert { align-items:flex-start; font-size:11px; gap:8px; padding:12px }
   #inventory .inventory-realm:not(.realm-row) { grid-template-columns:64px minmax(0,1fr); column-gap:12px; padding:16px 15px 0 12px }
   #inventory .inventory-art { width:64px; height:76px }
@@ -147,3 +160,95 @@
   #inventory dt { border:0; padding-bottom:0 }
   #inventory dialog { padding:20px }
 }
+
+#inventory .findings-table { border-collapse:separate; border-spacing:0 16px }
+#inventory .findings-table .finding-cell { padding:0; border:0 }
+#inventory .findings-table tr:hover { background:none }
+#inventory .finding { min-width:0; padding:24px; border:1px solid var(--line); border-radius:16px; background:#10262b; text-align:left }
+#inventory .finding-top { display:flex; align-items:center; gap:28px; padding-bottom:22px; border-bottom:1px solid var(--line) }
+#inventory .finding-heading { display:flex; flex:1; align-items:flex-start; gap:12px; flex-wrap:wrap }
+#inventory .finding-heading>.badge { margin-left:46px; color:var(--gold) }
+#inventory .finding-heading>div { flex:1; min-width:0 }
+#inventory .finding-indicator { display:grid; place-items:center; flex:none; width:34px; height:34px; border:1px solid rgba(228,193,120,.3); border-radius:10px; background:rgba(228,193,120,.08); color:var(--gold); font-size:18px }
+#inventory .finding-kicker { display:block; color:#acbdb2; font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase }
+#inventory .finding h4 { margin:5px 0 0; font:600 19px/1.4 var(--sans); letter-spacing:-.015em; color:var(--text); overflow-wrap:anywhere }
+#inventory .finding-heading>.badge { margin-top:3px }
+#inventory .finding-stats { display:flex; flex:none; gap:24px; padding-left:24px; border-left:1px solid var(--line) }
+#inventory .finding-stats>span { display:flex; flex-direction:column; gap:3px; color:var(--muted); font-size:11px; max-width:105px }
+#inventory .finding-stats strong { color:var(--text); font:500 32px/1.1 var(--serif); font-variant-numeric:tabular-nums }
+#inventory .finding-guide { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; padding:24px 0 }
+#inventory .finding-guide h5 { margin:0 0 12px; color:#f0eedc; font-size:13px; font-weight:700 }
+#inventory .finding .finding-explanation { max-width:65ch; color:#c3d1cc; font-size:13px; line-height:1.8 }
+#inventory .finding summary { display:flex; align-items:center; gap:10px; cursor:pointer; list-style:none; overflow-wrap:anywhere; border-radius:8px }
+#inventory .finding summary::-webkit-details-marker { display:none }
+#inventory .finding-chevron { flex:none; width:16px; height:16px; color:var(--gold) }
+#inventory .finding details[open]>summary>.finding-chevron { transform:rotate(90deg) }
+#inventory .finding-breakdown { border-top:1px solid var(--line); padding-top:4px; overflow:hidden }
+#inventory .finding-breakdown>summary { padding:14px 0 0; color:var(--gold); font-size:13px }
+#inventory .finding-breakdown[open]>summary { padding-bottom:16px }
+#inventory .finding-breakdown>summary:hover { background:rgba(138,199,180,.04) }
+#inventory .finding-disclosure-copy { display:flex; flex-direction:column; gap:3px }
+#inventory .finding-disclosure-copy>span { color:var(--muted); font-size:11px }
+#inventory .finding-hide, #inventory .finding-breakdown[open] .finding-show { display:none }
+#inventory .finding-breakdown[open] .finding-hide { display:inline }
+#inventory .finding-summary-note { margin-left:auto; color:var(--gold); font-size:11px; white-space:nowrap }
+#inventory .finding-project-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:10px; padding:0 }
+#inventory .finding-project { min-width:0; border:1px solid rgba(167,188,182,.16); border-radius:10px; background:rgba(7,25,29,.45); overflow:hidden }
+#inventory .finding-project>summary { min-height:68px; padding:12px 14px }
+#inventory .finding-project>summary:hover { background:rgba(138,199,180,.04) }
+#inventory .finding-project[open] { border-color:rgba(228,193,120,.3) }
+#inventory .finding-project-identity { flex:1; min-width:0 }
+#inventory .finding-project-label { display:block; color:#99b4a8; font-size:9px; letter-spacing:.06em; text-transform:uppercase; margin-bottom:5px }
+#inventory .finding-project-identity>strong { display:block; color:#f0eedc; font-size:13px; line-height:1.5 }
+#inventory .finding-file-count { flex:none; padding:3px 7px; border-radius:6px; background:rgba(138,199,180,.08); color:#c0d0bf; font-size:10px; font-variant-numeric:tabular-nums }
+#inventory .finding ul { list-style:none; margin:0; padding:0 16px 4px; border-top:1px solid rgba(167,188,182,.12) }
+#inventory .finding li { padding:13px 0; overflow-wrap:anywhere }
+#inventory .finding li+li { border-top:1px solid rgba(167,188,182,.1) }
+#inventory .finding li .entity { font-size:12px; color:#e2dfc6 }
+#inventory .finding .finding-path { margin-top:5px; white-space:normal; overflow-wrap:anywhere; color:#8fa99e; font:10px/1.7 ui-monospace,SFMono-Regular,monospace }
+#inventory .finding small.finding-retained { color:#c3ad82; font-size:10px }
+#inventory .finding-next { padding-left:28px; border-left:1px solid var(--line) }
+#inventory .finding-next ol { margin:0; padding:0; list-style:none; counter-reset:check }
+#inventory .finding-next li { position:relative; padding:0 0 14px 32px; border:0; counter-increment:check }
+#inventory .finding-next li:last-child { padding-bottom:0 }
+#inventory .finding-next li::before { content:counter(check); position:absolute; left:0; top:1px; display:grid; place-items:center; width:21px; height:21px; border-radius:50%; background:rgba(228,193,120,.1); color:var(--gold); font-size:10px }
+#inventory .finding-next li strong { display:block; color:#e6e9da; font-size:12px; margin-bottom:3px }
+#inventory .finding-next li span { display:block; color:#aabfb7; font-size:12px; line-height:1.65 }
+#inventory .finding-next li+li { border:0 }
+#inventory .finding-next .finding-kicker { color:#dfc89e; margin-bottom:7px }
+#inventory .finding-next p { max-width:85ch; font-size:12px; line-height:1.8; color:#c1cdc1 }
+#inventory .finding .finding-scope { margin-top:14px; font-size:11px; line-height:1.75; color:#9eb6ac }
+#inventory .finding-context { margin-top:16px; color:var(--muted); font-size:12px }
+@media(max-width:760px) {
+  #inventory .finding-project-grid { grid-template-columns:minmax(0,1fr) }
+  #inventory .finding-top { align-items:flex-start; flex-direction:column; gap:18px }
+  #inventory .finding-stats { border-left:0; padding-left:46px; gap:28px }
+  #inventory .finding-stats>span { flex-direction:row; align-items:center; max-width:none; gap:8px }
+  #inventory .finding-stats strong { font-size:25px }
+  #inventory .finding-guide { grid-template-columns:minmax(0,1fr); gap:20px }
+  #inventory .finding-next { border-left:0; border-top:1px solid var(--line); padding:20px 0 0 }
+}
+@media(max-width:600px) {
+  #inventory table.findings-table,#inventory table.findings-table tbody { display:table; width:100% }
+  #inventory table.findings-table tr { display:table-row; padding:0; border:0 }
+  #inventory table.findings-table .finding-cell { display:table-cell; padding:0; border:0 }
+  #inventory table.findings-table .finding-cell::before { display:none }
+  #inventory .finding { padding:17px 14px; border-radius:12px }
+  #inventory .finding-heading { gap:10px; flex-wrap:wrap }
+  #inventory .finding-heading>div { flex-basis:calc(100% - 44px) }
+  #inventory .finding-heading>.badge { margin:0 0 0 44px }
+  #inventory .finding h4 { font-size:17px }
+  #inventory .finding-stats { padding-left:0; margin:0; gap:20px }
+  #inventory .finding-stats>span { font-size:11px }
+  #inventory .finding-summary-note { display:none }
+  #inventory .finding-project>summary { padding:12px; gap:8px }
+  #inventory .finding-next { padding:20px 0 0 }
+  #inventory .finding-breakdown>summary { padding:14px 0 0 }
+  #inventory .finding-project-grid { padding:0 }
+  #inventory .finding-guide { padding:20px 0 }
+}
+
+#inventory .finding-task-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px }
+#inventory .finding-task-actions .button { white-space:normal; text-align:center }
+#inventory .finding-tasks [data-copy-feedback]:not(:empty) { margin-top:12px; color:var(--gold) }
+#inventory .finding-tasks textarea { box-sizing:border-box; width:100%; min-height:150px; margin-top:12px; padding:12px; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:8px; font:inherit }

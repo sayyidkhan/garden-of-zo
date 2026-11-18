@@ -71,6 +71,90 @@ test("private Apps matches catalogue apps while platform services retain their d
   }
 });
 
+test("Social Media Whisperer services have readable names and workflow links without changing IDs", async () => {
+  const names = ["pal-omnigent-server", "pal-omnigent-host"];
+  const snapshot = await collectInventory([], async () => ({
+    services: names.map(name => ({ id: "service:" + name, name, status: "running", ports: [] })),
+    issues: [], databases: [], coverage: {}, youtubeEvidence: { status: "unknown" }
+  }));
+  for (const [index, name] of names.entries()) {
+    const id = "service:" + name;
+    expect(snapshot.services.find(s => s.id === id)).toMatchObject({
+      name: "Social Media Whisperer — " + (index === 0 ? "Coordinator" : "Worker"),
+      serviceName: name, mapped: true, ownershipLabel: "PAL | WORKFLOW", status: "running"
+    });
+    expect(snapshot.dependencies).toContainEqual({
+      from: "workflow:instagram-media-research", to: id, evidence: "Social Media Whisperer documented runtime"
+    });
+    expect(snapshot.issues.some(issue => issue.entity === id)).toBe(false);
+  }
+});
+
+test("Stakefolio ledger components inherit governance ownership and link the catalogue to its backend", async () => {
+  const configs = structuredClone(loadCatalogConfigs(publicFile));
+  for (const gateway of configs) for (const route of gateway.routes) route.targetOrigin = "https://example.invalid";
+  const snapshot = await collectInventory(configs, async () => ({
+    services: ["stakefolio-staging", "stakefolio-ledger-data"].map(name => ({
+      id: "service:" + name, name, status: "running", ports: []
+    })),
+    issues: [], databases: [], coverage: {}, youtubeEvidence: { status: "unknown" }
+  }));
+  for (const [technical, component] of [["stakefolio-staging", "Web"], ["stakefolio-ledger-data", "Backend"]]) {
+    expect(snapshot.services.find(s => s.id === "service:" + technical)).toMatchObject({
+      name: "Stakefolio — " + component, serviceName: technical, mapped: true, ownershipLabel: "STAKEFOLIO | GOVERNANCE"
+    });
+    expect(snapshot.issues.some(issue => issue.entity === "service:" + technical)).toBe(false);
+  }
+  for (const id of ["app:stakefolio", "app:stakefolio-studio"]) {
+    expect(snapshot.apps.find(app => app.id === id)?.ownershipLabel).toBe("STAKEFOLIO | GOVERNANCE");
+    expect(snapshot.dependencies).toContainEqual({ from: id, to: "service:stakefolio-ledger-data", evidence: "Stakefolio documented backend" });
+  }
+  expect(snapshot.dependencies).toContainEqual({
+    from: "service:stakefolio-staging", to: "service:stakefolio-ledger-data", evidence: "Stakefolio web uses backend API"
+  });
+});
+
+test("confirmed database owners resolve labels and dependencies without matching unrelated files", async () => {
+  const paths = [
+    "/home/workspace/Start/pal/kingdom-of-pal/state/pal-registry.sqlite3",
+    "/home/workspace/Start/pal/pal-agent-bastion/var/bastion.db",
+    "/home/workspace/Data/zorder/zorder.sqlite"
+  ];
+  const database = (path: string, owner: string | null = null) => ({
+    id: "database:" + path, path, name: path.split("/").at(-1), category: "application",
+    owner, ownershipEvidence: owner ? "service working directory" : "unmapped",
+    backup: { status: "unknown", lastAt: null }
+  });
+  const collect = (databases: any[]) => collectInventory([], async () => ({
+    services: ["pal-agent-registry", "zo-order-tracker"].map(name => ({
+      id: "service:" + name, name, status: "running", ports: []
+    })),
+    issues: [], databases, coverage: {}, youtubeEvidence: { status: "unknown" }
+  }));
+  const snapshot = await collect(paths.map(path => database(path)));
+  const expected = [
+    ["service:pal-agent-registry", "PAL | PLATFORM"],
+    ["agent:bastion", "PAL | AGENT"],
+    ["service:zo-order-tracker", "GOZ | APP"]
+  ];
+  for (const [index, [owner, label]] of expected.entries()) {
+    const db = snapshot.databases[index];
+    expect(db.owner).toBe(owner);
+    expect([...snapshot.services, ...snapshot.agents].find(row => row.id === owner)?.ownershipLabel).toBe(label);
+    expect(snapshot.dependencies).toContainEqual({ from: owner, to: db.id, evidence: "documented runtime location" });
+  }
+  expect(snapshot.issues.some(issue => issue.message.includes("databases need an owner mapping"))).toBe(false);
+  const unrelated = await collect([
+    database("/home/workspace/var/bastion.db"),
+    database("/home/workspace/_scratch/pal-registry.sqlite3"),
+    database("/home/workspace/_scratch/zorder.sqlite"),
+    database(paths[2], "service:existing-owner")
+  ]);
+  expect(unrelated.databases.slice(0, 3).every(db => db.owner === null)).toBe(true);
+  expect(unrelated.databases[3]).toMatchObject({ owner: "service:existing-owner", ownershipEvidence: "service working directory" });
+  expect(unrelated.issues.some(issue => issue.message === "3 application databases need an owner mapping.")).toBe(true);
+});
+
 describe("inventory freshness", () => {
   test("concurrent refreshes coalesce and failed refreshes preserve the observation time", async () => {
     let count = 0;
@@ -111,4 +195,62 @@ describe("inventory freshness", () => {
     finish(updated);
     expect((await fresh).observedAt).toBe(updated.observedAt);
   });
+});
+
+test("database warnings identify exact affected files and preserve unknown backup evidence", async () => {
+  const database = (path: string, status = "unknown", category = "agent runtime") => ({
+    id: "database:" + path, path, name: path.split("/").at(-1), category,
+    owner: null, backup: { status, lastAt: null }
+  });
+  const databases = [
+    database("/root/.hermes/profiles/orin/state.db"),
+    database("/root/.hermes/profiles/runa/projects.db", "snapshot found"),
+    database("/root/.openclaw/state/openclaw.sqlite"),
+    database("/home/workspace/_scratch/unknown.sqlite", "unknown", "application"),
+    database("/home/workspace/_scratch/archive.sqlite", "unknown", "backup"),
+    database("/home/workspace/_scratch/test.sqlite", "unknown", "development")
+  ];
+  const snapshot = await collectInventory([], async () => ({
+    services: [], issues: [], databases, coverage: {}, youtubeEvidence: { status: "unknown" }
+  }));
+  const backup = snapshot.issues.find(issue => issue.message.includes("unconfirmed backup status"));
+  expect(backup.affected).toEqual([databases[0].id, databases[2].id, databases[3].id]);
+  expect(backup.reason).toContain("does not prove their backups are missing");
+  expect(backup.scopeNote).toContain("not a count of active apps");
+  expect(backup.nextStep).toContain("restored");
+  expect(snapshot.databases[0]).toMatchObject({ owner: "agent:orin", ownershipLabel: "PAL | AGENT" });
+  expect(snapshot.databases[2]).toMatchObject({
+    ownershipLabel: "PAL | LEGACY", projectName: "PAL OpenClaw (retained files)", backup: { status: "unknown" }
+  });
+  const ownership = snapshot.issues.find(issue => issue.message.includes("need an owner mapping"));
+  expect(ownership.affected).toEqual([databases[3].id]);
+});
+
+test("database discovery ignores shared working directories but retains specific project owners", () => {
+  const script = `
+import importlib.util, tempfile, sqlite3
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("discovery", "operations/discover.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with tempfile.TemporaryDirectory() as temp:
+    root = Path(temp)
+    project = root / "project"
+    project.mkdir()
+    for path in [root / "unowned.db", project / "owned.db"]:
+        with sqlite3.connect(path) as connection:
+            connection.execute("CREATE TABLE marker (id INTEGER)")
+    module.ROOT = root
+    module.SCAN_ROOTS = [root]
+    services = [{"id": "service:shared", "name": "shared", "workdir": str(root)},
+                {"id": "service:project", "name": "project", "workdir": str(project)},
+                {"id": "service:root", "name": "root", "workdir": "/"}]
+    rows, coverage = module.database_inventory(services)
+    owners = {row["name"]: row["owner"] for row in rows}
+    assert owners == {"unowned.db": None, "owned.db": "service:project"}, owners
+    assert coverage["complete"]
+`;
+  const result = Bun.spawnSync(["python3", "-c", script], { cwd: import.meta.dir });
+  expect(result.stderr.toString()).toBe("");
+  expect(result.exitCode).toBe(0);
 });

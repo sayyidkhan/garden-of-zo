@@ -4,6 +4,18 @@ import type { RouterConfig } from "../config";
 import { projectOwnership, ownershipLabel } from "../project-labels";
 
 const kingdom = "/home/workspace/Start/pal/kingdom-of-pal";
+const databaseOwners: Record<string, string> = {
+  [join(kingdom, "state/pal-registry.sqlite3")]: "service:pal-agent-registry",
+  "/home/workspace/Start/pal/pal-agent-bastion/var/bastion.db": "agent:bastion",
+  "/home/workspace/Data/zorder/zorder.sqlite": "service:zo-order-tracker"
+};
+const servicePresentation: Record<string, { name: string; description: string; project?: string; mappingEvidence?: string }> = {
+  tailscale: { name: "Tailscale", description: "Shared private networking infrastructure for Garden of Zo.", project: "Garden of Zo", mappingEvidence: "Owner-confirmed shared infrastructure; project tracking only." },
+  "stakefolio-staging": { name: "Stakefolio — Web", description: "Web interface for Stakefolio's ownership and governance ledger." },
+  "stakefolio-ledger-data": { name: "Stakefolio — Backend", description: "API, access controls and persistence for Stakefolio's ownership and governance ledger." },
+  "pal-omnigent-server": { name: "Social Media Whisperer — Coordinator", description: "Coordinates Social Media Whisperer sessions on this Zo." },
+  "pal-omnigent-host": { name: "Social Media Whisperer — Worker", description: "Executes Social Media Whisperer sessions on this Zo." }
+};
 type Row = Record<string, any>;
 export type Snapshot = { observedAt: string; services: Row[]; apps: Row[]; agents: Row[]; workflows: Row[]; databases: Row[]; dependencies: Row[]; issues: Row[]; coverage: Row };
 
@@ -126,34 +138,54 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     if (workflows.some(w => w.id === "workflow:youtube-research")) {
       for (const name of ["pal-youtube-research", "kasm-browser"]) if (service(name)) relate("workflow:youtube-research", "service:" + name, "documented workflow implementation");
     }
+    if (workflows.some(w => w.id === "workflow:instagram-media-research")) {
+      for (const name of ["pal-omnigent-server", "pal-omnigent-host"]) {
+        const runtime = service(name);
+        if (runtime) relate("workflow:instagram-media-research", runtime.id, "Social Media Whisperer documented runtime");
+      }
+    }
   } catch { issues.push({ severity: "warning", message: "Workflow registry could not be fully read." }); }
   let automationCoverage: Row = { status: "unavailable", observedAt: null };
   try {
     const snapshot = JSON.parse(await readFile(join(import.meta.dir, "automations.local.json"), "utf8"));
     const age = Date.now() - Date.parse(snapshot.observedAt);
     automationCoverage = { status: age > 86400_000 ? "stale snapshot" : "snapshot", observedAt: snapshot.observedAt,
-      note: "Zo schedules are an imported snapshot; run history is not available. Refreshing this page does not refresh this source." };
+      note: "Zo Scheduled Tasks is a saved list of your scheduled tasks. Task run history is unavailable. Refreshing Garden does not update this saved list." };
     for (const entry of snapshot.automations) {
       const id = "automation:" + entry.id;
       workflows.push({ id, name: entry.name, type: "automation", status: entry.active ? "enabled" : "paused",
-        trigger: entry.schedule, lastRun: { status: "unknown", lastAt: null }, source: "Zo list_automations snapshot" });
+        trigger: entry.schedule, lastRun: { status: "unknown", lastAt: null }, source: "Zo Scheduled Tasks (saved list)" });
       const owner = /Orin/.test(entry.name) ? "orin" : /Bastion/.test(entry.name) ? "bastion" : /Kensho/.test(entry.name) ? "kensho" : null;
       if (owner) relate(id, "agent:" + owner, "automation title");
       if (/Zo Usage/.test(entry.name)) relate(id, "service:zo-usage", "automation title");
     }
-  } catch { issues.push({ severity: "warning", message: "Zo automation snapshot is unavailable." }); }
-  if (automationCoverage.status === "stale snapshot") issues.push({ severity: "warning", message: "Zo automation inventory is older than 24 hours; re-import schedules." });
+  } catch { automationCoverage = { status: "unavailable", observedAt: null }; }
+  if (["unavailable", "stale snapshot"].includes(automationCoverage.status)) issues.push({
+    severity: "warning", kind: "scheduled-task-list", entity: "service:zo-platform",
+    message: automationCoverage.status === "unavailable" ? "Zo Scheduled Tasks: Garden’s saved list is unavailable." : "Zo Scheduled Tasks: Garden’s saved list needs updating.",
+    observedAt: automationCoverage.observedAt,
+    reason: "Garden shows a saved copy of your task names, schedules and enabled states. It cannot check changes until Zo updates that copy. This warning does not report a failed task; task run results are not available here.",
+    nextStep: "Click Copy update request, then paste it into Zo chat and send it. Zo can fetch the current tasks and update Garden’s saved list. Garden’s Refresh button and opening the task settings do not update this copy."
+  });
   for (const app of apps) {
     const gateway = service(app.access === "private" ? "private-apps" : "public-apps");
     if (gateway) relate(app.id, gateway.id, "gateway route");
+    const ledger = service("stakefolio-ledger-data");
+    if (ledger && ["app:stakefolio", "app:stakefolio-studio"].includes(app.id)) {
+      relate(app.id, ledger.id, "Stakefolio documented backend");
+    }
   }
+  const stakefolioWeb = service("stakefolio-staging");
+  const stakefolioBackend = service("stakefolio-ledger-data");
+  if (stakefolioWeb && stakefolioBackend) relate(stakefolioWeb.id, stakefolioBackend.id, "Stakefolio web uses backend API");
   for (const s of services.filter(s => s.name.startsWith("orin-"))) relate("agent:orin", s.id, "Orin support service");
   if (service("zominai-runtime")) relate("app:zo-drive", "service:zominai-runtime", "Zo Drive runtime");
   if (service("pal-agent-registry")) agents.forEach(a => relate(a.id, "service:pal-agent-registry", "Kingdom registry membership"));
   const databases: Row[] = host.databases;
   for (const db of databases) {
     if (!db.owner) {
-      if (db.path.startsWith("/root/.hermes/profiles/runa/")) db.owner = "agent:runa";
+      if (databaseOwners[db.path]) db.owner = databaseOwners[db.path];
+      else if (db.path.startsWith("/root/.hermes/profiles/runa/")) db.owner = "agent:runa";
       else if (db.path.startsWith("/root/.hermes/profiles/orin/")) db.owner = "agent:orin";
       else if (db.path.startsWith("/root/.openclaw/")) db.owner = "service:openclaw-dashboard";
       else if (db.path.includes("/zo-drive-data/")) db.owner = "service:zo-drive";
@@ -169,9 +201,13 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     if (db.backup.lastAt && Date.now() / 1000 - db.backup.lastAt > 86400) db.backup.status = "old snapshot";
   }
   for (const s of services) {
+    if (servicePresentation[s.name]) {
+      s.serviceName = s.name;
+      Object.assign(s, servicePresentation[s.name]);
+    }
     if (!["running", "stopped"].includes(s.status)) issues.push({ severity: s.status === "unknown" ? "warning" : "error", entity: s.id, message: s.name + " is " + s.status + "." });
-    s.mapped = dependencies.some(d => d.to === s.id);
-    if (!s.mapped) issues.push({ severity: "info", entity: s.id, message: s.name + " is discovered but has no app, agent or workflow mapping." });
+    s.mapped = dependencies.some(d => d.to === s.id) || Boolean(servicePresentation[s.serviceName || s.name]?.project);
+    if (!s.mapped) issues.push({ severity: "info", entity: s.id, message: s.name + " is discovered but has no project, app, agent or workflow mapping." });
   }
   const unknownOwners = databases.filter(d => !d.owner && d.category === "application").length;
   for (const row of [...apps, ...agents, ...services, ...workflows]) {
@@ -179,16 +215,33 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     row.ownership = ownership || null;
     row.ownershipLabel = ownershipLabel(ownership);
   }
-  if (unknownOwners) issues.push({ severity: "warning", message: unknownOwners + " application databases need an owner mapping." });
-  const unknownBackups = databases.filter(d => ["application", "agent runtime"].includes(d.category) && d.backup.status === "unknown").length;
-  if (unknownBackups) issues.push({ severity: "warning", message: unknownBackups + " application / agent databases have no verified backup evidence." });
+  for (const db of databases) {
+    const owner = [...agents, ...services, ...apps, ...workflows].find(row => row.id === db.owner);
+    db.ownership = owner?.ownership || (db.owner ? projectOwnership(db.owner.slice(db.owner.indexOf(":") + 1)) : null);
+    db.ownershipLabel = ownershipLabel(db.ownership);
+    db.projectName = db.owner === "service:openclaw-dashboard" ? "PAL OpenClaw (retained files)" : owner?.name || "Ownership pending";
+  }
+  if (unknownOwners) issues.push({
+    severity: "warning", message: unknownOwners + " application databases need an owner mapping.",
+    affected: databases.filter(d => !d.owner && d.category === "application").map(d => d.id),
+    reason: "Garden found these database files but has no recorded project owner.",
+    nextStep: "Check the file location against the project's configuration, then record its confirmed owner. A missing owner does not mean the database is broken."
+  });
+  const unknownBackups = databases.filter(d => ["application", "agent runtime"].includes(d.category) && d.backup.status === "unknown");
+  if (unknownBackups.length) issues.push({
+    severity: "warning", message: unknownBackups.length + " database files have unconfirmed backup status.",
+    affected: unknownBackups.map(d => d.id),
+    reason: "Garden currently recognises local backup copies for only Runa's state.db and projects.db. It has no recognised backup evidence for the files below. This does not prove their backups are missing.",
+    nextStep: "For each project, check its backup location, latest successful backup and whether a copy can be restored. If backups exist, add their evidence to Garden; if not, arrange backups for data that needs keeping.",
+    scopeNote: "This count includes retained OpenClaw files and supporting runtime files; it is not a count of active apps. Local copies do not confirm protection outside this machine or a tested restore."
+  });
   return { observedAt, services, apps, agents, workflows, databases, dependencies, issues,
     coverage: { databases: host.coverage, automations: automationCoverage,
       apps: "Listed catalogue apps, matching the public Apps filter. Compatibility aliases and hidden tools are excluded; their managed services remain under Services. Garden itself is represented by zo-platform under Services.",
       services: "Live supervisor configuration and process state. Running does not prove application health.",
       agents: "Kingdom of PAL manifests; permissions and enabled flags are declarations, not runtime enforcement checks.",
       backups: "Local Runa snapshots only. No external backup or restore verification.",
-      workflows: "Registered PAL workflows and imported Zo automations; last-run gaps are shown explicitly." } };
+      workflows: "Registered PAL workflows and Zo Scheduled Tasks. Task run history is shown only where available." } };
 }
 
 export function createSnapshotCache(collect: () => Promise<Snapshot>, ttl = 60_000) {

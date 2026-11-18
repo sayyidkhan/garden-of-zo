@@ -58,7 +58,7 @@ async def main():
                         "PAL": ["PRODUCT", "AGENT", "WORKFLOW", "SKILL", "PLATFORM", "GOVERNANCE", "LEGACY"],
                         "GOZ": ["PLATFORM", "INFRASTRUCTURE", "APP", "MONITORING", "WEBSITE", "AGENT"],
                         "GITHUB": ["APP", "WEBSITE"], "GR": ["MAIL"], "PERSONAL": ["APP"],
-                        "STAKEFOLIO": ["PRODUCT", "DATA"]
+                        "STAKEFOLIO": ["PRODUCT", "GOVERNANCE"]
                     }
                     for category, roles in expected_roles.items():
                         group = dialog.locator(f'[data-legend-category="{category}"]')
@@ -90,9 +90,33 @@ async def main():
             assert not await page.locator("#atlas-view").is_visible()
             assert await page.locator("#list-view [data-list-card]").count() == 0
             assert await page.locator("#rows a.realm-row__link--enter[href='/backlog']").count() == 1
+            for width in [320, 390, 768, 1024, 1440]:
+                await page.set_viewport_size({"width": width, "height": 900})
+                assert await page.locator("#refresh").evaluate("e => !!e.closest('.directory-results')")
+                assert not await page.locator("#updated").is_visible()
+                assert await page.locator(".inventory-status").count() == 0
+                trigger = page.get_by_role("button", name="Inventory info", exact=True)
+                await trigger.click()
+                info = page.get_by_role("dialog", name="Sources & coverage", exact=True)
+                assert await info.is_visible()
+                assert await info.locator("#updated").is_visible()
+                assert await info.locator(".coverage-source").count() == 7
+                assert "Folders checked" in await info.inner_text()
+                assert "It does not change services or data" in await info.inner_text()
+                assert await info.evaluate("e => e.scrollWidth <= e.clientWidth")
+                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                await page.keyboard.press("Escape")
+                assert not await info.is_visible()
+                assert await trigger.evaluate("e => e === document.activeElement")
+                if width == 1440:
+                    await trigger.press("Enter")
+                    await info.get_by_role("button", name="Close inventory info").click()
+                    assert not await info.is_visible()
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            checks.append("Header Refresh and Inventory info fit desktop/tablet/mobile; source dialog preserves timestamps, readable evidence and keyboard focus")
             checks.append("One private List with direct destination links")
             stakefolio = page.locator("#rows .inventory-realm").filter(has=page.locator("[data-entity='app:stakefolio']"))
-            assert await stakefolio.locator(".project-label").inner_text() == "STAKEFOLIO | PRODUCT"
+            assert await stakefolio.locator(".project-label").inner_text() == "STAKEFOLIO | GOVERNANCE"
             mapper = page.locator("#rows .inventory-realm").filter(has=page.locator("[data-entity='app:zo-relationship-mapper']"))
             assert await mapper.locator(".project-label").inner_text() == "GOZ | APP"
             assert "Proposed" not in await page.locator("#rows").inner_text()
@@ -102,6 +126,65 @@ async def main():
                 assert await page.locator("#rows tr").count() > 0
             checks.append("All five inventory tabs and attention findings render")
             inventory = await (await page.request.get(private + "/operations/api/inventory")).json()
+            await page.locator("#tabs [data-tab='issues']").click()
+            finding = page.locator(".finding").filter(has_text="unconfirmed backup status")
+            expected_backup_ids = {row["id"] for row in inventory["databases"] if row["category"] in ["application", "agent runtime"] and row["backup"]["status"] == "unknown"}
+            assert await finding.count() == 1
+            assert "does not prove their backups are missing" in await finding.inner_text()
+            assert not await page.locator("#notice").is_visible()
+            assert await finding.locator(".finding-next ol li").count() == 3
+            assert await finding.locator(".finding-meaning").is_visible()
+            assert await finding.locator(".finding-show").is_visible()
+            assert not await finding.locator(".finding-hide").is_visible()
+            await finding.locator(".finding-breakdown > summary").click()
+            assert await finding.locator(".finding-hide").is_visible()
+            assert not await finding.locator(".finding-show").is_visible()
+            for summary in await finding.locator(".finding-project > summary").all():
+                await summary.click()
+            actual_backup_ids = await finding.locator("li [data-entity]").evaluate_all("nodes => nodes.map(n => n.dataset.entity)")
+            assert set(actual_backup_ids) == expected_backup_ids
+            assert len(actual_backup_ids) == len(expected_backup_ids)
+            legacy = finding.locator(".finding-project").filter(has_text="PAL OpenClaw (retained files)")
+            assert await legacy.locator(".finding-project-label").inner_text() == "PAL | LEGACY"
+            assert await finding.locator("h4").count() == 1
+            assert await finding.locator(".finding-stats").inner_text()
+            assert await finding.evaluate("e => e.getBoundingClientRect().width / e.closest('table').getBoundingClientRect().width > .95")
+            expanded = await finding.locator("details[open]").count()
+            await page.locator("#refresh").click()
+            await page.wait_for_function("!document.querySelector('#refresh').disabled", timeout=60000)
+            assert await finding.locator("details[open]").count() == expanded
+            assert not any(row["owner"] == "service:tailscale" for row in inventory["databases"] if row["category"] == "agent runtime")
+            for width in [320, 390, 1440]:
+                await page.set_viewport_size({"width": width, "height": 900})
+                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                assert await page.locator("#inventory .table-wrap").evaluate("e => e.scrollWidth <= e.clientWidth")
+                meaning = await finding.locator(".finding-meaning").bounding_box()
+                next_steps = await finding.locator(".finding-next").bounding_box()
+                if width > 760:
+                    assert abs(meaning["y"] - next_steps["y"]) < 2
+                    assert next_steps["x"] > meaning["x"] + meaning["width"]
+                else:
+                    assert next_steps["y"] >= meaning["y"] + meaning["height"]
+            for summary in await finding.locator(".finding-project > summary").all():
+                await summary.click()
+            await finding.screenshot(path=str(root / "_scratch/backup-warning-breakdown.png"))
+            await page.set_viewport_size({"width": 390, "height": 844})
+            await finding.screenshot(path=str(root / "_scratch/backup-warning-mobile.png"))
+            await finding.locator(".finding-breakdown > summary").focus()
+            await page.keyboard.press("Enter")
+            assert not await finding.locator(".finding-breakdown").evaluate("e => e.open")
+            await page.keyboard.press("Enter")
+            assert await finding.locator(".finding-breakdown").evaluate("e => e.open")
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            await finding.locator(".finding-project > summary").first.click()
+            database_link = finding.locator(".finding-project[open] li [data-entity]").first
+            expected_id = await database_link.get_attribute("data-entity")
+            await database_link.click()
+            assert await page.locator("#detail").is_visible()
+            assert expected_id in __import__("urllib.parse", fromlist=["unquote"]).unquote(page.url)
+            await page.locator("#close").click()
+            await page.locator("#tabs [data-tab='apps']").click()
+            checks.append("Full-width warning cards show project labels and counts, preserve expansion on refresh, support keyboard/mobile and link to database details")
             catalogue_apps = await page.locator("#atlas-data").evaluate("e => JSON.parse(e.textContent).realms.filter(r => r.kind === 'app').map(r => 'app:' + r.id).sort()")
             assert sorted(row["id"] for row in inventory["apps"]) == catalogue_apps
             assert int(await page.locator("#tabs [data-tab='apps'] .tab-count").inner_text()) == len(catalogue_apps)
@@ -178,7 +261,7 @@ async def main():
             assert await page.locator("#atlas-view").is_visible()
             assert not await page.locator("#inventory").is_visible()
             await page.locator("[data-realm-chooser]").select_option("stakefolio")
-            assert await page.locator("[data-realm-ownership]").inner_text() == "STAKEFOLIO | PRODUCT"
+            assert await page.locator("[data-realm-ownership]").inner_text() == "STAKEFOLIO | GOVERNANCE"
             await page.locator("[data-view='list']").click()
             assert await page.locator("#inventory").is_visible()
             checks.append("Atlas and List switch within the same Garden page")
@@ -343,10 +426,10 @@ async def main():
                     snapshot = await (await page.request.get(private + "/operations/api/inventory")).json()
                     await page.locator("#tabs [data-tab='services']").click()
                     await choose_label(category, "STAKEFOLIO")
-                    await choose_label(role, "DATA")
+                    await choose_label(role, "GOVERNANCE")
                     assert await page.locator("#rows .project-label").count() > 0
-                    assert set(await page.locator("#rows .project-label").all_text_contents()) == {"STAKEFOLIO | DATA"}
-                    assert "stakefolio-ledger-data" in await page.locator("#rows").inner_text()
+                    assert set(await page.locator("#rows .project-label").all_text_contents()) == {"STAKEFOLIO | GOVERNANCE"}
+                    assert "Stakefolio — Backend" in await page.locator("#rows").inner_text()
                     await choose_label(category, "PAL")
                     await choose_label(role, "AGENT")
                     await page.locator("#tabs [data-tab='agents']").click()

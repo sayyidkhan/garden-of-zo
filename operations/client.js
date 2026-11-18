@@ -56,7 +56,7 @@ function updateHome(error = false) {
   freshness.dataset.state = error ? "error" : snapshot?.stale ? "stale" : "ready";
   freshness.textContent = snapshot
     ? "Last observed " + when(snapshot.observedAt) + " SGT" + (error ? " · Refresh failed; showing previous observation" : snapshot.stale ? " · Stale observation" : "") +
-      (snapshot.coverage.automations.status === "stale snapshot" ? " · Schedule snapshot is older than 24 hours" : "")
+      (snapshot.coverage.automations.status === "stale snapshot" ? " · Zo Scheduled Tasks: saved list is over 24 hours old" : "")
     : "Inventory unavailable · Open List to retry";
 }
 let selectedId;
@@ -87,6 +87,76 @@ const backupEvidence = row => {
   const date = row.backup?.lastAt ? '<small>' + when(row.backup.lastAt) + '</small>' : '';
   return '<span class="backup-evidence' + (state === "snapshot found" ? ' is-found' : state === "old snapshot" ? ' is-old' : '') + '" title="' + escape(state) + '">' + escape(label) + '</span>' + date;
 };
+const openFindingSections = new Set();
+const taskUpdateRequest = "Update Garden of Zo’s saved Zo Scheduled Tasks list. Read the current project instructions in /home/workspace/Start/garden-of-zo/zo-platform, fetch all current tasks with list_automations, and update its private operations/automations.local.json with the actual observation time, task IDs, names, schedules and active states. Keep run history unknown. Verify Garden shows the updated list; do not modify the tasks or their schedules.";
+async function copyTaskUpdate(button) {
+  const card = button.closest(".finding");
+  const feedback = card.querySelector("[data-copy-feedback]");
+  try {
+    await navigator.clipboard.writeText(taskUpdateRequest);
+    feedback.textContent = "Copied. Paste into Zo chat and send to update Garden’s list.";
+  } catch {
+    const request = card.querySelector("[data-task-request]");
+    request.hidden = false;
+    request.value = taskUpdateRequest;
+    request.focus();
+    request.select();
+    feedback.textContent = "Automatic copying is unavailable. Copy the selected request below, then paste it into Zo chat and send.";
+  }
+}
+function findingDetails(row) {  if (row.kind === "scheduled-task-list") return '<article class="finding finding-tasks">' +
+    '<header class="finding-heading"><div><span class="finding-kicker">Saved list needs attention</span><h4>' + escape(row.message) + '</h4></div></header>' +
+    '<p class="finding-context">GOZ | PLATFORM | Garden of Zo · Last copied: ' + (row.observedAt ? when(row.observedAt) + ' SGT' : 'Unknown') + '</p>' +
+    '<div class="finding-guide"><section class="finding-meaning"><h5>What this means</h5><p>' + escape(row.reason) + '</p></section>' +
+    '<section class="finding-next"><h5>What to do</h5><p>' + escape(row.nextStep) + '</p>' +
+    '<div class="finding-task-actions"><button class="button" type="button" data-copy-task-update>Copy update request</button>' +
+    '<a class="button" href="https://sayyidkhan.zo.computer/?t=automations" target="_blank" rel="noopener noreferrer">Open Zo Scheduled Tasks ↗</a></div>' +
+    '<p data-copy-feedback role="status" aria-live="polite"></p><textarea data-task-request aria-label="Request to paste into Zo chat" readonly hidden></textarea>' +
+    '</section></div></article>';
+
+  const heading = '<header class="finding-heading"><span class="finding-indicator" aria-hidden="true">!</span><div><span class="finding-kicker">' + escape(row.severity === "error" ? "Needs attention" : "Evidence to check") + '</span><h4>' + escape(row.message) + '</h4></div>' + status(row.severity === "warning" ? "Needs checking" : row.severity) + '</header>';
+  if (!row.affected?.length) return '<article class="finding">' + heading + (row.entity ? '<div class="finding-context">Affected record · ' + link(row.entity) + '</div>' : '') + '</article>';
+  const affected = row.affected.map(entity).filter(Boolean).filter(matchesOwnership);
+  const groups = new Map();
+  for (const db of affected) {
+    const label = db.ownershipLabel || "Ownership pending";
+    const project = db.projectName || name(db.owner);
+    const key = label + " | " + project;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(db);
+  }
+  const findingKey = row.reason || row.message;
+  const disclosure = key => ' data-finding-key="' + escape(key) + '"' + (openFindingSections.has(key) ? ' open' : '');
+  const chevron = '<svg class="finding-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m7 4 6 6-6 6"/></svg>';
+  const breakdown = [...groups].sort(([a], [b]) => collator.compare(a, b)).map(([key, databases]) => {
+    const db = databases[0];
+    const project = db.projectName || name(db.owner);
+    const label = db.ownershipLabel || "Ownership pending";
+    return '<details class="finding-project"' + disclosure(findingKey + ":" + key) + '><summary><span class="finding-project-identity"><span class="finding-project-label">' +
+      escape(label) + '</span><strong>' + escape(project) + '</strong></span><span class="finding-file-count">' + databases.length +
+      (databases.length === 1 ? ' file' : ' files') + '</span>' + chevron + '</summary><ul>' +
+      databases.sort((a, b) => collator.compare(a.path, b.path)).map(db =>
+        '<li>' + link(db.id, db.name) + '<small class="finding-path">' + escape(db.path) + '</small>' +
+        (db.path.startsWith("/root/.openclaw/") || db.path.includes("/migration/openclaw/")
+          ? '<small class="finding-retained">Retained OpenClaw file · Review recovery retention</small>' : '') + '</li>').join('') + '</ul></details>';
+  }).join('');
+  const filtered = affected.length !== row.affected.length;
+  const backupFinding = row.message.includes("unconfirmed backup status");
+  const checks = backupFinding
+    ? '<ol><li><strong>Find the backup</strong><span>Check where each project keeps its copies and when the latest backup succeeded.</span></li><li><strong>Check recovery</strong><span>Confirm whether a saved copy can be restored.</span></li><li><strong>Close the gap</strong><span>Record existing backup evidence in Garden, or arrange backups for data that needs keeping.</span></li></ol>'
+    : '<p>' + escape(row.nextStep) + '</p>';
+  return '<article class="finding">' +
+    '<div class="finding-top">' + heading +
+    '<div class="finding-stats"><span><strong>' + affected.length + '</strong><span>database files' + (filtered ? ' matching labels' : '') +
+    '</span></span><span><strong>' + groups.size + '</strong><span>project groups</span></span></div></div>' +
+    '<div class="finding-guide"><section class="finding-meaning"><h5>What this means</h5><p class="finding-explanation">' + escape(row.reason) + '</p>' +
+    (row.scopeNote ? '<p class="finding-scope">' + escape(row.scopeNote) + '</p>' : '') + '</section>' +
+    '<section class="finding-next"><h5>What to check</h5>' + checks + '</section></div>' +
+    '<details class="finding-breakdown"' + disclosure(findingKey) + '><summary>' + chevron +
+    '<span class="finding-disclosure-copy"><strong>Project breakdown</strong><span>Owners, database files and locations</span></span>' +
+    '<span class="finding-summary-note"><span class="finding-show">Show</span><span class="finding-hide">Hide</span> breakdown</span></summary>' +
+    '<div class="finding-project-grid">' + breakdown + '</div></details></article>';
+}
 const definitions = {
   apps: ["App / destination", "Access", "Process state", "Service"],
   agents: ["Agent", "Role / runtime", "Process observation", "Registry state"],
@@ -167,13 +237,15 @@ function render() {
   const realms = current === "apps" || current === "agents";
   $("table").classList.toggle("realm-table", realms);
   $("table").classList.toggle("database-table", current === "databases");
-  $("#head").hidden = realms;
+  $("#head").hidden = realms || current === "issues";
+  $("table").classList.toggle("findings-table", current === "issues");
+  $("#notice").hidden = !snapshot.collectionError && (current === "issues" || !snapshot.issues.length);
   const query = $("#search").value.trim().toLowerCase();
   const filter = $("#filter").value;
   const owner = $("#owner").value;
   const access = document.querySelector('[data-filter][aria-pressed="true"]').dataset.filter;
   const rows = sortRows(snapshot[current].filter(row => (!query || (JSON.stringify(row) + name(row.owner)).toLowerCase().includes(query)) &&
-    matchesOwnership(row) && matchesFilter(row, filter) && (current !== "databases" || !owner || (row.owner || "__unmapped__") === owner) &&
+    (row.affected ? row.affected.some(id => entity(id) && matchesOwnership(entity(id))) : matchesOwnership(row)) && matchesFilter(row, filter) && (current !== "databases" || !owner || (row.owner || "__unmapped__") === owner) &&
     (!realms || access === "all" || (row.access || catalogue.find(realm => (realm.kind === "agent" ? "agent:" : "app:") + realm.id === row.id)?.access || "private") === access)));
   $("#head").innerHTML = "<tr>" + definitions[current].map(v => "<th scope='col'>" + v + "</th>").join("") + "</tr>";
   $("#rows").innerHTML = rows.map(row => {
@@ -201,11 +273,11 @@ function render() {
         backupEvidence(row)
       ];
     }
-    if (current === "issues") cells = [status(row.severity), escape(row.message), row.entity ? link(row.entity) : "Inventory coverage"];
+    if (current === "issues") return '<tr><td colspan="3" class="finding-cell">' + findingDetails(row) + '</td></tr>';
     return "<tr>" + cells.map((cell, i) => '<td data-label="' + escape(definitions[current][i]) + '">' + cell + "</td>").join("") + "</tr>";
   }).join("") || '<tr><td colspan="4" class="empty">No matching records. Try another search or filter.</td></tr>';
   const total = current === "databases" ? " · " + bytes(rows.reduce((sum, r) => sum + r.bytes + r.walBytes, 0)) + " including WAL" : "";
-  const scheduleNote = current === "workflows" ? " · Zo schedules: snapshot from " + when(snapshot.coverage.automations.observedAt) + " SGT; run history unavailable." : "";
+  const scheduleNote = current === "workflows" ? " · Zo Scheduled Tasks: saved list updated " + when(snapshot.coverage.automations.observedAt) + " SGT; run history unavailable." : "";
   $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total;
   $("#evidence-caption").textContent = (["services", "agents", "apps"].includes(current) ? "Running confirms a process exists; application health is not verified." : "") + scheduleNote;
 }
@@ -233,18 +305,23 @@ async function refresh(fresh = false) {
   if (busy) return;
   busy = true;
   $("#refresh").disabled = true;
-  $("#refresh").textContent = "Observing…";
+  $("#refresh").textContent = "Refreshing…";
   try {
     const response = await fetch("/operations/api/inventory" + (fresh ? "?fresh=1" : ""), { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(45000) });
     if (!response.ok) throw new Error("Inventory request failed (" + response.status + ").");
     snapshot = await response.json();    updateHome();
     $("#updated").textContent = "Observed " + when(snapshot.observedAt) + " SGT" + (snapshot.stale ? " · STALE" : "");
+    $("#inventory-stale").hidden = !snapshot.stale;
+    $("#inventory-stale").title = "Showing data from " + when(snapshot.observedAt) + " SGT";
     $("#notice").hidden = false;
     const failures = snapshot.issues.filter(i => i.severity === "error").length;
     const gaps = snapshot.issues.filter(i => i.severity === "warning").length;
     $("#notice").innerHTML = '<span>' + escape(snapshot.collectionError || failures + (failures === 1 ? ' failure' : ' failures') + ' · ' + gaps + ' evidence gaps in your garden') + '</span><button data-tab="issues">Review findings ↗</button>';
     $("#notice").hidden = !snapshot.collectionError && !failures && !gaps;
-    $("#coverage").innerHTML = Object.entries(snapshot.coverage).map(([key,value]) => "<p><strong>" + escape(key) + "</strong><br>" + escape(typeof value === "object" ? JSON.stringify(value, null, 2) : value) + "</p>").join("");
+    const sourceNames = { databases: "Database scan", automations: "Zo Scheduled Tasks", apps: "Apps", services: "Services", agents: "Agents", backups: "Backup evidence", workflows: "Workflows" };
+    const fieldNames = { roots: "Folders checked", complete: "Scan complete", excludedDirectories: "Folders skipped", unreadablePaths: "Unreadable paths", status: "Source status", observedAt: "Source updated", note: "Limitations" };
+    const evidenceValue = (key, value) => key === "observedAt" ? when(value) + " SGT" : typeof value === "boolean" ? (value ? "Yes" : "No") : Array.isArray(value) ? value.join(" · ") : String(value ?? "Unknown");
+    $("#coverage").innerHTML = Object.entries(snapshot.coverage).map(([key, value]) => '<section class="coverage-source"><h3>' + escape(sourceNames[key] || key) + '</h3>' + (value && typeof value === "object" ? '<dl>' + Object.entries(value).map(([field, evidence]) => '<dt>' + escape(fieldNames[field] || field) + '</dt><dd>' + escape(evidenceValue(field, evidence)) + '</dd>').join("") + '</dl>' : '<p>' + escape(value) + '</p>') + '</section>').join("");
     const state = params();
     options();
     $("#filter").value = state.get("filter") || "";
@@ -260,9 +337,17 @@ async function refresh(fresh = false) {
   } catch (error) {
     $("#notice").hidden = false;    updateHome(true);
     $("#notice").textContent = error.message + (snapshot ? " Showing the previous observation." : " No inventory is available yet.");
+    $("#inventory-stale").hidden = !snapshot;
   } finally { busy = false; $("#refresh").disabled = false; $("#refresh").textContent = "Refresh"; }
 }
-root.addEventListener("click", event => {
+root.addEventListener("toggle", event => {
+  const key = event.target.dataset?.findingKey;
+  if (!key) return;
+  if (event.target.open) openFindingSections.add(key);
+  else openFindingSections.delete(key);
+}, true);
+root.addEventListener("click", event => {  const copy = event.target.closest("[data-copy-task-update]");
+  if (copy) void copyTaskUpdate(copy);
   const tab = event.target.closest("[data-tab]");
   if (tab) select(tab.dataset.tab);
   const target = event.target.closest("[data-entity]");
@@ -275,9 +360,13 @@ $("#filter").addEventListener("change", () => { writeLocation(); render(); });
 $("#owner").addEventListener("change", () => { writeLocation(); render(); });
 $("#sort").addEventListener("change", () => { writeLocation(); render(); });
 $("#refresh").addEventListener("click", () => refresh(true));
+$("#inventory-info").addEventListener("click", () => $("#inventory-info-dialog").showModal());
+$("#close-inventory-info").addEventListener("click", () => $("#inventory-info-dialog").close());
+$("#inventory-info-dialog").addEventListener("close", () => $("#inventory-info").focus());
 function sync() {
   if (!visible()) {
     if ($("#detail").open) $("#detail").close();
+    if ($("#inventory-info-dialog").open) $("#inventory-info-dialog").close();
     if (observing() && !snapshot) refresh();
     return;
   }

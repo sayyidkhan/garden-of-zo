@@ -43,8 +43,8 @@ describe("Garden of Zo catalogue", () => {
       expect(data.realms.every((realm: any) => realm.ownershipCategory && realm.ownershipRole)).toBe(true);
       expect(html).toContain('aria-label="Project category"');
       expect(html).toContain('aria-label="Project sub-category"');
-      expect(label("stakefolio")).toBe("STAKEFOLIO | PRODUCT");
-      expect(label("stakefolio-studio")).toBe("STAKEFOLIO | PRODUCT");
+      expect(label("stakefolio")).toBe("STAKEFOLIO | GOVERNANCE");
+      expect(label("stakefolio-studio")).toBe("STAKEFOLIO | GOVERNANCE");
       expect(label("riven-proj-tracker")).toBe("PAL | AGENT");
       expect(label("itachiscrow")).toBe("GITHUB | APP");
       expect(label("gigradar-mailhub")).toBe("GR | MAIL");
@@ -60,15 +60,15 @@ describe("Garden of Zo catalogue", () => {
   });
 
   test("Stakefolio portfolio aliases and backend share its category without absorbing unrelated PAL projects", () => {
-    for (const id of ["stakefolio", "stakefolio-studio", "stakefolio-staging", "shouldijoin", "shouldijoin-staging", "ideas-bank", "ideas-bank-review", "idea-backlog", "batam-100", "batam-100-site", "batam-100-staging", "saji-by-syam"]) {
+    for (const id of ["shouldijoin", "shouldijoin-staging", "ideas-bank", "ideas-bank-review", "idea-backlog", "batam-100", "batam-100-site", "batam-100-staging", "saji-by-syam"]) {
       expect(projectOwnership(id)).toEqual({ category: "STAKEFOLIO", subcategory: "PRODUCT", status: "confirmed" });
     }
-    for (const id of ["stakefolio-ledger", "stakefolio-ledger-data"]) {
-      expect(projectOwnership(id)).toEqual({ category: "STAKEFOLIO", subcategory: "DATA", status: "confirmed" });
+    for (const id of ["stakefolio", "stakefolio-studio", "stakefolio-staging", "stakefolio-ledger", "stakefolio-ledger-data"]) {
+      expect(projectOwnership(id)).toEqual({ category: "STAKEFOLIO", subcategory: "GOVERNANCE", status: "confirmed" });
     }
     expect(projectOwnership("stock-surfers")?.category).toBe("PAL");
     expect(projectOwnership("orin")?.category).toBe("PAL");
-    expect(categoryRoles("STAKEFOLIO")).toEqual(["PRODUCT", "DATA"]);
+    expect(categoryRoles("STAKEFOLIO")).toEqual(["PRODUCT", "GOVERNANCE"]);
   });
 
   test("both catalogues explain every category and role from the canonical legend", () => {
@@ -86,7 +86,8 @@ describe("Garden of Zo catalogue", () => {
       const html = renderIndex(loadConfig(file), catalog);
       expect(html).toContain('data-open-label-legend aria-haspopup="dialog" aria-controls="label-legend"');
       const legend = html.match(/<dialog class="label-legend"[\s\S]*?<\/dialog>/)![0];
-      for (const label of Object.keys(definitions)) expect(legend).toContain(`<dt>${label}</dt>`);
+      const categories = Object.keys(ownershipCategories) as ProjectOwnership["category"][];
+      for (const label of [...categories, ...categories.flatMap(categoryRoles)]) expect(legend).toContain(`<dt>${label}</dt>`);
       expect(legend).not.toContain('role="tab"');
       for (const category of Object.keys(ownershipCategories) as ProjectOwnership["category"][]) {
         const group = legend.match(new RegExp(`data-legend-category="${category}"[\\s\\S]*?</section>`))![0];
