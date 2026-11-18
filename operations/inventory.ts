@@ -7,7 +7,7 @@ const kingdom = "/home/workspace/Start/pal/kingdom-of-pal";
 const databaseOwners: Record<string, string> = {
   [join(kingdom, "state/pal-registry.sqlite3")]: "service:pal-agent-registry",
   "/home/workspace/Start/pal/pal-agent-bastion/var/bastion.db": "agent:bastion",
-  "/home/workspace/Data/zorder/zorder.sqlite": "service:zo-order-tracker"
+  "/home/workspace/Start/garden-of-zo/zo-order-tracker/zorder-data/zorder.sqlite": "service:zo-order-tracker"
 };
 const servicePresentation: Record<string, { name: string; description: string; project?: string; mappingEvidence?: string }> = {
   tailscale: { name: "Tailscale", description: "Shared private networking infrastructure for Garden of Zo.", project: "Garden of Zo", mappingEvidence: "Owner-confirmed shared infrastructure; project tracking only." },

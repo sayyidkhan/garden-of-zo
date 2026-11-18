@@ -78,7 +78,7 @@ GITHUB refers to the workspace grouping, not every project with a GitHub reposit
 - GigRadar MailHub currently uses `Start/gigradarapp/`. `gr/` is the requested folder convention; relocation is not part of recording this legend.
 - Services inherit their owning project's label: Orin and Runa dashboard/gateway services use `PAL | AGENT`; public/private Garden gateways use `GOZ | INFRASTRUCTURE`; the platform process uses `GOZ | PLATFORM`. Riven's tracker belongs to the Riven agent.
 - Runtime data directories, backups, generated output and compatibility links are supporting artefacts, not additional apps. Their ownership follows the related project; access and retention rules remain separate.
-- Private inventory maps the exact live database paths `Start/pal/kingdom-of-pal/state/pal-registry.sqlite3` to the Kingdom registry service (`PAL | PLATFORM`), `Start/pal/pal-agent-bastion/var/bastion.db` to Bastion (`PAL | AGENT`), and `Data/zorder/zorder.sqlite` to zorder's service (`GOZ | APP`). These owner-confirmed mappings (10 November 2026) do not apply to same-named files elsewhere or change database contents.
+- Private inventory maps the exact live database paths `Start/pal/kingdom-of-pal/state/pal-registry.sqlite3` to the Kingdom registry service (`PAL | PLATFORM`), `Start/pal/pal-agent-bastion/var/bastion.db` to Bastion (`PAL | AGENT`), and `Start/garden-of-zo/zo-order-tracker/zorder-data/zorder.sqlite` to zorder's service (`GOZ | APP`). These owner-confirmed mappings (10 November 2026) do not apply to same-named files elsewhere or change database contents.
 
 ## Maintenance and implementation status
 

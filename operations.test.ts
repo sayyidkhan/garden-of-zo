@@ -118,7 +118,7 @@ test("confirmed database owners resolve labels and dependencies without matching
   const paths = [
     "/home/workspace/Start/pal/kingdom-of-pal/state/pal-registry.sqlite3",
     "/home/workspace/Start/pal/pal-agent-bastion/var/bastion.db",
-    "/home/workspace/Data/zorder/zorder.sqlite"
+    "/home/workspace/Start/garden-of-zo/zo-order-tracker/zorder-data/zorder.sqlite"
   ];
   const database = (path: string, owner: string | null = null) => ({
     id: "database:" + path, path, name: path.split("/").at(-1), category: "application",
