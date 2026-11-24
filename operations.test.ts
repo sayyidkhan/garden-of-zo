@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { createHandler, loadConfig, loadCatalogConfigs, renderIndex } from "./server";
-import { collectInventory, createSnapshotCache } from "./operations/inventory";
+import { collectInventory, createSnapshotCache, databaseRecords, databaseRemarks } from "./operations/inventory";
 
 const publicFile = join(import.meta.dir, "../zo-router/public.routes.json");
 const privateFile = join(import.meta.dir, "../zo-router/private.routes.json");
@@ -112,6 +112,37 @@ test("Stakefolio ledger components inherit governance ownership and link the cat
   expect(snapshot.dependencies).toContainEqual({
     from: "service:stakefolio-staging", to: "service:stakefolio-ledger-data", evidence: "Stakefolio web uses backend API"
   });
+});
+
+test("Orin databases share agent ownership while retaining runtime, dashboard and backup associations", async () => {
+  const runtime = "/root/.hermes/profiles/orin/projects.db";
+  const karma = "/home/workspace/Start/pal/pal-agent-orin/workspace/karma.sqlite";
+  const database = (path: string, owner: string | null, category = "application", backupSource?: string) => ({
+    id: "database:" + path, path, name: path.split("/").at(-1), owner, category, backupSource,
+    ownershipEvidence: owner ? "service working directory" : "unmapped",
+    bytes: 1024, walBytes: 0, backup: { status: "unknown", lastAt: null }
+  });
+  const snapshot = await collectInventory([], async () => ({
+    services: [{ id: "service:orin-hermes-dashboard", name: "orin-hermes-dashboard", status: "running", ports: [] }],
+    issues: [], coverage: {}, youtubeEvidence: { status: "unknown" },
+    databases: [
+      database(karma, "service:orin-hermes-dashboard"),
+      database(runtime, null, "agent runtime"),
+      database("/home/workspace/Data/database-backups/test/karma.sqlite", null, "backup", karma),
+      database("/home/workspace/unrelated/karma.sqlite", null)
+    ]
+  }));
+  const dashboard = snapshot.databases.find(row => row.path === karma)!;
+  expect(dashboard).toMatchObject({
+    owner: "agent:orin", projectName: "Orin Forgekeeper", component: "Agent dashboard",
+    componentEntity: "service:orin-hermes-dashboard", ownershipLabel: "PAL | AGENT"
+  });
+  expect(dashboard.backupCopies).toHaveLength(1);
+  expect(dashboard.backedUpBy).toBe("Garden");
+  expect(snapshot.databases.find(row => row.path === runtime)).toMatchObject({ owner: "agent:orin", component: "Agent runtime" });
+  expect(snapshot.databases.find(row => row.path.includes("/unrelated/"))).toMatchObject({ owner: null });
+  expect(snapshot.dependencies).toContainEqual({ from: "service:orin-hermes-dashboard", to: dashboard.id, evidence: "service working directory" });
+  expect(snapshot.dependencies.some(row => row.from === "agent:orin" && row.to === dashboard.id)).toBe(true);
 });
 
 test("confirmed database owners resolve labels and dependencies without matching unrelated files", async () => {
@@ -228,8 +259,9 @@ test("database warnings identify exact affected files and preserve unknown backu
 
 test("database discovery ignores shared working directories but retains specific project owners", () => {
   const script = `
-import importlib.util, tempfile, sqlite3
+import importlib.util, tempfile, sqlite3, sys
 from pathlib import Path
+sys.path.insert(0, str(Path("operations").resolve()))
 spec = importlib.util.spec_from_file_location("discovery", "operations/discover.py")
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
@@ -253,4 +285,158 @@ with tempfile.TemporaryDirectory() as temp:
   const result = Bun.spawnSync(["python3", "-c", script], { cwd: import.meta.dir });
   expect(result.stderr.toString()).toBe("");
   expect(result.exitCode).toBe(0);
+});
+
+test("old verified database copies produce a freshness warning without becoming unconfirmed", async () => {
+  const database = {
+    id: "database:/root/.hermes/profiles/orin/state.db",
+    path: "/root/.hermes/profiles/orin/state.db", name: "state.db", category: "agent runtime",
+    owner: null, backup: { status: "snapshot found", lastAt: Date.now() / 1000 - 90000 }
+  };
+  const snapshot = await collectInventory([], async () => ({
+    services: [], issues: [], databases: [database], coverage: {}, youtubeEvidence: { status: "unknown" }
+  }));
+  expect(snapshot.databases[0].backup.status).toBe("old snapshot");
+  expect(snapshot.issues.some(row => row.message.includes("unconfirmed backup status"))).toBe(false);
+  expect(snapshot.issues.find(row => row.message.includes("over 24 hours old"))?.affected).toEqual([database.id]);
+});
+
+test("backup copies inherit verified source owners while host stores stay outside project labels", async () => {
+  const database = (path: string, category: string, extra = {}) => ({
+    id: "database:" + path, path, name: path.split("/").at(-1), category,
+    owner: null, backup: { status: "unknown", lastAt: null }, ...extra
+  });
+  const source = "/root/.hermes/profiles/orin/state.db";
+  const snapshot = await collectInventory([], async () => ({
+    services: [], issues: [], coverage: {}, youtubeEvidence: { status: "unknown" },
+    databases: [
+      database("/home/workspace/Data/database-backups/test/copy.db", "backup", { backupSource: source }),
+      database(source, "agent runtime"),
+      database("/root/.hermes/backups/runa/stamp/state.db", "backup"),
+      database("/root/.hermes/backups/orin/stamp/karma.sqlite", "backup"),
+      database("/root/.hermes/state.db", "agent runtime"),
+      database("/root/.codex/state_5.sqlite", "host runtime"),
+      database("/home/.z/workspaces/con_test/project/data.db", "development"),
+      database("/home/workspace/Data/database-backups/test/unknown.db", "backup"),
+      database("/home/workspace/Data/database-backups/test/system.db", "backup", { backupSource: "/root/.hermes/state.db" }),
+      database("/home/workspace/unknown/state.db", "application")
+    ]
+  }));
+  const rows = [
+    snapshot.databases.find(db => db.path === source), null,
+    snapshot.databases.find(db => db.path.includes("/backups/runa/")),
+    snapshot.databases.find(db => db.path.includes("/backups/orin/")),
+    snapshot.databases.find(db => db.path === "/root/.hermes/state.db"),
+    snapshot.databases.find(db => db.path === "/root/.codex/state_5.sqlite"),
+    snapshot.databases.find(db => db.path.includes("/con_test/")),
+    snapshot.databases.find(db => db.path.endsWith("/unknown.db")),
+    snapshot.databases.find(db => db.path === "/root/.hermes/state.db"),
+    snapshot.databases.find(db => db.path === "/home/workspace/unknown/state.db")
+  ];
+  expect(rows[0]).toMatchObject({ owner: "agent:orin", ownershipLabel: "PAL | AGENT" });
+  expect(rows[0].backupCopies[0].path).toEndWith("/copy.db");
+  expect(rows[8].backupCopies[0].path).toEndWith("/system.db");
+  expect(snapshot.databases).toHaveLength(8);
+  expect(snapshot.dependencies).toContainEqual({ from: "agent:orin", to: rows[0].id, evidence: "documented runtime location" });
+  expect(rows[2]).toMatchObject({ owner: "agent:runa", ownershipLabel: "PAL | AGENT" });
+  expect(rows[3]).toMatchObject({ owner: "agent:orin", ownershipLabel: "PAL | AGENT" });
+  expect(rows[4]).toMatchObject({ owner: null, ownership: null, systemOwnership: { name: "Hermes shared runtime" } });
+  expect(rows[5]).toMatchObject({ owner: null, ownership: null, systemOwnership: { name: "Codex" } });
+  expect(rows[6]).toMatchObject({ systemOwnership: { category: "Host system", subcategory: "Temporary files" } });
+  expect(rows[7]).toMatchObject({ owner: null, ownershipLabel: "Ownership pending" });
+  expect(rows[8]).toMatchObject({ owner: null, systemOwnership: { name: "Hermes shared runtime" } });
+  expect(rows[9]).toMatchObject({ owner: null, ownershipLabel: "Ownership pending" });
+  expect(snapshot.issues.find(issue => issue.message.includes("need an owner mapping"))?.affected).toEqual([rows[9].id]);
+});
+
+test("discovery links backup ownership only when its source snapshot checksum verifies", () => {
+  const script = `
+import importlib.util, tempfile, sqlite3, sys, json
+from pathlib import Path
+sys.path.insert(0, str(Path("operations").resolve()))
+import database_backups
+spec = importlib.util.spec_from_file_location("discovery", "operations/discover.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+with tempfile.TemporaryDirectory() as temp:
+    root = Path(temp)
+    source = root / "source.db"
+    with sqlite3.connect(source) as connection:
+        connection.execute("CREATE TABLE marker (id INTEGER)")
+    database_backups.BACKUPS = root / "backups"
+    copy = database_backups.BACKUPS / "stamp" / "copy.db"
+    entry = database_backups.backup_database(source, copy)
+    module.EVIDENCE = root / "evidence.json"
+    module.EVIDENCE.write_text(json.dumps({str(source): entry}))
+    module.ROOT = root
+    module.SCAN_ROOTS = [root]
+    rows, coverage = module.database_inventory([])
+    assert next(row for row in rows if row["path"] == str(copy))["backupSource"] == str(source)
+    with copy.open("ab") as stream:
+        stream.write(b"changed")
+    rows, coverage = module.database_inventory([])
+    assert "backupSource" not in next(row for row in rows if row["path"] == str(copy))
+`;
+  const result = Bun.spawnSync(["python3", "-c", script], { cwd: import.meta.dir });
+  expect(result.stderr.toString()).toBe("");
+  expect(result.exitCode).toBe(0);
+});
+
+test("database rows combine copies without merging unrelated sources or upgrading backup evidence", () => {
+  const source = (id: string, owner: string) => ({ id, path: "/" + id, name: "state.db", owner, category: "application", bytes: 100, walBytes: 5, backup: { status: "unknown" } });
+  const copy = (id: string, owner: string, extra = {}) => ({ ...source(id, owner), category: "backup", ...extra });
+  const records = databaseRecords([
+    source("one", "a"), source("two", "b"), source("three", "c"), source("four", "c"),
+    copy("copy-one", "a", { backupSource: "/one" }), copy("copy-two", "a"),
+    copy("ambiguous", "c"), copy("ambiguous-older", "c"), copy("other-owner", "d")
+  ]);
+  expect(records).toHaveLength(6);
+  expect(records[0].backupCopies.map((copy: any) => copy.id)).toEqual(["copy-one", "copy-two"]);
+  expect(records[0].backup.status).toBe("unknown");
+  expect(records[1].backupCopies).toEqual([]);
+  expect(records[4]).toMatchObject({ backupOnly: true, bytes: 200, walBytes: 10 });
+  expect(records[4].backupCopies).toHaveLength(2);
+  expect(records[5].owner).toBe("d");
+});
+
+test("backup creators stay separate from database ownership and retain mixed copy provenance", () => {
+  const path = "/root/.hermes/profiles/orin/state.db";
+  const native = "/root/.hermes/backups/orin/stamp/state.db";
+  const garden = "/home/workspace/Data/database-backups/stamp/orin.sqlite";
+  const [row, unknown] = databaseRecords([
+    { id: "orin", path, name: "state.db", category: "agent runtime", owner: "agent:orin", backup: { path: native, status: "old snapshot" } },
+    { id: "native", path: native, category: "backup", backupSource: path },
+    { id: "garden", path: garden, category: "backup", backupSource: path },
+    { id: "unknown", path: "/app/backups/custom.db", name: "custom.db", category: "backup", owner: "agent:orin" }
+  ]);
+  expect(row.backedUpBy).toBe("Orin backup tool, Garden");
+  expect(row.backupCopies.map((copy: any) => copy.createdBy)).toEqual(["Orin backup tool", "Garden"]);
+  expect(row.backup.status).toBe("old snapshot");
+  expect(unknown.backedUpBy).toBe("Not confirmed");
+  expect(unknown.backupOnly).toBe(true);
+  const [runa] = databaseRecords([{ path: "/source", category: "application", backup: { path: "/root/.hermes/backups/runa/stamp/projects.db" } }]);
+  expect(runa.backedUpBy).toBe("Runa backup tool");
+  expect(databaseRecords([{ path: "/empty", category: "application" }])[0].backedUpBy).toBe("Not confirmed");
+});
+
+test("framework remarks use exact Hermes locations without mislabelling app, browser or unconfirmed backup files", () => {
+  const roots = ["/root/.hermes", "/root/.hermes/profiles/orin", "/root/.hermes/profiles/runa"];
+  for (const root of roots) {
+    for (const file of ["state.db", "projects.db", "cron/executions.db", "cron/notepad.db"]) {
+      expect(databaseRemarks({ path: root + "/" + file })).toContain("Created by Hermes framework.");
+    }
+  }
+  for (const path of [
+    "/root/.hermes/profiles/orin/home/.local/share/pki/nssdb/cert9.db",
+    "/root/.hermes/profiles/orin/home/.local/share/pki/nssdb/key4.db",
+    "/home/workspace/Start/pal/pal-agent-orin/workspace/karma.sqlite",
+    "/home/workspace/hackathon/example/projects.db",
+    "/root/.hermes/profiles/orin/archive/projects.db"
+  ]) expect(databaseRemarks({ path })).toBe("");
+  expect(databaseRemarks({ path: "/root/.hermes/backups/orin/old/projects.db", backupOnly: true })).toBe("");
+  expect(databaseRemarks({ path: "/root/.hermes/backups/orin/old/projects.db", backupOnly: true,
+    backupSource: "/root/.hermes/profiles/orin/projects.db" })).toContain("separate from Stakefolio");
+  expect(databaseRemarks({ path: roots[1] + "/projects.db", remarks: "Owner's saved note" })).toBe("Owner's saved note");
+  const [row] = databaseRecords([{ path: roots[1] + "/cron/notepad.db", category: "agent runtime" }]);
+  expect(row.remarks).toContain("Notes that scheduled tasks can remember between runs");
 });

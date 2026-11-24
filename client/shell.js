@@ -1,6 +1,15 @@
 const get = selector => document.querySelector(selector);
 const all = selector => [...document.querySelectorAll(selector)];
 let atlasLoading;
+let directoryColumns, directoryColumnRows = [];
+const directoryColumnDefinitions = [
+  { key: "name", label: "Name", value: card => card.querySelector("h3").textContent.trim() },
+  { key: "category", label: "Category", value: card => card.dataset.ownershipCategory },
+  { key: "subcategory", label: "Sub-category", value: card => card.dataset.ownershipRole },
+  { key: "access", label: "Access", value: card => card.dataset.access },
+  { key: "author", label: "Author", value: card => card.querySelector(".realm-row__author").childNodes[0].textContent.trim().replace(/^By /, "") }
+];
+
 const categorySelect = get('[data-ownership-category]');
 const roleSelect = get('[data-ownership-role]');
 const categoryRoles = JSON.parse(get('#ownership-filter-data').textContent);
@@ -176,6 +185,12 @@ function syncOwnershipFilters(fromLocation = false) {
     else url.searchParams.delete(key);
   }
   history.replaceState(null, '', url.pathname + url.search + url.hash);
+  if (!fromLocation && directoryColumns) {
+    for (const [key, value] of [['category', categorySelect.value], ['subcategory', roleSelect.value]]) {
+      if (value) directoryColumns.state.filters[key] = [value]; else delete directoryColumns.state.filters[key];
+    }
+    document.dispatchEvent(new Event('garden:columnchange'));
+  }
   syncListFilters();
   document.dispatchEvent(new Event('garden:ownershipchange'));
 }
@@ -200,27 +215,57 @@ get('[data-open-label-legend]').addEventListener('click', () => {
   get('.label-legend__body').scrollTop = 0;
 });
 
+function syncListLabels(state) {
+  const url = new URL(location.href);
+  const roles = state.filters.category?.length === 1 ? categoryRoles[state.filters.category[0]] || allRoles : allRoles;
+  roleSelect.replaceChildren(new Option('All roles', ''), ...roles.map(value => new Option(value, value)));
+  for (const [key, field, select] of [['category', 'category', categorySelect], ['role', 'subcategory', roleSelect]]) {
+    const values = state.filters[field];
+    const value = values?.length === 1 && [...select.options].some(option => option.value === values[0]) ? values[0] : '';
+    select.value = value;
+    if (value) url.searchParams.set(key, value); else url.searchParams.delete(key);
+  }
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+  ownershipComboboxes.forEach(combobox => combobox.sync());
+  const access = state.filters.access;
+  get('[data-clear-ownership]').disabled = !categorySelect.value && !roleSelect.value;
+  all('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === (access?.length === 1 ? access[0] : 'all'))));
+}
+
+document.addEventListener('garden:listlabels', event => syncListLabels(event.detail));
+
 function syncListFilters() {
   const access = get('[data-filter][aria-pressed="true"]')?.dataset.filter || 'all';
   const kind = get('[data-kind-filter][aria-pressed="true"]')?.dataset.kindFilter || 'all';
   const cards = all('[data-list-card]');
   const query = get('#search').value.trim().toLowerCase();
+  if (directoryColumns) {
+    directoryColumns.activate(kind, directoryColumnDefinitions);
+    const sort = get("#directory-sort");
+    sort.querySelector('[value="column"]')?.remove();
+    if (directoryColumns.state.sort) {
+      sort.add(new Option("Column: " + directoryColumnDefinitions.find(column => column.key === directoryColumns.state.sort.key).label + (directoryColumns.state.sort.direction === "asc" ? " ↑" : " ↓"), "column"));
+      sort.value = "column";
+    }
+  }
   const order = get('#directory-sort')?.value || 'default';
   const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
   cards.sort((a, b) => order === 'default' ? Number(a.style.getPropertyValue('--order')) - Number(b.style.getPropertyValue('--order')) :
     collator.compare(a.querySelector('h3').textContent, b.querySelector('h3').textContent) * (order === 'name_desc' ? -1 : 1));
+  if (directoryColumns?.state.sort) cards.splice(0, cards.length, ...directoryColumns.sort(cards));
   for (const card of cards) card.parentElement.append(card);
   all('[data-directory-kind]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.directoryKind === kind)));
   const title = get('[data-directory-title]');
   if (title) title.textContent = kind === 'app' ? 'Apps' : kind === 'agent' ? 'Agents' : 'All destinations';
   const total = get('[data-list-total]');
   if (total) total.textContent = String(cards.filter(card => kind === 'all' || card.dataset.kind === kind).length);
-  let count = 0;
-  for (const card of cards) {
-    card.hidden = (access !== 'all' && card.dataset.access !== access) || (kind !== 'all' && card.dataset.kind !== kind) ||
-      (categorySelect.value && card.dataset.ownershipCategory !== categorySelect.value) ||
-      (roleSelect.value && card.dataset.ownershipRole !== roleSelect.value) || (query && !card.textContent.toLowerCase().includes(query));
-    if (!card.hidden) count++;
+  directoryColumnRows = cards.filter(card => (kind === 'all' || card.dataset.kind === kind) && (!query || card.textContent.toLowerCase().includes(query)));
+  const shown = new Set(directoryColumns ? directoryColumns.filter(directoryColumnRows) : directoryColumnRows);
+  for (const card of cards) card.hidden = !shown.has(card);
+  const count = shown.size;
+  if (directoryColumns) {
+    directoryColumns.render(get("[data-columns-toolbar]"));
+    directoryColumns.summary(get("[data-columns-summary]"));
   }
   get('[data-list-count]').textContent = String(count);
   if (get('[data-list-empty]')) get('[data-list-empty]').hidden = count > 0;
@@ -299,15 +344,37 @@ all('[data-directory-kind]').forEach(button => button.addEventListener('click', 
 }));
 document.addEventListener('garden:cataloguefilterchange', syncListFilters);
 if (!get('#inventory')) {
+  const { createColumnControls } = await import(get("[data-column-client]").dataset.columnClient);
+  directoryColumns = createColumnControls({
+    rows: () => directoryColumnRows,
+    onChange: ({ sortChanged }) => {
+      if (sortChanged && !directoryColumns.state.sort) get("#directory-sort").value = "default";
+      syncListLabels(directoryColumns.state);
+      syncListFilters();
+      document.dispatchEvent(new Event("garden:columnchange"));
+    }
+  });
+  directoryColumns.activate("all", directoryColumnDefinitions);
+
   const restoreDirectory = () => {
     if (location.hash.split('?')[0] !== '#list') return;
     const params = new URLSearchParams(location.hash.split('?')[1] || '');
     get('#search').value = params.get('q') || '';
     const kind = params.get('kind') || 'all';
     all('[data-kind-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.kindFilter === kind)));
+    directoryColumns.activate(kind, directoryColumnDefinitions);
+    directoryColumns.restore(params.get("columns"));
+    if (!params.has("columns")) {
+      const labels = new URLSearchParams(location.search);
+      if (labels.get("category")) directoryColumns.state.filters.category = [labels.get("category")];
+      if (labels.get("role")) directoryColumns.state.filters.subcategory = [labels.get("role")];
+      const access = get('[data-filter][aria-pressed="true"]').dataset.filter;
+      if (access !== "all") directoryColumns.state.filters.access = [access];
+    }
     const sort = get('#directory-sort');
     sort.value = params.get('sort') || 'default';
     if (!sort.selectedOptions.length) sort.value = 'default';
+    if (!directoryColumns.state.sort && ['name_asc', 'name_desc'].includes(sort.value)) directoryColumns.state.sort = { key: "name", direction: sort.value === "name_desc" ? "desc" : "asc" };
     syncListFilters();
   };
   const saveDirectory = () => {
@@ -319,11 +386,14 @@ if (!get('#inventory')) {
     for (const [key, value] of [['q', query], ['sort', order === 'default' ? '' : order], ['kind', kind === 'all' ? '' : kind]]) {
       if (value) params.set(key, value); else params.delete(key);
     }
+    const columns = directoryColumns.serialize();
+    if (columns) params.set("columns", columns); else params.delete("columns");
     history.replaceState(null, '', location.pathname + location.search + '#list' + (params.size ? '?' + params : ''));
     syncListFilters();
   };
   get('#search').addEventListener('input', saveDirectory);
-  get('#directory-sort').addEventListener('change', saveDirectory);
+  get('#directory-sort').addEventListener('change', () => { directoryColumns.clearSort(); saveDirectory(); });
+  document.addEventListener('garden:columnchange', saveDirectory);
   document.addEventListener('garden:cataloguefilterchange', saveDirectory);
   addEventListener('hashchange', restoreDirectory);
   addEventListener('popstate', restoreDirectory);

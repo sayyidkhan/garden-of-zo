@@ -19,17 +19,24 @@ export function renderInventory(cards = "") {
     <nav class="directory-tabs tabs" id="tabs" aria-label="Inventory sections"></nav>
     <div class="directory-results">
       <div class="inventory-result-heading"><div><h3 class="directory-title" id="section-title">Apps</h3><p class="directory-count" id="caption" aria-live="polite"></p></div><div class="inventory-actions"><span class="badge" id="inventory-stale" role="status" hidden>Older data</span><button class="button inventory-info-button" id="inventory-info" aria-haspopup="dialog" aria-controls="inventory-info-dialog">Inventory info</button><button class="button" id="refresh">Refresh</button></div></div>
-      <div class="directory-options">${renderInventoryFilters()}</div>
+      <div class="directory-options" hidden>${renderInventoryFilters()}</div>
     </div>
+    <div class="directory-refine">${renderInventorySearch()}
+    <div class="column-toolbar" data-columns-toolbar aria-label="Sort and filter record fields"></div></div>
+    <div class="column-summary" data-columns-summary hidden role="status"></div>
     <div class="table-wrap"><table aria-label="Inventory records"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
     <div id="notice" class="alert" hidden role="status"></div>
+    <p data-task-feedback role="status" aria-live="polite"></p>
     <p id="evidence-caption"></p>
     <dialog id="inventory-info-dialog" aria-labelledby="inventory-info-title">
       <div class="dialog-head"><div><p class="inventory-label">About this inventory</p><h2 id="inventory-info-title">Sources & coverage</h2></div><button class="button" id="close-inventory-info" aria-label="Close inventory info">Close</button></div>
       <div class="inventory-freshness"><p id="updated" aria-live="polite">Loading your inventory…</p><p>Updates every minute while Home or List is open. Refresh checks again now.</p></div>
-      <p class="coverage-note">Garden only reads these sources. It does not change services or data. Each source has its own limits; a running process does not confirm application health.</p>
+      <p class="coverage-note">Garden reads these sources without changing your tasks, services or database contents. Each source has its own limits; a running process does not confirm application health.</p>
       <div id="coverage" class="coverage">Waiting for inventory.</div>
     </dialog>
+    <p id="copy-feedback" class="copy-feedback" role="status" aria-live="polite"></p>
+    <dialog id="copy-row-dialog" aria-labelledby="copy-row-title"><div class="dialog-head"><h2 id="copy-row-title">Copy row</h2><button type="button" class="button" id="close-copy-row">Close</button></div><p id="copy-row-help">Clipboard access is blocked. Select and copy this text, then paste it into your chat.</p><textarea id="copy-row-text" readonly aria-label="Row context to copy" aria-describedby="copy-row-help"></textarea></dialog>
+    <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-head"><div><p class="inventory-label">Database backups</p><h2 id="backup-title"></h2></div><div class="backup-dialog-actions"><span id="backup-copy-action"></span><button type="button" class="backup-close" id="close-backups" aria-label="Close backups" title="Close backups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div></div><div id="backup-body"></div></dialog>
     <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><div><p class="inventory-label">In your garden</p><h2 id="detail-title"></h2></div><button class="button" id="close" aria-label="Close details">Close</button></div><div id="detail-body"></div></dialog>
   </div>`;
 }

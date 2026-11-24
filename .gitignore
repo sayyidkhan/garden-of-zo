@@ -4,5 +4,6 @@ _scratch/
 .DS_Store
 --full-page
 operations/*.local.json
+operations/*.local.lock
 __pycache__/
 *.py[cod]

@@ -10,6 +10,8 @@ import xmlrpc.client
 from pathlib import Path
 from urllib.parse import quote
 
+from database_backups import EVIDENCE, ORIN, native_backup, native_backup_root, verified_evidence
+
 ROOT = Path("/home/workspace")
 SUPERVISOR = Path("/etc/zo/supervisord-user.conf")
 SKIP = {"Trash", ".Trash", ".git", "node_modules", ".venv", "venv", "__pycache__", ".cache", "cache", "caches", ".npm", ".bun"}
@@ -109,7 +111,7 @@ def database_inventory(services):
                     category = "application"
                     if any("backup" in p or "archive" in p for p in parts):
                         category = "backup"
-                    elif parts & {"_tmp", "_scratch", "_debug", "tests", "test", ".wrangler", "worktree"}:
+                    elif parts & {"_tmp", "_scratch", "_debug", "tests", "test", ".wrangler", "worktree", "pnpm-store"}:
                         category = "development"
                     elif real.startswith("/root/.codex/") or real.startswith("/home/.z/"):
                         category = "host runtime"
@@ -141,6 +143,10 @@ def database_inventory(services):
         issues.append("Database scan reached its time limit; inventory is partial.")
     if errors:
         issues.append(f"Database scan could not read {len(errors)} paths.")
+    evidence = read_json(EVIDENCE, {})
+    if not isinstance(evidence, dict):
+        evidence = {}
+    backup_sources = {}
     for db in databases:
         if db["path"] in ["/root/.hermes/profiles/runa/state.db", "/root/.hermes/profiles/runa/projects.db"]:
             candidates = sorted(glob.glob("/root/.hermes/backups/runa/20??????T??????Z/" + db["name"]))
@@ -150,6 +156,18 @@ def database_inventory(services):
                 if manifest.exists() and db["name"] in manifest.read_text():
                     db["backup"] = {"status": "snapshot found", "lastAt": latest.stat().st_mtime,
                                     "path": str(latest), "verification": "checksum manifest present; restore not tested by oversight"}
+        source = Path(db["path"])
+        if native_backup_root(source) is not None:
+            native = native_backup(source)
+            verified = {"status": "snapshot found", **native} if native else None
+        else:
+            verified = verified_evidence(source, evidence)
+        if verified:
+            db["backup"] = verified
+            backup_sources[verified["path"]] = db["path"]
+    for db in databases:
+        if db["category"] == "backup" and db["path"] in backup_sources:
+            db["backupSource"] = backup_sources[db["path"]]
     return databases, {"roots": [str(p) for p in SCAN_ROOTS], "complete": complete and not errors,
                        "excludedDirectories": sorted(SKIP), "unreadablePaths": len(errors)}
 

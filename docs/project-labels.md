@@ -14,12 +14,12 @@ Use three columns: **Category | Sub-category | Projects**. A combined label is w
 |---|---|---|
 | PAL | Kingdom of PAL projects | `Start/pal/` |
 | GOZ | Garden of Zo projects | `Start/garden-of-zo/` |
-| GITHUB | Projects grouped under the workspace Github folder | `Github/` |
+| GITHUB | Existing ownership group for Afterimage, Itachi's Crow and Long Taa Borneo | `hackathon/` (direct project folders) |
 | GR | GigRadar | Intended `gr/`; currently `Start/gigradarapp/` |
 | PERSONAL | Apps and tools built for the owner's own use | Suggested `Start/personal/`; not yet created |
 | STAKEFOLIO | Stakefolio portfolio projects and supporting services | Currently `Start/pal/pal-projects/`; no folder move |
 
-GITHUB refers to the workspace grouping, not every project with a GitHub repository. Hosting an app through Garden does not transfer its ownership to GOZ.
+GITHUB retains the existing ownership group formerly stored under `Github/`; these three hackathon projects now live directly under `hackathon/`. This folder move does not reclassify their labels. A GitHub repository alone does not establish GITHUB ownership. Hosting an app through Garden does not transfer its ownership to GOZ.
 
 | Sub-category | Meaning |
 |---|---|
@@ -74,10 +74,12 @@ GITHUB refers to the workspace grouping, not every project with a GitHub reposit
 - Garden uses `zo-platform`; routing uses the independent `zo-router` checkout. zorder uses `zo-order-tracker`, Zo Moments uses `zo-memories`, Zo Tube uses `zo-tube`, and Kasm Browser uses `kasm-browser`.
 - Tailscale (`tailscale`) is owner-confirmed Garden shared networking infrastructure (`GOZ | INFRASTRUCTURE`, 10 November 2026). Private inventory records its Garden project mapping for tracking, independently of app/agent/workflow dependencies. This classification does not change Tailscale networking or its retained legacy proxy configuration.
 - Zo Expert and Relationship Mapper currently live under `hackathon/suphackathon2026/zo-expert` and `hackathon/suphackathon2026/zo-relationship-mapper`. Their confirmed GOZ ownership does not imply that their folders have moved.
-- GITHUB projects use `Github/itachiscrow`, `Github/afterimage` and `Github/longtaaborneo`.
+- GITHUB projects use `hackathon/itachiscrow`, `hackathon/afterimage` and `hackathon/longtaaborneo`, directly alongside `suphackathon2026/`. The owner confirmed all three are hackathon projects; their existing ownership labels remain unchanged.
 - GigRadar MailHub currently uses `Start/gigradarapp/`. `gr/` is the requested folder convention; relocation is not part of recording this legend.
 - Services inherit their owning project's label: Orin and Runa dashboard/gateway services use `PAL | AGENT`; public/private Garden gateways use `GOZ | INFRASTRUCTURE`; the platform process uses `GOZ | PLATFORM`. Riven's tracker belongs to the Riven agent.
+- Orin database records use one owner, **Orin Forgekeeper** (`agent:orin`). The separate **Component** field distinguishes **Agent runtime** (Orin's Hermes profile) from **Agent dashboard** (records discovered under `orin-hermes-dashboard`). The dashboard service remains linked in details; technical service identifiers, backup creators and filenames stay separate from ownership. Component labels describe the recorded association, not exclusive access by that component.
 - Runtime data directories, backups, generated output and compatibility links are supporting artefacts, not additional apps. Their ownership follows the related project; access and retention rules remain separate.
+- Garden database snapshots inherit the source project only through a checksum-verified backup manifest. Native `/root/.hermes/backups/orin/` and `/root/.hermes/backups/runa/` copies inherit their respective agent. Root Codex databases, shared Hermes stores (`shared-state.db`, `kanban.db`, `state.db` directly under `/root/.hermes/`) and Zo conversation scratch databases are host-system records outside this project taxonomy. Garden displays Host system / Runtime or Temporary files, without adding a project category or assigning them to an individual agent.
 - Private inventory maps the exact live database paths `Start/pal/kingdom-of-pal/state/pal-registry.sqlite3` to the Kingdom registry service (`PAL | PLATFORM`), `Start/pal/pal-agent-bastion/var/bastion.db` to Bastion (`PAL | AGENT`), and `Start/garden-of-zo/zo-order-tracker/zorder-data/zorder.sqlite` to zorder's service (`GOZ | APP`). These owner-confirmed mappings (10 November 2026) do not apply to same-named files elsewhere or change database contents.
 
 ## Maintenance and implementation status

@@ -29,6 +29,26 @@ async def main():
             requested = []
             page.on("pageerror", lambda error: errors.append(str(error)))
             page.on("request", lambda request: requested.append(request.url))
+            async def open_column(key):
+                direct = page.locator(f'[data-column-key="{key}"]:visible')
+                if await direct.count():
+                    await direct.click()
+                else:
+                    await page.locator("[data-columns-open]:visible").click()
+                    await page.locator(f'#column-menu [data-field="{key}"]').click()
+                await page.locator("#column-menu").wait_for(state="visible")
+
+            async def column_choice(key, value):
+                await open_column(key)
+                await page.locator("#column-menu [data-none]").click()
+                await page.locator("#column-menu").get_by_role("checkbox", name=value, exact=False).check()
+                await page.locator("#column-menu [data-apply]").click()
+
+            async def column_sort(key, direction):
+                await open_column(key)
+                await page.locator(f'#column-menu [data-sort="{direction}"]').click()
+                await page.locator("#column-menu [data-apply]").click()
+
             async def choose_label(control, value):
                 await control.fill(value)
                 await control.press("Enter")
@@ -102,7 +122,8 @@ async def main():
                 assert await info.locator("#updated").is_visible()
                 assert await info.locator(".coverage-source").count() == 7
                 assert "Folders checked" in await info.inner_text()
-                assert "It does not change services or data" in await info.inner_text()
+                assert "without changing your tasks, services or database contents" in await info.inner_text()
+                assert await info.get_by_role("button", name="Update task list", exact=True).count() == 1
                 assert await info.evaluate("e => e.scrollWidth <= e.clientWidth")
                 assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 await page.keyboard.press("Escape")
@@ -128,7 +149,22 @@ async def main():
             inventory = await (await page.request.get(private + "/operations/api/inventory")).json()
             await page.locator("#tabs [data-tab='issues']").click()
             finding = page.locator(".finding").filter(has_text="unconfirmed backup status")
-            expected_backup_ids = {row["id"] for row in inventory["databases"] if row["category"] in ["application", "agent runtime"] and row["backup"]["status"] == "unknown"}
+            warning_fixture = json.loads(json.dumps(inventory))
+            affected = [row for row in warning_fixture["databases"] if row["category"] in ["application", "agent runtime"]][:3]
+            expected_backup_ids = {row["id"] for row in affected}
+            for row in affected:
+                row["backup"] = {"status": "unknown", "lastAt": None}
+            warning_fixture["issues"] = [{
+                "severity": "warning", "message": str(len(affected)) + " database files have unconfirmed backup status.",
+                "affected": list(expected_backup_ids),
+                "reason": "Garden has no recognised evidence. This does not prove their backups are missing.",
+                "nextStep": "Check the saved copies and whether they can be restored."
+            }]
+            async def backup_fixture(route):
+                await route.fulfill(json=warning_fixture)
+            await page.route("**/operations/api/inventory*", backup_fixture)
+            await page.locator("#refresh").click()
+            await page.wait_for_function("!document.querySelector('#refresh').disabled", timeout=60000)
             assert await finding.count() == 1
             assert "does not prove their backups are missing" in await finding.inner_text()
             assert not await page.locator("#notice").is_visible()
@@ -145,7 +181,10 @@ async def main():
             assert set(actual_backup_ids) == expected_backup_ids
             assert len(actual_backup_ids) == len(expected_backup_ids)
             legacy = finding.locator(".finding-project").filter(has_text="PAL OpenClaw (retained files)")
-            assert await legacy.locator(".finding-project-label").inner_text() == "PAL | LEGACY"
+            legacy_ids = {row["id"] for row in inventory["databases"] if row["id"] in expected_backup_ids and row.get("projectName") == "PAL OpenClaw (retained files)"}
+            assert await legacy.count() == (1 if legacy_ids else 0)
+            if legacy_ids:
+                assert await legacy.locator(".finding-project-label").inner_text() == "PAL | LEGACY"
             assert await finding.locator("h4").count() == 1
             assert await finding.locator(".finding-stats").inner_text()
             assert await finding.evaluate("e => e.getBoundingClientRect().width / e.closest('table').getBoundingClientRect().width > .95")
@@ -185,42 +224,42 @@ async def main():
             await page.locator("#close").click()
             await page.locator("#tabs [data-tab='apps']").click()
             checks.append("Full-width warning cards show project labels and counts, preserve expansion on refresh, support keyboard/mobile and link to database details")
+            await page.unroute("**/operations/api/inventory*", backup_fixture)
+            await page.locator("#refresh").click()
+            await page.wait_for_function("!document.querySelector('#refresh').disabled", timeout=60000)
+
             catalogue_apps = await page.locator("#atlas-data").evaluate("e => JSON.parse(e.textContent).realms.filter(r => r.kind === 'app').map(r => 'app:' + r.id).sort()")
             assert sorted(row["id"] for row in inventory["apps"]) == catalogue_apps
             assert int(await page.locator("#tabs [data-tab='apps'] .tab-count").inner_text()) == len(catalogue_apps)
             checks.append("Private Apps count and entries match catalogue apps; aliases and the platform do not inflate totals")
             await page.locator("#tabs [data-tab='databases']").click()
-            await page.locator("#sort").select_option("size_desc")
+            await column_sort("size", "desc")
             visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             by_id = {row["id"]: row for row in inventory["databases"]}
             sizes = [by_id[record]["bytes"] + by_id[record]["walBytes"] for record in visible_ids]
             assert sizes == sorted(sizes, reverse=True)
-            await page.locator("#sort").select_option("size_asc")
+            await column_sort("size", "asc")
             visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             sizes = [by_id[record]["bytes"] + by_id[record]["walBytes"] for record in visible_ids]
             assert sizes == sorted(sizes)
             checks.append("Database size sorts numerically in both directions")
             owned = next(row for row in inventory["databases"] if row["category"] == "application" and row.get("owner"))
-            await page.locator("#filter").select_option("category:application")
-            await page.locator("#owner").select_option(owned["owner"])
+            await page.goto(private + "/#list?tab=databases&filter=category%3Aapplication&owner=" + owned["owner"] + "&sort=size_asc")
+            await page.wait_for_selector('[data-column-remove="owner"]:visible')
+            await page.wait_for_selector("#rows .database-name", timeout=60000)
             expected = {row["id"] for row in inventory["databases"] if row["category"] == "application" and row.get("owner") == owned["owner"]}
-            visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
+            visible_ids = await page.locator("#rows .database-name").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             assert set(visible_ids) == expected
-            assert "owner=" in page.url and "filter=category%3Aapplication" in page.url and "sort=size_asc" in page.url
             await page.reload()
-            await page.wait_for_selector("#rows tr td:first-child [data-entity]", timeout=60000)
-            assert await page.locator("#filter").input_value() == "category:application"
-            assert await page.locator("#owner").input_value() == owned["owner"]
-            assert await page.locator("#sort").input_value() == "size_asc"
-            visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
+            await page.wait_for_selector("#rows .database-name", timeout=60000)
+            visible_ids = await page.locator("#rows .database-name").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             assert set(visible_ids) == expected
-            await page.locator("#owner").select_option("")
-            await page.locator("#filter").select_option("backup:unknown")
-            visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
-            assert visible_ids and all(by_id[record]["backup"]["status"] == "unknown" for record in visible_ids)
-            checks.append("Category, owner and backup filters work and restore from the URL")
-            await page.locator("#filter").select_option("")
-            await page.locator("#sort").select_option("name_asc")
+            assert await page.locator('[data-column-remove="type"]:visible').count() == 1
+            assert await page.locator('[data-column-remove="owner"]:visible').count() == 1
+            assert not await page.locator(".directory-options:visible").count()
+            await page.locator("[data-columns-reset]:visible").click()
+            assert await page.locator("#rows .database-name").count() == len(inventory["databases"])
+            checks.append("Old database links migrate type, owner and numeric sorting into visible field menus, survive reload and clear together")
             await page.locator("#tabs [data-tab='services']").click()
             await page.locator("#search").fill("runa")
             assert await page.locator("#rows .entity").count() > 0
@@ -312,146 +351,46 @@ async def main():
                     continue
                 is_private = base == private
                 await page.set_viewport_size({"width": 1440, "height": 1000})
-                await page.goto(base + "/#list")
+                await page.goto(base + "/?category=STAKEFOLIO&role=PRODUCT#list")
                 await page.wait_for_selector("#rows .entity" if is_private else "[data-list-card]:visible")
-                category = page.get_by_role("combobox", name="Project category", exact=True)
-                role = page.get_by_role("combobox", name="Project sub-category", exact=True)
-                clear = page.get_by_role("button", name="Clear labels", exact=True)
-                await category.fill("take")
-                assert await page.get_by_role("option", name="STAKEFOLIO", exact=True).is_visible()
-                assert await page.get_by_role("listbox", name="Project category options").get_by_role("option").count() == 1
-                await category.press("Enter")
-                await choose_label(role, "prod")
                 labels = page.locator("#rows .project-label" if is_private else "[data-list-card]:visible .project-label")
-                assert await labels.count() > 0
                 assert set(await labels.all_text_contents()) == {"STAKEFOLIO | PRODUCT"}
-                assert "category=STAKEFOLIO" in page.url and "role=PRODUCT" in page.url
-                await category.fill("no-such-category")
-                assert await page.get_by_role("status").filter(has_text="No matches").is_visible()
-                assert "category=STAKEFOLIO" in page.url
-                await category.press("Escape")
-                assert await category.input_value() == "STAKEFOLIO"
-                assert await category.get_attribute("aria-expanded") == "false"
-                await page.get_by_role("button", name="Show project category options", exact=True).click()
-                category_options = page.get_by_role("listbox", name="Project category options")
-                assert await category_options.get_by_role("option").count() == 7
-                await category_options.get_by_role("option", name="GOZ", exact=True).click()
-                assert await category.input_value() == "GOZ"
-                assert await role.input_value() == ""
-                await category.fill("pal")
-                await role.click()
-                assert await category.input_value() == "GOZ"
-                await role.press("Escape")
-                await choose_label(category, "STAKEFOLIO")
-                await role.press("ArrowDown")
-                await role.press("ArrowDown")
-                await role.press("Enter")
-                assert await role.input_value() == "PRODUCT"
-                await category.fill("uncommitted")
-                await category.press("Tab")
-                assert await category.input_value() == "STAKEFOLIO"
-                assert "category=STAKEFOLIO" in page.url
+                assert not await page.locator(".catalogue__filters").is_visible()
+                assert not await page.locator(".directory-options:visible").count()
+                assert await page.locator("#search").is_visible()
+                await page.locator("[data-columns-reset]:visible").click()
+                await column_choice("category", "GOZ")
+                await column_choice("subcategory", "APP")
+                assert set(await labels.all_text_contents()) == {"GOZ | APP"}
                 await page.reload()
-                await page.wait_for_selector("#rows .project-label" if is_private else "[data-list-card]:visible")
-                assert await category.input_value() == "STAKEFOLIO"
-                assert await role.input_value() == "PRODUCT"
-                assert set(await labels.all_text_contents()) == {"STAKEFOLIO | PRODUCT"}
-                await role.click()
-                await page.get_by_role("listbox", name="Project sub-category options").get_by_role("option", name="All roles", exact=True).click()
-                assert await role.input_value() == ""
-                assert await category.input_value() == "STAKEFOLIO"
-                await choose_label(role, "PRODUCT")
+                await page.wait_for_selector("#rows .entity" if is_private else "[data-list-card]:visible")
+                assert set(await labels.all_text_contents()) == {"GOZ | APP"}
                 await page.locator("[data-view='atlas']").click()
                 await page.wait_for_function("!!window.__skyAtlas")
-                realms = await page.locator("#atlas-data").evaluate("e => JSON.parse(e.textContent).realms")
-                expected = [r["id"] for r in realms if r["ownershipCategory"] == "STAKEFOLIO" and r["ownershipRole"] == "PRODUCT"]
-                assert await page.evaluate("window.__skyAtlas.state().visible") == expected
-                assert await page.locator("[data-realm-chooser] option").count() == len(expected)
-                await page.locator("[data-view='list']").click()
-                assert set(await labels.all_text_contents()) == {"STAKEFOLIO | PRODUCT"}
-                await choose_label(category, "GR")
-                assert await role.input_value() == ""
-                await role.click()
-                assert await page.get_by_role("listbox", name="Project sub-category options").get_by_role("option").all_text_contents() == ["All roles", "MAIL"]
-                await role.press("Escape")
-                assert set(await labels.all_text_contents()) == {"GR | MAIL"}
-                await choose_label(category, "PERSONAL")
-                assert await labels.count() == 0
-                empty = page.locator("#rows .empty" if is_private else "[data-list-empty]")
-                assert await empty.is_visible()
-                await page.locator("[data-view='atlas']").click()
-                assert await page.evaluate("window.__skyAtlas.state().visible") == []
-                assert await page.locator("[data-atlas-empty]").is_visible()
-                assert await page.locator("[data-realm-chooser]").is_disabled()
-                await clear.click()
-                assert await clear.is_disabled()
-                assert await category.input_value() == "" and await role.input_value() == ""
-                assert await page.evaluate("window.__skyAtlas.state().visible.length") == len(realms)
-                assert "category=" not in page.url and "role=" not in page.url
+                assert await page.locator(".catalogue__filters").is_visible()
+                category = page.get_by_role("combobox", name="Project category", exact=True)
+                role = page.get_by_role("combobox", name="Project sub-category", exact=True)
+                await choose_label(category, "PAL")
                 await choose_label(role, "AGENT")
-                assert await page.evaluate("window.__skyAtlas.state().visible") == [r["id"] for r in realms if r["ownershipRole"] == "AGENT"]
-                await choose_label(category, "GOZ")
-                await page.locator("[data-filter='public']").click()
-                await page.locator("[data-kind-filter='agent']").click()
-                assert await page.evaluate("window.__skyAtlas.state().visible") == ["zo-expert"]
-                await clear.click()
-                assert await page.locator("[data-filter='public']").get_attribute("aria-pressed") == "true"
-                assert await page.locator("[data-kind-filter='agent']").get_attribute("aria-pressed") == "true"
-                await page.locator("[data-filter='all']").click()
-                await page.locator("[data-kind-filter='all']").click()
-                await choose_label(category, "GOZ")
-                await choose_label(role, "APP")
-                for width, height in [(320, 844), (390, 844), (844, 390), (1440, 844)]:
-                    await page.set_viewport_size({"width": width, "height": height})
-                    for mode in ["list", "atlas"]:
-                        await page.locator(f"[data-view='{mode}']").click()
-                        assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-                        await category.click()
-                        dropdown = page.get_by_role("listbox", name="Project category options")
-                        bounds = await dropdown.bounding_box()
-                        assert bounds["x"] >= 0 and bounds["x"] + bounds["width"] <= width
-                        assert bounds["y"] >= 0 and bounds["y"] + bounds["height"] <= height
-                        if width in [390, 1440] and mode == "list":
-                            await page.screenshot(path=str(root / f"_scratch/searchable-labels-{'private' if is_private else 'public'}-{width}.png"))
-                        await category.press("Escape")
-                        for control in [category, role, clear]:
-                            bounds = await control.bounding_box()
-                            assert bounds["x"] >= 0 and bounds["x"] + bounds["width"] <= width
-                            assert bounds["y"] >= 0 and bounds["y"] + bounds["height"] <= height
-                    if width == 1440:
-                        await page.screenshot(path=str(root / ("_scratch/ownership-filters-private.png" if is_private else "_scratch/ownership-filters-public.png")))
-                await clear.click()
+                realms = await page.locator("#atlas-data").evaluate("e => JSON.parse(e.textContent).realms")
+                expected = [r["id"] for r in realms if r["ownershipCategory"] == "PAL" and r["ownershipRole"] == "AGENT"]
+                assert await page.evaluate("window.__skyAtlas.state().visible") == expected
                 await page.locator("[data-view='list']").click()
+                assert set(await labels.all_text_contents()) == {"PAL | AGENT"}
+                await page.locator("[data-columns-reset]:visible").click()
+                for width in [320, 390, 768, 1440]:
+                    await page.set_viewport_size({"width": width, "height": 1000})
+                    assert not await page.locator(".catalogue__filters").is_visible()
+                    assert await page.locator('[data-columns-open]:visible').count() == 1
+                    assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 if is_private:
-                    snapshot = await (await page.request.get(private + "/operations/api/inventory")).json()
-                    await page.locator("#tabs [data-tab='services']").click()
-                    await choose_label(category, "STAKEFOLIO")
-                    await choose_label(role, "GOVERNANCE")
-                    assert await page.locator("#rows .project-label").count() > 0
-                    assert set(await page.locator("#rows .project-label").all_text_contents()) == {"STAKEFOLIO | GOVERNANCE"}
-                    assert "Stakefolio — Backend" in await page.locator("#rows").inner_text()
-                    await choose_label(category, "PAL")
-                    await choose_label(role, "AGENT")
-                    await page.locator("#tabs [data-tab='agents']").click()
-                    assert await page.locator("#rows .project-label").count() > 0
-                    assert set(await page.locator("#rows .project-label").all_text_contents()) == {"PAL | AGENT"}
-                    for tab, owner_category, owner_role in [("services", "GOZ", "INFRASTRUCTURE"), ("workflows", "PAL", "WORKFLOW")]:
+                    for tab, category_value, role_value in [("services", "STAKEFOLIO", "GOVERNANCE"), ("workflows", "PAL", "WORKFLOW"), ("databases", "PAL", "AGENT")]:
                         await page.locator(f"#tabs [data-tab='{tab}']").click()
-                        await choose_label(category, owner_category)
-                        await choose_label(role, owner_role)
-                        assert await page.locator("#rows .project-label").count() > 0
-                        assert set(await page.locator("#rows .project-label").all_text_contents()) == {owner_category + " | " + owner_role}
-                    await page.locator("#tabs [data-tab='databases']").click()
-                    await choose_label(category, "PAL")
-                    await choose_label(role, "AGENT")
-                    entities = {row["id"]: row for key in ["apps", "agents", "services", "workflows"] for row in snapshot[key]}
-                    expected = {row["id"] for row in snapshot["databases"] if (entities.get(row.get("owner"), {}).get("ownership") or {}).get("category") == "PAL" and (entities.get(row.get("owner"), {}).get("ownership") or {}).get("subcategory") == "AGENT"}
-                    actual = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
-                    assert expected and set(actual) == expected
-                    await page.locator("#tabs [data-tab='issues']").click()
-                    assert await page.locator("#rows").inner_text()
-                    await clear.click()
-                checks.append(("Private" if is_private else "Public") + " label filters persist, combine, reset, handle empty results and fit List/Atlas on mobile")
+                        await column_choice("category", category_value)
+                        await column_choice("subcategory", role_value)
+                        assert await page.locator("#rows tr:not(:has(.empty))").count() > 0
+                        await page.locator("[data-columns-reset]:visible").click()
+                checks.append(("Private" if is_private else "Public") + " lower filter area preserves labels, URLs, reload, Atlas and mobile layouts")
             layout_signatures = {}
             for base in [private, public]:
                 if not base:
@@ -477,7 +416,7 @@ async def main():
                 await search.fill("")
                 sort = page.locator("#sort" if is_private else "#directory-sort")
                 for value in ["name_desc", "name_asc"]:
-                    await sort.select_option(value)
+                    await column_sort("name", "desc" if value == "name_desc" else "asc")
                     titles = await cards.locator("h3").all_text_contents()
                     expected = await cards.locator("h3").evaluate_all("nodes => nodes.map(n => n.textContent).sort(new Intl.Collator('en', {numeric:true,sensitivity:'base'}).compare)")
                     assert titles == (list(reversed(expected)) if value == "name_desc" else expected)

@@ -7,7 +7,7 @@ export type ProjectOwnership = {
 export const ownershipCategories: Record<ProjectOwnership["category"], string> = {
   PAL: "Kingdom of PAL projects",
   GOZ: "Garden of Zo projects",
-  GITHUB: "Projects grouped under the workspace Github folder",
+  GITHUB: "Existing ownership group for Afterimage, Itachi's Crow and Long Taa Borneo",
   GR: "GigRadar",
   PERSONAL: "Apps and tools built for the owner's own use",
   STAKEFOLIO: "Stakefolio portfolio projects and supporting services"

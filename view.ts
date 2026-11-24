@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { renderInventory, renderInventorySearch } from "./operations/view";
 import { categoryRoles, ownershipLabel, ownershipCategories, ownershipRoles, type ProjectOwnership } from "./project-labels";
 
+const columnVersion = createHash("sha256").update(readFileSync(new URL("./client/column-controls.js", import.meta.url))).digest("hex").slice(0, 12);
+const columnStyles = readFileSync(new URL("./client/column-controls.css", import.meta.url), "utf8");
 const shellVersion = createHash("sha256").update(readFileSync(new URL("./client/shell.js", import.meta.url))).digest("hex").slice(0, 12);
 const atlasVersion = createHash("sha256").update(readFileSync(new URL("./client/atlas.ts", import.meta.url))).digest("hex").slice(0, 12);
 const inventoryVersion = createHash("sha256").update(readFileSync(new URL("./operations/client.js", import.meta.url))).digest("hex").slice(0, 12);
@@ -440,6 +442,8 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
     .realm-list { position: relative; width: 100vw; margin-left: calc(50% - 50vw); padding: 18px max(20px, calc(50vw - 590px)) 28px; border-block: 1px solid rgba(228,193,120,.13); background: radial-gradient(circle at 85% 12%, rgba(58,111,115,.16), transparent 28rem), linear-gradient(180deg, rgba(4,18,25,.72), rgba(6,29,35,.94)); }
     .realm-list__bar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 4px 0 18px; color: #849c99; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     .realm-list__bar strong { color: var(--gold); }
+    body:not(.is-atlas-view) .catalogue__filters, body:not(.is-atlas-view) [data-clear-ownership], .directory-options[hidden] { display: none; }
+    #list-view .directory-search { margin: 0 0 18px; }
     .directory-search { display: grid; grid-column: 1 / -1; gap: 9px; min-width: 0; }
     .directory-search label, .inventory-filter-field label { color: #a2b9b2; font: 600 10px var(--sans); letter-spacing: .1em; text-transform: uppercase; }
     .directory-search__input { position: relative; }
@@ -617,9 +621,20 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-row__identity { align-self: center; min-width: 0; overflow-wrap: anywhere; }
       .realm-row__identity .project-label { max-width: 100%; font-size: 9px; white-space: normal; }
       .realm-row__author { flex-wrap: wrap; white-space: normal; }
-      .realm-row__details { grid-column: 2 / -1; }
-      .realm-row__actions { grid-column: 2 / -1; grid-template-columns: 1fr 1fr; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.08); }
-      .realm-row__link--github { padding-top: 0; border-top: 0; }
+      .realm-row { grid-template-columns:64px minmax(0,1fr); gap:16px; margin:16px 0; padding:20px 16px; border:1px solid rgba(167,188,182,.3); border-radius:16px; background:#10282d; }
+      .realm-row:hover { transform:none; }
+      .realm-row__number { display:none; }
+      .realm-row h3 { font-size:1.5rem; line-height:1.2; }
+      .realm-row__category { font-size:11px; letter-spacing:.08em; }
+      .realm-row__identity .project-label { margin-top:8px; font-size:12px; line-height:1.6; }
+      .realm-row__author { margin-top:8px; font-size:12px; line-height:1.6; }
+      .realm-row__author span { color:#a7bcb6; }
+      .realm-row__details { grid-column:1 / -1; }
+      .realm-row .realm-row__details p { color:#c3d4cd; font-size:14px; line-height:1.7; }
+      .realm-row__url { margin-top:12px; font-size:12px; line-height:1.6; }
+      .realm-row__actions { grid-column:1 / -1; grid-template-columns:1fr 1fr; gap:10px; padding-top:16px; border-top:1px solid rgba(255,255,255,.12); }
+      .realm-row .realm-row__link { box-sizing:border-box; min-height:44px; padding:10px; border:1px solid rgba(228,193,120,.25); border-radius:8px; font-size:11px; line-height:1.5; letter-spacing:.03em; }
+      .realm-row__link--github { color:#bacdc5; }
       .footer { width: min(100% - 28px, 1180px); padding: 16px 0 20px; gap: 10px 14px; }
       body.is-atlas-view .catalogue { width: 100%; padding: 0; }
       body.is-atlas-view .catalogue__nav { width: calc(100% - 28px); margin: 0 auto; padding: 10px 0; }
@@ -667,6 +682,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
       .realm-panel__actions { margin-top: 13px; }
       .realm-panel__footer { margin-top: 8px; }
     }
+  ${columnStyles}
   </style>
 </head>
 <body>
@@ -716,7 +732,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
             </div>
           </div>
           <div class="catalogue__filters" role="group" aria-label="Catalogue filters">
-            ${renderInventorySearch()}
+
             <div class="filter-field">
               <span class="filter-field__title">Access</span>
               <div class="filters" role="group" aria-label="Filter realms">
@@ -800,8 +816,9 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
         </nav>
         <div class="directory-results">
           <div><h3 class="directory-title" data-directory-title>All destinations</h3><p class="directory-count" aria-live="polite"><strong data-list-count>${allApps.length}</strong> of <span data-list-total>${allApps.length}</span> records</p></div>
-          <div class="directory-options"><div class="inventory-filter-field"><label for="directory-sort">Sort by</label><select id="directory-sort"><option value="default">Garden order</option><option value="name_asc">Name A–Z</option><option value="name_desc">Name Z–A</option></select></div></div>
+          <div class="directory-options" hidden><div class="inventory-filter-field"><label for="directory-sort">Sort by</label><select id="directory-sort"><option value="default">Garden order</option><option value="name_asc">Name A–Z</option><option value="name_desc">Name Z–A</option></select></div></div>
         </div>
+        ${current.access === "public" ? '<div class="directory-refine">' + renderInventorySearch() + '<div class="column-toolbar" data-columns-toolbar aria-label="Sort and filter catalogue fields"></div></div><div class="column-summary" data-columns-summary hidden role="status"></div>' : ""}
         <div class="realm-list__rows">${current.access === "private" ? "" : listCards}</div>
         ${current.access === "public" ? '<div class="realm-list__empty" data-list-empty hidden role="status">No destinations match. Adjust your filters.</div>' : ""}
         </div>
@@ -837,7 +854,7 @@ export function renderIndex(current: RouterConfig, catalog: RouterConfig[]): str
   </div>
   <script type="application/json" id="atlas-data">${JSON.stringify(atlasData).replace(/</g, '\\u003c')}</script>
   <script type="application/json" id="ownership-filter-data">${JSON.stringify(Object.fromEntries(Object.keys(ownershipCategories).map(category => [category, categoryRoles(category as ProjectOwnership["category"])])))}</script>
-  <script type="module" src="/garden-client.js?v=${shellVersion}" data-atlas-client="/atlas-client.js?v=${atlasVersion}"></script>
+  <script type="module" src="/garden-client.js?v=${shellVersion}" data-atlas-client="/atlas-client.js?v=${atlasVersion}" data-column-client="/garden-client.js?module=columns&amp;v=${columnVersion}"></script>
   ${current.access === "private" ? `<script type="module" src="/operations/client.js?v=${inventoryVersion}"></script>` : ""}
 </body>
 </html>`;

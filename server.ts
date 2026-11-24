@@ -20,7 +20,7 @@ export function createHandler(configFile: string, prewarm = false) {
     if (url.pathname === "/operations" || url.pathname.startsWith("/operations/")) return operations(request);
 
     if (url.pathname === "/garden-client.js") {
-      return new Response(Bun.file(join(import.meta.dir, "client/shell.js")), { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" } });
+      return new Response(Bun.file(join(import.meta.dir, url.searchParams.get("module") === "columns" ? "client/column-controls.js" : "client/shell.js")), { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache" } });
     }
 
     if (url.pathname === "/atlas-client.js") {

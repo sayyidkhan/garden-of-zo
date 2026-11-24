@@ -1,3 +1,4 @@
+const { createColumnControls } = await import(document.querySelector("[data-column-client]").dataset.columnClient);
 const root = document.querySelector("#inventory");
 const controls = document.querySelector(".catalogue__filters");
 const $ = selector => root.querySelector(selector) || controls.querySelector(selector);
@@ -44,7 +45,9 @@ function matchesOwnership(row) {
   const category = document.querySelector('[data-ownership-category]').value;
   const role = document.querySelector('[data-ownership-role]').value;
   const ownership = rowOwnership(row);
-  return (!category || ownership?.category === category) && (!role || ownership?.subcategory === role);
+  const filters = current === "issues" ? columnControls.state.filters : {};
+  return (Object.hasOwn(filters, "category") ? filters.category.includes(ownership?.category) : !category || ownership?.category === category) &&
+    (Object.hasOwn(filters, "subcategory") ? filters.subcategory.includes(ownership?.subcategory) : !role || ownership?.subcategory === role);
 }
 const visible = () => location.hash.split("?")[0] === "#list" && !document.hidden;
 const observing = () => !document.hidden && (visible() || !document.querySelector(".hero").hidden);
@@ -68,50 +71,186 @@ function writeLocation() {
   if ($("#filter").value) state.set("filter", $("#filter").value);
   if (current === "databases" && $("#owner").value) state.set("owner", $("#owner").value);
   if ($("#sort").value !== sortChoices[current][0][0]) state.set("sort", $("#sort").value);
+  const columns = columnControls.serialize();
+  if (columns) state.set("columns", columns);
   if (selectedId) state.set("entity", selectedId);
   history.replaceState(null, "", location.pathname + location.search + "#list" + (state.size ? "?" + state : ""));
 }
 const destination = row => catalogue.find(r => (r.kind === "agent" ? "agent:" : "app:") + r.id === row.id)?.href || row.href;
 const openLink = row => { const href = destination(row); return href && /^(https:\/\/|\/(?!\/))/.test(href) ? '<a class="open-link" href="' + escape(href) + '">Open realm ↗</a>' : ""; };
 const name = id => entity(id)?.name || id || "Unmapped";
+const ownerKey = row => row.owner || (row.systemOwnership ? "__system__" : "__unmapped__");
+const ownerName = row => row.owner ? name(row.owner) : row.systemOwnership?.name || "Unmapped";
+const ownerOption = id => id === "__system__" ? "Host system" : id === "__unmapped__" ? "Unmapped owner" : name(id);
 const link = (id, title) => id ? '<button class="entity" data-entity="' + escape(id) + '">' + escape(title || name(id)) + "</button>" : "Unmapped";
 const status = value => {
   const tone = ["fatal", "error", "backoff", "exited", "degraded"].includes(value) ? "bad" : value === "running" ? "good" : ["unknown", "unmapped", "warning", "old snapshot"].includes(value) ? "warn" : "";
   return '<span class="badge ' + tone + '">' + escape(value || "unknown") + "</span>";
 };
 const projectLabel = row => '<span class="project-label">' + escape(row.ownershipLabel || "Ownership pending") + '</span>';
-const backupEvidence = row => {
-  if (row.category === "backup") return '<span class="backup-evidence">Not assessed</span>';
+const backupStatus = row => {
   const state = row.backup?.status || "unknown";
-  const label = state === "snapshot found" ? "Local snapshot" : state === "old snapshot" ? "Older snapshot" : state === "unknown" ? "Not verified" : state;
-  const date = row.backup?.lastAt ? '<small>' + when(row.backup.lastAt) + '</small>' : '';
-  return '<span class="backup-evidence' + (state === "snapshot found" ? ' is-found' : state === "old snapshot" ? ' is-old' : '') + '" title="' + escape(state) + '">' + escape(label) + '</span>' + date;
+  if (row.backupOnly) return { label: "Source unconfirmed", tone: "is-old" };
+  const label = state === "snapshot found" ? (row.backup?.verification?.startsWith("SHA-256 checked") ? "Restore checked" : "Local snapshot") : state === "old snapshot" ? "Older snapshot" : state === "unknown" ? "Not verified" : state;
+  return { label, tone: state === "snapshot found" ? "is-found" : state === "old snapshot" ? "is-old" : "" };
 };
-const openFindingSections = new Set();
-const taskUpdateRequest = "Update Garden of Zo’s saved Zo Scheduled Tasks list. Read the current project instructions in /home/workspace/Start/garden-of-zo/zo-platform, fetch all current tasks with list_automations, and update its private operations/automations.local.json with the actual observation time, task IDs, names, schedules and active states. Keep run history unknown. Verify Garden shows the updated list; do not modify the tasks or their schedules.";
-async function copyTaskUpdate(button) {
-  const card = button.closest(".finding");
-  const feedback = card.querySelector("[data-copy-feedback]");
+const backupEvidence = row => {
+  const copies = row.backupCopies || [];
+  const { label, tone } = backupStatus(row);
+  const date = !row.backupOnly && row.backup?.lastAt ? '<small class="backup-date">' + when(row.backup.lastAt) + '</small>' : '';
+  return '<div class="backup-summary"><span class="backup-evidence ' + tone + '">' + escape(label) + '</span>' + date + '<small class="backup-provider">Backed up by: ' + escape(row.backedUpBy || 'Not confirmed') + '</small>' +
+    '<button type="button" class="backup-view" data-backup-details="' + escape(row.id) + '" aria-haspopup="dialog" aria-controls="backup-dialog" aria-label="View backups for ' + escape(row.name) + '">' +
+    '<span>' + (copies.length ? copies.length + (copies.length === 1 ? ' copy' : ' copies') + '<span aria-hidden="true"> · </span>View backups' : 'View details') + '</span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 4 6 6-6 6"/></svg></button></div>';
+};
+function databaseContext(row) {
+  const ownership = rowOwnership(row) || row.systemOwnership;
+  const copies = row.backupCopies || [];
+  const lines = [
+    "Garden of Zo — Database",
+    "Observed: " + when(snapshot.observedAt) + " SGT" + (snapshot.stale ? " (older observation)" : ""),
+    ...(snapshot.collectionError ? ["Collection warning: " + snapshot.collectionError] : []),
+    "Database: " + row.name,
+    "Record type: " + (row.backupOnly ? "Retained backups; original source unconfirmed" : row.category),
+    (row.backupOnly ? "Representative backup path: " : "Source path: ") + row.path,
+    "Owner: " + ownerName(row),
+    "Component: " + (row.component || "Not confirmed"),
+    "Category: " + (ownership?.category || "Ownership pending"),
+    "Sub-category: " + (ownership?.subcategory || "Ownership pending"),
+    "Engine: " + (row.engine || "Unknown"),
+    "Remarks: " + (row.remarks || "—"),
+    (row.backupOnly ? "Retained copy size + WAL: " : "Size + WAL: ") + bytes(row.bytes + row.walBytes) + " (" + (row.bytes + row.walBytes) + " bytes)",
+    "WAL: " + (row.walBytes || 0) + " bytes",
+    "Backup evidence: " + backupStatus(row).label,
+    "Backed up by: " + (row.backedUpBy || "Not confirmed"),
+    ...(!row.backupOnly && row.backup?.lastAt ? ["Last backup evidence: " + when(row.backup.lastAt) + " SGT"] : []),
+    ...(!row.backupOnly && row.backup?.verification ? ["Verification: " + row.backup.verification] : []),
+    "Backup copies: " + copies.length
+  ];
+  copies.forEach((copy, i) => {
+    lines.push("Backup " + (i + 1) + ": " + copy.path);
+    lines.push("  Created by: " + (copy.createdBy || "Not confirmed") + " (recorded backup location)");
+    if (copy.modifiedAt) lines.push("  File modified: " + when(copy.modifiedAt) + " SGT");
+    if (Number.isFinite(copy.bytes)) lines.push("  Size + WAL: " + (copy.bytes + (copy.walBytes || 0)) + " bytes");
+    lines.push("  Association: " + (copy.association || "Not recorded"));
+  });
+  if (!copies.length) lines.push("No backup location recorded; this does not confirm backups are missing.");
+  lines.push("Local copies do not establish off-host protection or full application recovery.");
+  return lines.join("\n");
+}
+const copyRowIcon = '<svg class="copy-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4"/></svg>';
+const copyRowCheck = '<svg class="copy-row-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
+const copyRowButton = row => '<button type="button" class="copy-row" data-copy-row="' + escape(row.id) + '" aria-label="Copy row for ' + escape(row.name) + '" title="Copy row">' + copyRowIcon + copyRowCheck + '<span class="copy-row-label">Copy row</span></button>';
+let copyReturnFocus;
+async function copyDatabaseRow(button) {
+  const row = snapshot?.databases.find(item => item.id === button.dataset.copyRow);
+  if (!row) return;
+  const text = databaseContext(row);
   try {
-    await navigator.clipboard.writeText(taskUpdateRequest);
-    feedback.textContent = "Copied. Paste into Zo chat and send to update Garden’s list.";
+    await navigator.clipboard.writeText(text);
+    button.classList.add("is-copied");
+    button.querySelector(".copy-row-label").textContent = "Copied";
+    button.title = "Copied";
+    $("#copy-feedback").textContent = "Copied " + row.name + " with ownership and backup details.";
+    clearTimeout(button.copyResetTimer);
+    button.copyResetTimer = setTimeout(() => {
+      if (!button.isConnected) return;
+      button.classList.remove("is-copied");
+      button.querySelector(".copy-row-label").textContent = "Copy row";
+      button.title = "Copy row";
+    }, 2500);
   } catch {
-    const request = card.querySelector("[data-task-request]");
-    request.hidden = false;
-    request.value = taskUpdateRequest;
-    request.focus();
-    request.select();
-    feedback.textContent = "Automatic copying is unavailable. Copy the selected request below, then paste it into Zo chat and send.";
+    copyReturnFocus = button;
+    $("#copy-row-text").value = text;
+    $("#copy-row-dialog").showModal();
+    $("#copy-row-text").focus();
+    $("#copy-row-text").select();
   }
+}
+const backupPath = (path, label) => '<div class="backup-path"><code>' + escape(path) + '</code><button type="button" class="button" data-copy-path="' + escape(path) + '" aria-label="Copy ' + escape(label) + ' path">Copy path</button></div>';
+let selectedBackupId;
+function backupDetails(id) {
+  const row = snapshot?.databases.find(item => item.id === id);
+  if (!row) return;
+  selectedBackupId = id;
+  const { label, tone } = backupStatus(row);
+  const copies = row.backupCopies || [];
+  $("#backup-title").textContent = row.name;
+  $("#backup-copy-action").innerHTML = copyRowButton(row);
+  const explanation = !copies.length
+    ? 'Garden has no backup location recorded for this database. This does not confirm that backups are missing.'
+    : row.backupOnly ? 'These retained copies are recorded, but their original database has not been confirmed.'
+    : 'Garden records ' + copies.length + (copies.length === 1 ? ' local backup copy.' : ' local backup copies.');
+  const nextStep = !copies.length
+    ? 'Check where this database is backed up and record the location and latest successful backup.'
+    : row.backupOnly ? 'Confirm which database these copies belong to before relying on them for recovery.'
+    : row.backup?.status === 'old snapshot' ? 'Check for a newer backup and confirm the saved copy can be restored.'
+    : 'Confirm the saved copy can be restored and whether a separate off-host copy exists.';
+  $("#backup-body").innerHTML = '<section class="backup-insight"><div class="backup-overview"><span class="backup-evidence ' + tone + '">' + escape(label) + '</span><span>' + escape(ownerName(row)) + '</span></div><p class="backup-explanation">' + escape(explanation) + '</p><p class="backup-provider">Backed up by: ' + escape(row.backedUpBy || 'Not confirmed') + '</p><p class="backup-note">Names identify the backup tool from its recorded storage location; they do not confirm an automatic schedule. Garden checks app and agent backups without creating an extra copy.</p><div class="backup-next"><h3>What to check</h3><p>' + escape(nextStep) + '</p></div></section>' +
+    '<section class="backup-section"><h3>Source database</h3>' +
+    (row.backupOnly ? '<p class="backup-note">The original database has not been confirmed. These retained copies are kept together for review.</p>' : backupPath(row.path, "source database")) + '</section>' +
+    '<section class="backup-section"><h3>Backup locations <span>' + copies.length + '</span></h3>' +
+    (copies.length ? '<ol class="backup-copies">' + copies.map((copy, i) => '<li><div class="backup-copy-heading"><strong>Copy ' + (i + 1) + '</strong><span>' +
+      (Number.isFinite(copy.bytes) ? bytes(copy.bytes + (copy.walBytes || 0)) : '') + '</span></div>' +
+      '<p class="backup-provider">Created by: ' + escape(copy.createdBy || 'Not confirmed') + '</p>' + backupPath(copy.path, 'backup ' + (i + 1)) + '<p class="backup-note">' + escape(copy.association) + '</p>' +
+      (copy.modifiedAt ? '<p class="backup-note">File modified ' + when(copy.modifiedAt) + ' SGT</p>' : '') + '</li>').join('') + '</ol>' :
+      '<p class="backup-note">No locations to show.</p>') + '</section>' +
+    (!row.backupOnly && row.backup?.lastAt ? '<p class="backup-note">Last backup evidence · ' + when(row.backup.lastAt) + ' SGT</p>' : '') +
+    (row.backup?.verification && !row.backupOnly ? '<p class="backup-note">' + escape(row.backup.verification) + '</p>' : '') +
+    '<p class="backup-limits">Local copies do not establish off-host protection or full application recovery.</p>';
+  if (!$("#backup-dialog").open) $("#backup-dialog").showModal();
+}
+async function copyBackupPath(button) {
+  try {
+    await navigator.clipboard.writeText(button.dataset.copyPath);
+    button.textContent = "Copied";
+  } catch {
+    const selection = getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(button.previousElementSibling);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    button.textContent = "Path selected";
+  }
+}
+const openFindingSections = new Set();
+let updatingTasks = false;
+let taskUpdateMessage = "";
+function taskUpdateControls() {
+  for (const button of root.querySelectorAll("[data-update-tasks]")) {
+    button.disabled = updatingTasks;
+    button.textContent = updatingTasks ? "Updating task list…" : "Update task list";
+  }
+  for (const feedback of root.querySelectorAll("[data-task-feedback]")) feedback.textContent = taskUpdateMessage;
+}
+async function updateTaskList() {
+  if (updatingTasks) return;
+  updatingTasks = true;
+  taskUpdateMessage = "Getting the latest tasks from Zo…";
+  taskUpdateControls();
+  try {
+    const response = await fetch("/operations/api/scheduled-tasks/sync", {
+      method: "POST", headers: { Accept: "application/json", "X-Garden-Action": "sync-tasks" },
+      signal: AbortSignal.timeout(30000)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "The task list could not be updated. Try again.");
+    taskUpdateMessage = "Updated " + result.count + " scheduled tasks · " + when(result.observedAt) + " SGT. Your schedules are unchanged.";
+    while (busy) await new Promise(resolve => setTimeout(resolve, 100));
+    await refresh(true);
+  } catch (error) {
+    taskUpdateMessage = error.name === "TimeoutError"
+      ? "The update took too long. Your previous list is still shown; try again."
+      : error.message || "Could not connect. Your previous list is still shown; try again.";
+  } finally { updatingTasks = false; taskUpdateControls(); }
 }
 function findingDetails(row) {  if (row.kind === "scheduled-task-list") return '<article class="finding finding-tasks">' +
     '<header class="finding-heading"><div><span class="finding-kicker">Saved list needs attention</span><h4>' + escape(row.message) + '</h4></div></header>' +
-    '<p class="finding-context">GOZ | PLATFORM | Garden of Zo · Last copied: ' + (row.observedAt ? when(row.observedAt) + ' SGT' : 'Unknown') + '</p>' +
+    '<p class="finding-context">GOZ | PLATFORM | Garden of Zo · Last updated: ' + (row.observedAt ? when(row.observedAt) + ' SGT' : 'Unknown') + '</p>' +
     '<div class="finding-guide"><section class="finding-meaning"><h5>What this means</h5><p>' + escape(row.reason) + '</p></section>' +
     '<section class="finding-next"><h5>What to do</h5><p>' + escape(row.nextStep) + '</p>' +
-    '<div class="finding-task-actions"><button class="button" type="button" data-copy-task-update>Copy update request</button>' +
+    '<div class="finding-task-actions"><button class="button" type="button" data-update-tasks>Update task list</button>' +
     '<a class="button" href="https://sayyidkhan.zo.computer/?t=automations" target="_blank" rel="noopener noreferrer">Open Zo Scheduled Tasks ↗</a></div>' +
-    '<p data-copy-feedback role="status" aria-live="polite"></p><textarea data-task-request aria-label="Request to paste into Zo chat" readonly hidden></textarea>' +
+    '<p data-task-feedback role="status" aria-live="polite"></p>' +
     '</section></div></article>';
 
   const heading = '<header class="finding-heading"><span class="finding-indicator" aria-hidden="true">!</span><div><span class="finding-kicker">' + escape(row.severity === "error" ? "Needs attention" : "Evidence to check") + '</span><h4>' + escape(row.message) + '</h4></div>' + status(row.severity === "warning" ? "Needs checking" : row.severity) + '</header>';
@@ -162,12 +301,84 @@ const definitions = {
   agents: ["Agent", "Role / runtime", "Process observation", "Registry state"],
   services: ["Service", "Process state", "Working directory", "Inventory mapping"],
   workflows: ["Workflow", "Trigger", "Declared state", "Last run evidence"],
-  databases: ["Database", "Owner", "Size + WAL", "Backup evidence"],
+  databases: ["Database", "Owner", "Component", "Category", "Sub-category", "Size + WAL", "Backup evidence", "Remarks"],
   issues: ["Severity", "Finding", "Entity"]
 };
+const field = (key, label, value, extra = {}) => ({ key, label, value, ...extra });
+const categoryValue = row => rowOwnership(row)?.category || row.systemOwnership?.category || "Ownership pending";
+const roleValue = row => rowOwnership(row)?.subcategory || row.systemOwnership?.subcategory || "Ownership pending";
+const nameField = label => field("name", label, row => row.name);
+const labelFields = [field("category", "Category", categoryValue), field("subcategory", "Sub-category", roleValue)];
+const columnDefinitions = {
+  apps: [nameField("Name"), ...labelFields, field("access", "Access", row => row.access), field("status", "Process state", row => row.status)],
+  agents: [nameField("Name"), ...labelFields, field("runtime", "Runtime", row => row.runtime), field("status", "Process state", row => row.status), field("enabled", "Registry state", row => row.enabled ? "Enabled" : "Disabled")],
+  services: [nameField("Service"), field("status", "Process state", row => row.status), field("workdir", "Working directory", row => row.workdir), field("mapped", "Inventory mapping", row => row.mapped ? "Linked" : "Unmapped")],
+  workflows: [nameField("Workflow"), field("trigger", "Trigger", row => row.trigger), field("status", "Declared state", row => row.status),
+    field("lastRun", "Last run evidence", row => (row.lastRun?.status || "Unknown") + (row.lastRun?.lastAt ? " · " + when(row.lastRun.lastAt) : ""), { numeric: true, date: true, sortValue: row => { const value = row.lastRun?.lastAt; return value ? typeof value === "number" ? value * 1000 : Date.parse(value) || null : null; } })],
+  databases: [nameField("Database"), field("owner", "Owner", ownerName), field("component", "Component", row => row.component || "Not confirmed"), ...labelFields, field("size", "Size + WAL", row => row.bytes + row.walBytes, { numeric: true, format: value => bytes(Number(value)) }),
+    field("backup", "Backup evidence", row => row.category === "backup" ? "Retained copies · source unconfirmed" : row.backup?.status === "snapshot found" ? "Restore checked · local" : row.backup?.status === "unknown" ? "Not verified" : row.backup?.status || "Unknown", { relatedKeys: ["backup", "backupCount"] }), field("remarks", "Remarks", row => row.remarks || "—")],
+  issues: [field("severity", "Severity", row => row.severity), field("finding", "Finding", row => row.message), field("entity", "Entity", row => name(row.entity))]
+};
+const tableKeys = Object.fromEntries(Object.entries(columnDefinitions).map(([key, columns]) => [key, columns.map(column => column.key)]));
+columnDefinitions.databases.push(field("type", "Database type", row => row.category));
+columnDefinitions.databases.push(field("backedUpBy", "Backed up by", row => row.backedUpBy || "Not confirmed"));
+columnDefinitions.databases.push(field("backupCount", "Backup count", row => (row.backupCopies || []).length, { numeric: true, format: value => value + (Number(value) === 1 ? " copy" : " copies"), relatedKeys: ["backup", "backupCount"] }));
+columnDefinitions.workflows.push(field("type", "Workflow type", row => row.type));
+for (const section of ["services", "workflows", "issues"]) columnDefinitions[section].push(...labelFields.map(column => section !== "issues" ? column : {
+  ...column, values: row => row.affected ? [...new Set(row.affected.map(entity).filter(Boolean).map(column.value))] : [column.value(row)]
+}));
+const seededLabels = new Set();
+function migrateFilters() {
+  if (!snapshot) return;
+  const state = columnControls.state;
+  if (current === "databases" && state.filters.owner) {
+    state.filters.owner = [...new Set(state.filters.owner.map(value => value === "orin-hermes-dashboard" ? name("agent:orin") : value))];
+  }
+  if (!seededLabels.has(current)) {
+    seededLabels.add(current);
+    const labels = new URLSearchParams(location.search);
+    if (!Object.hasOwn(state.filters, "category") && labels.get("category")) state.filters.category = [labels.get("category")];
+    if (!Object.hasOwn(state.filters, "subcategory") && labels.get("role")) state.filters.subcategory = [labels.get("role")];
+    const access = document.querySelector('[data-filter][aria-pressed="true"]').dataset.filter;
+    if (current === "apps" && !Object.hasOwn(state.filters, "access") && access !== "all") state.filters.access = [access];
+  }
+  const filter = $("#filter").value;
+  if (filter) {
+    const matches = snapshot[current].filter(row => matchesFilter(row, filter));
+    const [legacyKey] = filter.split(":");
+    const key = current === "databases" && legacyKey === "category" ? "type" : legacyKey;
+    const column = columnDefinitions[current].find(column => column.key === key);
+    if (column) state.filters[key] = [...new Set(matches.map(row => String(column.value(row) ?? "")))];
+    $("#filter").value = "";
+  }
+  const owner = $("#owner").value;
+  if (current === "databases" && owner) {
+    state.filters.owner = [...new Set(snapshot.databases.filter(row => ownerKey(row) === owner).map(ownerName))];
+    $("#owner").value = "";
+  }
+  const order = $("#sort").value;
+  if (!state.sort && order && order !== sortChoices[current][0][0] && order !== "column") {
+    const key = order.startsWith("name_") ? (current === "issues" ? "finding" : "name") : order.startsWith("size_") ? "size" : order.startsWith("last_") ? "lastRun" : order === "mapping" ? "mapped" : order;
+    if (columnDefinitions[current].some(column => column.key === key)) state.sort = { key, direction: order.endsWith("_desc") ? "desc" : "asc" };
+  }
+}
+let columnRows = [];
+const columnControls = createColumnControls({
+  rows: () => columnRows,
+  onChange: ({ sortChanged }) => {
+    $("#filter").value = "";
+    $("#owner").value = "";
+    document.dispatchEvent(new CustomEvent("garden:listlabels", { detail: columnControls.state }));
+    options();
+    if (sortChanged) $("#sort").value = columnControls.state.sort ? "column" : sortChoices[current][0][0];
+    writeLocation();
+    render();
+  }
+});
 const option = (value, label) => '<option value="' + escape(value) + '">' + escape(label) + '</option>';
 const unique = values => [...new Set(values.filter(v => v !== null && v !== undefined && v !== ""))].sort(collator.compare);
 function options() {
+  columnControls.activate(current, columnDefinitions[current]);
   const previous = { filter: $("#filter").value, owner: $("#owner").value, sort: $("#sort").value };
   const rows = snapshot?.[current] || [];
   const groups = current === "databases" ? [["category", "Category", rows.map(r => r.category)], ["backup", "Backup", rows.map(r => r.backup?.status)]] :
@@ -181,12 +392,12 @@ function options() {
   $("#filter").value = previous.filter;
   if (!$("#filter").selectedOptions.length) $("#filter").value = "";
   $("#owner-field").hidden = current !== "databases";
-  const owners = current === "databases" ? unique(rows.map(r => r.owner || "__unmapped__")).sort((a, b) => collator.compare(a === "__unmapped__" ? "Unmapped owner" : name(a), b === "__unmapped__" ? "Unmapped owner" : name(b))) : [];
-  $("#owner").innerHTML = option("", "All owners") + owners.map(id => option(id, id === "__unmapped__" ? "Unmapped owner" : name(id)));
-  $("#owner").value = previous.owner;
+  const owners = current === "databases" ? unique(rows.map(ownerKey)).sort((a, b) => collator.compare(ownerOption(a), ownerOption(b))) : [];
+  $("#owner").innerHTML = option("", "All owners") + owners.map(id => option(id, ownerOption(id)));
+  $("#owner").value = previous.owner === "service:orin-hermes-dashboard" ? "agent:orin" : previous.owner;
   if (!$("#owner").selectedOptions.length) $("#owner").value = "";
-  $("#sort").innerHTML = sortChoices[current].map(([value, label]) => option(value, label)).join("");
-  $("#sort").value = previous.sort;
+  $("#sort").innerHTML = sortChoices[current].map(([value, label]) => option(value, label)).join("") + (columnControls.state.sort ? option("column", "Column: " + columnDefinitions[current].find(column => column.key === columnControls.state.sort.key).label + (columnControls.state.sort.direction === "asc" ? " ↑" : " ↓")) : "");
+  $("#sort").value = columnControls.state.sort ? "column" : previous.sort;
   if (!$("#sort").selectedOptions.length) $("#sort").value = sortChoices[current][0][0];
 }
 function matchesFilter(row, value) {
@@ -197,6 +408,7 @@ function matchesFilter(row, value) {
   return String(field === "backup" ? row.backup?.status : row[field]) === expected;
 }
 function sortRows(rows) {
+  if (columnControls.state.sort) return columnControls.sort(rows);
   const order = $("#sort").value;
   const text = (a, b) => collator.compare(String(a ?? ""), String(b ?? ""));
   const lastAt = row => { const value = row.lastRun?.lastAt; return typeof value === "number" ? value * 1000 : Date.parse(value || "") || 0; };
@@ -208,7 +420,7 @@ function sortRows(rows) {
     else if (order === "last_desc" || order === "last_asc") result = !lastAt(a) ? 1 : !lastAt(b) ? -1 : order === "last_desc" ? lastAt(b) - lastAt(a) : lastAt(a) - lastAt(b);
     else if (order === "severity") result = ({ error: 0, warning: 1, info: 2 }[a.severity] ?? 3) - ({ error: 0, warning: 1, info: 2 }[b.severity] ?? 3);
     else if (order === "mapping") result = Number(a.mapped) - Number(b.mapped);
-    else if (order === "owner") result = text(a.owner ? name(a.owner) : "Unmapped", b.owner ? name(b.owner) : "Unmapped");
+    else if (order === "owner") result = text(ownerName(a), ownerName(b));
     else if (order === "backup") result = text(a.backup?.status, b.backup?.status);
     else if (order === "access" || order === "status" || order === "runtime") result = text(a[order], b[order]);
     else result = text(a.name || a.message, b.name || b.message);
@@ -224,6 +436,10 @@ function select(section) {
   options();
   writeLocation();
   render();
+}
+function renderColumnToolbar() {
+  const toolbar = $("[data-columns-toolbar]");
+  columnControls.render(toolbar, false, ["apps", "agents", "issues"].includes(current) || innerWidth <= 760 ? undefined : columnDefinitions[current].filter(column => !tableKeys[current].includes(column.key)).map(column => column.key));
 }
 function render() {
   if (!snapshot) return;
@@ -244,10 +460,12 @@ function render() {
   const filter = $("#filter").value;
   const owner = $("#owner").value;
   const access = document.querySelector('[data-filter][aria-pressed="true"]').dataset.filter;
-  const rows = sortRows(snapshot[current].filter(row => (!query || (JSON.stringify(row) + name(row.owner)).toLowerCase().includes(query)) &&
-    (row.affected ? row.affected.some(id => entity(id) && matchesOwnership(entity(id))) : matchesOwnership(row)) && matchesFilter(row, filter) && (current !== "databases" || !owner || (row.owner || "__unmapped__") === owner) &&
-    (!realms || access === "all" || (row.access || catalogue.find(realm => (realm.kind === "agent" ? "agent:" : "app:") + realm.id === row.id)?.access || "private") === access)));
-  $("#head").innerHTML = "<tr>" + definitions[current].map(v => "<th scope='col'>" + v + "</th>").join("") + "</tr>";
+  migrateFilters();
+  columnRows = snapshot[current].filter(row => !query || (JSON.stringify(row) + name(row.owner)).toLowerCase().includes(query));
+  const rows = sortRows(columnControls.filter(columnRows));
+  columnControls.render($("#head"), true, tableKeys[current]);
+  renderColumnToolbar();
+  columnControls.summary($("[data-columns-summary]"));
   $("#rows").innerHTML = rows.map(row => {
     if (realms) {
       const realm = catalogue.find(r => (r.kind === "agent" ? "agent:" : "app:") + r.id === row.id);
@@ -266,20 +484,25 @@ function render() {
       const directory = row.path.slice(0, -row.name.length).replace(/\/$/, "");
       const segments = directory.split("/").filter(Boolean);
       const location = (segments.length > 4 ? "…/" : "/") + segments.slice(-4).join("/");
+      const ownership = rowOwnership(row);
       cells = [
-        '<div class="database-identity"><button class="entity database-name" data-entity="' + escape(row.id) + '" title="' + escape(row.name) + '">' + escape(row.name) + '</button><div class="database-meta"><span class="database-category">' + escape(row.category) + '</span><span class="database-location" title="' + escape(row.path) + '">' + escape(location) + '</span></div></div>',
-        '<span class="database-owner">' + link(row.owner) + '</span>',
+        '<div class="database-identity"><div class="database-heading"><button class="entity database-name" data-entity="' + escape(row.id) + '" title="' + escape(row.name) + '">' + escape(row.name) + '</button>' + copyRowButton(row) + '</div><div class="database-meta"><span class="database-category">' + escape(row.backupOnly ? "retained backups" : row.category) + '</span><span class="database-location" title="' + escape(row.path) + '">' + escape(location) + '</span></div></div>',
+        '<span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) + '</span>',
+        '<span class="database-component">' + (row.componentEntity ? link(row.componentEntity, row.component) : escape(row.component || "Not confirmed")) + '</span>',        '<span class="database-ownership">' + escape(ownership?.category || row.systemOwnership?.category || "Ownership pending") + '</span>',
+        '<span class="database-ownership">' + escape(ownership?.subcategory || row.systemOwnership?.subcategory || "Ownership pending") + '</span>',
         '<span class="database-storage"><strong>' + bytes(row.bytes + row.walBytes) + '</strong><small>' + escape(row.engine) + (row.walBytes ? ' · WAL ' + bytes(row.walBytes) : '') + '</small></span>',
-        backupEvidence(row)
+        backupEvidence(row),
+        '<span class="database-remarks">' + escape(row.remarks || '—').replace(/^Created by Hermes framework\./, '<strong>Created by Hermes framework.</strong>') + '</span>'
       ];
     }
     if (current === "issues") return '<tr><td colspan="3" class="finding-cell">' + findingDetails(row) + '</td></tr>';
     return "<tr>" + cells.map((cell, i) => '<td data-label="' + escape(definitions[current][i]) + '">' + cell + "</td>").join("") + "</tr>";
-  }).join("") || '<tr><td colspan="4" class="empty">No matching records. Try another search or filter.</td></tr>';
+  }).join("") || '<tr><td colspan="' + definitions[current].length + '" class="empty">No matching records. Try another search or filter.</td></tr>';
   const total = current === "databases" ? " · " + bytes(rows.reduce((sum, r) => sum + r.bytes + r.walBytes, 0)) + " including WAL" : "";
   const scheduleNote = current === "workflows" ? " · Zo Scheduled Tasks: saved list updated " + when(snapshot.coverage.automations.observedAt) + " SGT; run history unavailable." : "";
   $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total;
   $("#evidence-caption").textContent = (["services", "agents", "apps"].includes(current) ? "Running confirms a process exists; application health is not verified." : "") + scheduleNote;
+  taskUpdateControls();
 }
 function detail(id) {
   const row = entity(id);
@@ -290,7 +513,7 @@ function detail(id) {
   writeLocation();
   $("#detail-title").textContent = row.name;
   const fields = Object.entries(row).filter(([key]) => !["id", "name"].includes(key));
-  $("#detail-body").innerHTML = "<dl>" + fields.map(([key,value]) => "<dt>" + escape(key.replace(/([A-Z])/g, " $1")) + "</dt><dd>" + (key === "href" && /^https:\/\//.test(value) ? '<a target="_blank" rel="noreferrer" href="' + escape(value) + '">Open destination ↗</a>' : escape(typeof value === "object" ? JSON.stringify(value, null, 2) : value)) + "</dd>").join("") + "</dl>";
+  $("#detail-body").innerHTML = "<dl>" + fields.map(([key,value]) => "<dt>" + escape(key.replace(/([A-Z])/g, " $1")) + "</dt><dd>" + (key === "owner" ? link(value) : key === "componentEntity" ? link(value, row.component) : key === "href" && /^https:\/\//.test(value) ? '<a target="_blank" rel="noreferrer" href="' + escape(value) + '">Open destination ↗</a>' : escape(typeof value === "object" ? JSON.stringify(value, null, 2) : value)) + "</dd>").join("") + "</dl>";
   for (const [direction, heading] of [["from", "Depends on / uses"], ["to", "Used by / affected consumers"]]) {
     const other = direction === "from" ? "to" : "from";
     const related = snapshot.dependencies.filter(d => d[direction] === id);
@@ -321,7 +544,8 @@ async function refresh(fresh = false) {
     const sourceNames = { databases: "Database scan", automations: "Zo Scheduled Tasks", apps: "Apps", services: "Services", agents: "Agents", backups: "Backup evidence", workflows: "Workflows" };
     const fieldNames = { roots: "Folders checked", complete: "Scan complete", excludedDirectories: "Folders skipped", unreadablePaths: "Unreadable paths", status: "Source status", observedAt: "Source updated", note: "Limitations" };
     const evidenceValue = (key, value) => key === "observedAt" ? when(value) + " SGT" : typeof value === "boolean" ? (value ? "Yes" : "No") : Array.isArray(value) ? value.join(" · ") : String(value ?? "Unknown");
-    $("#coverage").innerHTML = Object.entries(snapshot.coverage).map(([key, value]) => '<section class="coverage-source"><h3>' + escape(sourceNames[key] || key) + '</h3>' + (value && typeof value === "object" ? '<dl>' + Object.entries(value).map(([field, evidence]) => '<dt>' + escape(fieldNames[field] || field) + '</dt><dd>' + escape(evidenceValue(field, evidence)) + '</dd>').join("") + '</dl>' : '<p>' + escape(value) + '</p>') + '</section>').join("");
+    $("#coverage").innerHTML = Object.entries(snapshot.coverage).map(([key, value]) => '<section class="coverage-source"><h3>' + escape(sourceNames[key] || key) + '</h3>' + (value && typeof value === "object" ? '<dl>' + Object.entries(value).map(([field, evidence]) => '<dt>' + escape(fieldNames[field] || field) + '</dt><dd>' + escape(evidenceValue(field, evidence)) + '</dd>').join("") + '</dl>' : '<p>' + escape(value) + '</p>') +
+      (key === "automations" ? '<button class="button" type="button" data-update-tasks>Update task list</button><p data-task-feedback role="status" aria-live="polite"></p>' : '') + '</section>').join("");
     const state = params();
     options();
     $("#filter").value = state.get("filter") || "";
@@ -329,6 +553,7 @@ async function refresh(fresh = false) {
     $("#sort").value = state.get("sort") || sortChoices[current][0][0];
     if (!$("#sort").selectedOptions.length) $("#sort").value = sortChoices[current][0][0];
     render();
+    if ($("#backup-dialog").open && selectedBackupId) backupDetails(selectedBackupId);
     if (visible() && params().get("entity")) detail(params().get("entity"));
     if (snapshot.stale && observing() && staleRetries < 3) {
       staleRetries++;
@@ -346,25 +571,43 @@ root.addEventListener("toggle", event => {
   if (event.target.open) openFindingSections.add(key);
   else openFindingSections.delete(key);
 }, true);
-root.addEventListener("click", event => {  const copy = event.target.closest("[data-copy-task-update]");
-  if (copy) void copyTaskUpdate(copy);
+root.addEventListener("click", event => {  const update = event.target.closest("[data-update-tasks]");
+  if (update) void updateTaskList();
   const tab = event.target.closest("[data-tab]");
   if (tab) select(tab.dataset.tab);
+  const backup = event.target.closest("[data-backup-details]");
+  if (backup) backupDetails(backup.dataset.backupDetails);
+  const copyRow = event.target.closest("[data-copy-row]");
+  if (copyRow) void copyDatabaseRow(copyRow);
+  const copy = event.target.closest("[data-copy-path]");
+  if (copy) void copyBackupPath(copy);
   const target = event.target.closest("[data-entity]");
   if (target) detail(target.dataset.entity);
+});
+$("#close-copy-row").addEventListener("click", () => $("#copy-row-dialog").close());
+$("#copy-row-dialog").addEventListener("close", () => {
+  if (copyReturnFocus?.isConnected) copyReturnFocus.focus();
+  copyReturnFocus = undefined;
+});
+$("#close-backups").addEventListener("click", () => $("#backup-dialog").close());
+$("#backup-dialog").addEventListener("close", () => {
+  const id = selectedBackupId;
+  selectedBackupId = undefined;
+  root.querySelector('[data-backup-details="' + CSS.escape(id || "") + '"]')?.focus();
 });
 $("#close").addEventListener("click", () => $("#detail").close());
 $("#detail").addEventListener("close", () => { selectedId = undefined; if (visible()) writeLocation(); });
 $("#search").addEventListener("input", () => { writeLocation(); render(); });
 $("#filter").addEventListener("change", () => { writeLocation(); render(); });
 $("#owner").addEventListener("change", () => { writeLocation(); render(); });
-$("#sort").addEventListener("change", () => { writeLocation(); render(); });
+$("#sort").addEventListener("change", () => { columnControls.clearSort(); options(); writeLocation(); render(); });
 $("#refresh").addEventListener("click", () => refresh(true));
 $("#inventory-info").addEventListener("click", () => $("#inventory-info-dialog").showModal());
 $("#close-inventory-info").addEventListener("click", () => $("#inventory-info-dialog").close());
 $("#inventory-info-dialog").addEventListener("close", () => $("#inventory-info").focus());
 function sync() {
   if (!visible()) {
+    if ($("#backup-dialog").open) $("#backup-dialog").close();
     if ($("#detail").open) $("#detail").close();
     if ($("#inventory-info-dialog").open) $("#inventory-info-dialog").close();
     if (observing() && !snapshot) refresh();
@@ -372,6 +615,9 @@ function sync() {
   }
   const state = params();
   current = sections[state.get("tab")] ? state.get("tab") : "apps";
+  columnControls.activate(current, columnDefinitions[current]);
+  columnControls.restore(state.get("columns"));
+  seededLabels.delete(current);
   options();
   $("#search").value = state.get("q") || "";
   $("#filter").value = state.get("filter") || "";
@@ -386,7 +632,14 @@ function sync() {
 }
 document.addEventListener("garden:viewchange", sync);
 document.addEventListener("garden:cataloguefilterchange", render);
-document.addEventListener("garden:ownershipchange", render);
+document.addEventListener("garden:ownershipchange", () => {
+  for (const [key, selector] of [["category", "[data-ownership-category]"], ["subcategory", "[data-ownership-role]"]]) {
+    const value = document.querySelector(selector).value;
+    if (value) columnControls.state.filters[key] = [value]; else delete columnControls.state.filters[key];
+  }
+  render();
+});
+addEventListener("resize", () => { if (visible()) renderColumnToolbar(); });
 addEventListener("hashchange", sync);
 document.addEventListener("visibilitychange", sync);
 options();

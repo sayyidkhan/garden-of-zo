@@ -36,7 +36,6 @@
 #inventory h3:not(.directory-title):not(.realm-row h3) { margin:2px 0 0; font:500 32px/1.2 var(--serif); color:var(--text) }
 #inventory #caption { margin:8px 0 0 }
 #inventory #evidence-caption { color:#94aea5; font-size:11px; margin:0 0 14px }
-#inventory .realm-row__details p { color:#a9bbb7; font-size:.78rem; line-height:1.55 }
 #inventory .realm-row .entity { font:inherit; color:inherit }
 #inventory .realm-row__link { text-decoration:none }
 #inventory .realm-row__link--detail { padding:0; border:0; background:none; text-align:left; cursor:pointer; font-size:.62rem; font-weight:800 }
@@ -53,12 +52,20 @@
 #inventory .badge.good::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor }
 #inventory .badge.bad { color:var(--red); border-color:rgba(255,173,169,.3) }
 #inventory .badge.warn { color:var(--gold); border-color:rgba(228,193,120,.25) }
-#inventory .database-table th:nth-child(1) { width:44% }
-#inventory .database-table th:nth-child(2) { width:19% }
-#inventory .database-table th:nth-child(3) { width:16% }
-#inventory .database-table th:nth-child(4) { width:21% }
-#inventory .database-table td { vertical-align:middle; padding-block:15px }
-#inventory .database-table td:first-child { min-width:0 }
+#inventory table.database-table th:nth-child(1) { width:19% }
+#inventory table.database-table th:nth-child(2) { width:11% }
+#inventory table.database-table th:nth-child(3) { width:10% }
+#inventory table.database-table th:nth-child(4) { width:7% }
+#inventory table.database-table th:nth-child(5) { width:10% }
+#inventory table.database-table th:nth-child(6) { width:8% }
+#inventory table.database-table th:nth-child(7) { width:16% }
+#inventory table.database-table th:nth-child(8) { width:19% }
+#inventory .database-component,#inventory .database-component .entity { color:#b8c9bc; font-size:12px; line-height:1.5 }
+#inventory .database-remarks { display:block; color:#b6c8c1; font-size:12px; line-height:1.6; overflow-wrap:anywhere }
+#inventory .database-ownership { color:#b8c9bc; font-size:11px }
+#inventory table.database-table .backup-evidence { white-space:normal }
+#inventory table.database-table td { vertical-align:middle; padding-block:15px }
+#inventory table.database-table td:first-child { min-width:0 }
 #inventory .database-identity { min-width:0 }
 #inventory .database-name { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:700 }
 #inventory .database-meta { display:flex; align-items:center; gap:8px; min-width:0; margin-top:4px; color:#8ea9a1; font-size:10px }
@@ -75,7 +82,7 @@
 #inventory .backup-evidence.is-found::before { background:var(--green) }
 #inventory .backup-evidence.is-old { color:var(--gold) }
 #inventory .backup-evidence.is-old::before { background:var(--gold) }
-#inventory .database-table td:last-child small { margin-left:13px; color:#8ea9a1 }
+#inventory table.database-table td:last-child small { margin-left:13px; color:#8ea9a1 }
 #inventory .realm-table { border-collapse:collapse }
 #inventory .realm-table .realm-row { animation:none }
 #inventory .realm-table tbody tr:hover { background:none }
@@ -129,6 +136,7 @@
 }
 @media(max-width:600px) {
   #inventory .toolbar { align-items:stretch; flex-direction:column; gap:14px }
+  #inventory .realm-row__link--detail { font-size:11px }
   #inventory #inventory-info-dialog { padding:20px }
   #inventory .coverage-source dl { grid-template-columns:1fr; gap:0 }
   #inventory .coverage-source dt { padding-bottom:0 }
@@ -148,14 +156,39 @@
   #inventory table:not(.realm-table) td::before { content:attr(data-label); color:#9eafa5; font-size:10px }
   #inventory table:not(.realm-table) td>* { grid-column:2 }
   #inventory table:not(.realm-table) td>.badge { justify-self:start }
-  #inventory .database-table tr { margin:10px 0; padding:13px 14px; border:1px solid var(--line); border-radius:12px; background:rgba(10,34,41,.35) }
-  #inventory .database-table td { grid-template-columns:78px minmax(0,1fr); padding:5px 0 }
-  #inventory .database-table td:first-child { display:block; padding-bottom:11px }
-  #inventory .database-table td:first-child::before { display:none }
-  #inventory .database-table .database-name { white-space:normal; overflow-wrap:anywhere }
-  #inventory .database-table .database-location { max-width:100% }
-  #inventory .database-table .database-owner,#inventory .database-table .database-storage { grid-column:2 }
-  #inventory .database-table td:last-child small { grid-column:2; margin-left:0 }
+  #inventory table.database-table tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:16px 0; padding:20px 18px; border:1px solid rgba(167,188,182,.3); border-radius:16px; background:#10282d; box-sizing:border-box }
+  #inventory table.database-table td { display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; width:auto; padding:0; font-size:14px; line-height:1.5 }
+  #inventory table.database-table td::before { color:#b6c8c1; font-size:12px; line-height:1.5 }
+  #inventory table.database-table td:first-child { grid-column:1 / -1; padding-bottom:16px; border-bottom:1px solid var(--line) }
+  #inventory table.database-table td:first-child::before { display:none }
+  #inventory table.database-table td:nth-child(2) { grid-column:1 / -1 }
+  #inventory table.database-table td[data-label="Component"] { grid-column:1 / -1 }
+  #inventory .database-component,#inventory .database-component .entity { font-size:14px }
+  #inventory .database-component .entity { min-height:44px; display:inline-flex; align-items:center; margin-block:-8px }
+  #inventory table.database-table td[data-label="Size + WAL"],#inventory table.database-table td[data-label="Backup evidence"] { padding-top:16px; border-top:1px solid var(--line) }
+  #inventory table.database-table .database-identity { width:100% }
+  #inventory table.database-table .database-name { white-space:normal; overflow-wrap:anywhere; font-size:16px; line-height:1.5; color:#f8f2df }
+  #inventory table.database-table .database-meta { flex-direction:column; align-items:flex-start; gap:4px; margin-top:8px; font-size:12px }
+  #inventory table.database-table .database-category { padding:2px 8px; border-radius:5px; background:rgba(138,199,180,.09); color:#c3d4cd }
+  #inventory table.database-table .database-location { max-width:100%; color:#a7bcb6 }
+  #inventory table.database-table .database-owner,#inventory table.database-table .database-owner .entity { color:#e2eae4; font-size:15px }
+  #inventory table.database-table .database-owner .entity { min-height:44px; margin-block:-8px; display:inline-flex; align-items:center }
+  #inventory table.database-table .database-ownership { color:#e2eae4; font-size:14px }
+  #inventory table.database-table .database-storage strong { font-size:17px; line-height:1.5 }
+  #inventory table.database-table .database-storage small,#inventory table.database-table .backup-summary .backup-date { margin:0; color:#b6c8c1; font-size:12px; line-height:1.6 }
+  #inventory table.database-table .backup-summary { gap:6px; width:100% }
+  #inventory table.database-table .backup-evidence { font-size:13px; line-height:1.5 }
+  #inventory table.database-table td[data-label="Size + WAL"] { grid-column:1 / -1; flex-direction:row; align-items:center; justify-content:space-between }
+  #inventory table.database-table .database-storage { text-align:right }
+  #inventory table.database-table td[data-label="Backup evidence"] { grid-column:1 / -1; gap:10px }
+  #inventory table.database-table td[data-label="Remarks"] { grid-column:1 / -1; padding-top:16px; border-top:1px solid var(--line) }
+  #inventory .database-remarks { font-size:14px }
+  #inventory table.database-table .backup-summary { grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:0 12px }
+  #inventory table.database-table .backup-summary .backup-evidence { grid-column:1; grid-row:1 }
+  #inventory table.database-table .backup-summary .backup-date { grid-column:1; grid-row:2; margin:0 0 0 13px; font-size:12px }
+  #inventory table.database-table .backup-view { box-sizing:border-box; grid-column:2; grid-row:1; min-height:44px; max-width:160px; margin:0; padding:8px 0 8px 8px; border:0; border-radius:6px; font-size:14px; line-height:1.5; background:transparent }
+  #inventory table.database-table td.empty { grid-column:1 / -1; padding:0; border:0 }
+  #inventory table.database-table td.empty::before { display:none }
   #inventory dl { grid-template-columns:1fr }
   #inventory dt { border:0; padding-bottom:0 }
   #inventory dialog { padding:20px }
@@ -250,5 +283,76 @@
 
 #inventory .finding-task-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px }
 #inventory .finding-task-actions .button { white-space:normal; text-align:center }
-#inventory .finding-tasks [data-copy-feedback]:not(:empty) { margin-top:12px; color:var(--gold) }
-#inventory .finding-tasks textarea { box-sizing:border-box; width:100%; min-height:150px; margin-top:12px; padding:12px; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:8px; font:inherit }
+#inventory [data-task-feedback]:empty { display:none }
+#inventory [data-task-feedback]:not(:empty) { margin-top:12px; color:var(--gold) }
+#inventory .backup-summary { display:grid; gap:4px; min-width:0 }
+#inventory table.database-table .backup-summary .backup-date { margin:0 0 0 13px; font-size:10px }
+#inventory .backup-view { display:inline-flex; align-items:center; justify-content:space-between; gap:10px; justify-self:start; min-height:36px; margin:2px 0 0; padding:0 8px 0 13px; border:0; border-radius:6px; background:none; color:var(--gold); font:500 12px/1.6 var(--sans); text-align:left }
+#inventory .backup-view svg { width:16px; height:16px; flex:none }
+#inventory .backup-view:hover { background:rgba(228,193,120,.07) }
+#inventory #backup-dialog { box-sizing:border-box; width:min(820px,calc(100vw - 28px)) }
+#inventory #backup-dialog .dialog-head { position:sticky; top:-28px; padding-top:16px; background:#10282d; z-index:1 }
+#inventory #backup-dialog h2 { font-size:24px }
+#inventory .backup-overview { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 20px; color:var(--muted); font-size:12px }
+#inventory .backup-insight { padding:16px; border:1px solid var(--line); border-radius:12px; background:rgba(138,199,180,.04) }
+#inventory #backup-body .backup-explanation { margin-top:14px; color:var(--text); font-size:15px; line-height:1.65 }
+#inventory .backup-next { margin-top:16px; padding-top:14px; border-top:1px solid var(--line) }
+#inventory #backup-body .backup-next h3 { margin-bottom:6px; color:var(--gold); font-size:13px }
+#inventory .backup-next p { color:var(--muted); font-size:14px; line-height:1.65 }
+#inventory #backup-body :is(.backup-note,.backup-limits) { font-size:13px; line-height:1.7 }
+#inventory #backup-body .backup-path code { font-size:12px }
+#inventory #backup-body .backup-path .button { min-height:44px; font-size:12px }
+#inventory #backup-body .backup-overview { font-size:13px }
+#inventory #backup-body .backup-overview .backup-evidence { font-size:13px }
+#inventory .backup-section { margin-top:24px }
+#inventory #backup-body h3 { margin:0 0 10px; font:600 13px/1.5 var(--sans); color:var(--text) }
+#inventory #backup-body h3 span { display:inline-block; margin-left:5px; padding:0 7px; border-radius:5px; background:rgba(138,199,180,.08); color:var(--muted); font-size:11px }
+#inventory .backup-path { display:flex; align-items:flex-start; gap:16px; padding:14px 16px; border:1px solid var(--line); border-radius:10px; background:rgba(2,12,17,.25); min-width:0 }
+#inventory .backup-path code { flex:1; min-width:0; align-self:center; color:#c3d4cd; font:11px/1.8 ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; white-space:pre-wrap }
+#inventory .backup-path .button { flex:none; padding:5px 9px; font-size:10px }
+#inventory .backup-copies { display:grid; gap:12px; margin:0; padding:0; list-style:none }
+#inventory .backup-copies li { padding:16px; border:1px solid var(--line); border-radius:12px; background:rgba(138,199,180,.025); min-width:0 }
+#inventory .backup-copy-heading { display:flex; justify-content:space-between; gap:12px; margin-bottom:10px; color:var(--muted); font-size:11px; font-variant-numeric:tabular-nums }
+#inventory .backup-copy-heading strong { color:var(--text); font-weight:600 }
+#inventory .backup-copies .backup-path { padding:0; border:0; background:none }
+#inventory #backup-body .backup-note { margin-top:8px; color:var(--muted); font-size:11px; line-height:1.7; overflow-wrap:anywhere }
+#inventory #backup-body .backup-limits { margin-top:24px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:11px }
+@media(max-width:600px) {
+  #inventory #backup-dialog { padding:20px }
+  #inventory #backup-dialog .dialog-head { top:-20px; gap:12px }
+  #inventory #backup-dialog h2 { font-size:20px }
+  #inventory .backup-path { flex-direction:column; gap:10px; padding:12px }
+  #inventory .backup-path code { align-self:stretch }
+  #inventory .backup-path .button { align-self:flex-start }
+  #inventory .backup-copies li { padding:12px }
+}
+#inventory .database-heading { display:flex; align-items:center; gap:8px; min-width:0 }
+#inventory .database-heading .database-name { min-width:0 }
+#inventory .copy-row { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:8px; box-sizing:border-box; width:32px; height:32px; padding:0; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--muted); font:500 13px/1.5 var(--sans) }
+#inventory .copy-row:hover,#inventory .copy-row:focus-visible { color:var(--text); border-color:var(--line); background:rgba(138,199,180,.08) }
+#inventory .copy-row svg { flex:none; width:16px; height:16px }
+#inventory .copy-row .copy-row-label { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap }
+#inventory .copy-row .copy-row-check,#inventory .copy-row.is-copied .copy-row-icon { display:none }
+#inventory .copy-row.is-copied { color:#9edac4 }
+#inventory .copy-row.is-copied .copy-row-check { display:block }
+#inventory #backup-dialog .dialog-head>div:first-child { flex:1; min-width:0 }
+#inventory #backup-title { overflow-wrap:anywhere }
+#inventory .backup-dialog-actions { display:flex; flex:none; align-items:center; gap:4px }
+#inventory #backup-copy-action { display:flex }
+#inventory .backup-dialog-actions .copy-row,#inventory .backup-close { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:44px; height:44px; padding:0; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--muted); cursor:pointer }
+#inventory .backup-close:hover,#inventory .backup-close:focus-visible { color:var(--text); border-color:var(--line); background:rgba(138,199,180,.08) }
+#inventory .backup-close svg { width:18px; height:18px }
+@media(max-width:600px),(pointer:coarse) {
+  #inventory .copy-row { width:44px; height:44px }
+  #inventory .database-heading { justify-content:space-between; gap:12px }
+}
+#inventory .copy-feedback:empty { display:none }
+#inventory .copy-feedback { color:var(--gold); font-size:14px }
+#inventory #copy-row-dialog { box-sizing:border-box; width:min(820px,calc(100vw - 28px)) }
+#inventory #copy-row-dialog p { color:var(--muted); font-size:14px; line-height:1.6 }
+#inventory #copy-row-text { box-sizing:border-box; display:block; width:100%; min-height:240px; height:45dvh; margin-top:16px; padding:12px; border:1px solid var(--line); border-radius:8px; background:#071c22; color:var(--text); font:14px/1.6 ui-monospace,monospace; resize:vertical }
+#inventory .backup-provider { color:var(--text); font-size:12px; line-height:1.6; overflow-wrap:anywhere }
+#inventory table.database-table .backup-summary .backup-provider { margin:0 0 0 13px }
+@media(max-width:600px) {
+  #inventory table.database-table .backup-summary .backup-provider { grid-column:1 / -1; grid-row:3; margin-top:6px; font-size:12px }
+}

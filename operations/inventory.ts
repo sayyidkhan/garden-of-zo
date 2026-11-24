@@ -19,6 +19,65 @@ const servicePresentation: Record<string, { name: string; description: string; p
 type Row = Record<string, any>;
 export type Snapshot = { observedAt: string; services: Row[]; apps: Row[]; agents: Row[]; workflows: Row[]; databases: Row[]; dependencies: Row[]; issues: Row[]; coverage: Row };
 
+function backupCreator(path: string): string {
+  if (path.startsWith("/root/.hermes/backups/orin/")) return "Orin backup tool";
+  if (path.startsWith("/root/.hermes/backups/runa/")) return "Runa backup tool";
+  if (path.startsWith("/home/workspace/Data/database-backups/") ||
+      path.startsWith("/home/workspace/Start/pal/pal-projects/stakefolio/stakefolio-ledger/backups/garden-databases/")) return "Garden";
+  return "Not confirmed";
+}
+
+export function databaseRemarks(record: Row): string {
+  if (record.remarks) return record.remarks;
+  const path = record.backupOnly ? record.backupSource : record.path;
+  const relative = path?.match(/^\/root\/\.hermes\/(?:profiles\/[^/]+\/)?(state\.db|projects\.db|cron\/(?:executions|notepad)\.db|shared-state\.db|kanban\.db)$/)?.[1];
+  const purposes: Record<string, string> = {
+    "state.db": "Conversation history and session state.",
+    "projects.db": "Hermes workspace names, folders and settings; separate from Stakefolio project records.",
+    "cron/executions.db": "Scheduled-task run history and outcomes.",
+    "cron/notepad.db": "Notes that scheduled tasks can remember between runs; may exist even when empty.",
+    "shared-state.db": "Shared chat-room coordination between Hermes profiles.",
+    "kanban.db": "Hermes built-in task board shared across profiles; separate from Stakefolio."
+  };
+  return relative ? "Created by Hermes framework. " + purposes[relative] + " Keep the original filename." : "";
+}
+
+export function databaseRecords(databases: Row[]): Row[] {
+  const sources = databases.filter(db => db.category !== "backup").map(db => ({ ...db }));
+  const groups = new Map<string, Row>();
+  for (const source of sources) source.backupCopies = [];
+  for (const copy of databases.filter(db => db.category === "backup")) {
+    const exact = sources.find(db => db.path === copy.backupSource || db.backup?.path === copy.path);
+    const candidates = sources.filter(db => copy.owner && db.owner === copy.owner && db.name === copy.name);
+    const source = exact || (candidates.length === 1 ? candidates[0] : undefined);
+    const key = JSON.stringify([copy.owner || copy.systemOwnership?.name || copy.path.slice(0, copy.path.lastIndexOf("/")), copy.name]);
+    let record = source || groups.get(key);
+    if (!record) {
+      record = { ...copy, bytes: 0, walBytes: 0, backupCopies: [], backupOnly: true };
+      groups.set(key, record);
+    }
+    record.backupCopies.push({
+      id: copy.id, path: copy.path, bytes: copy.bytes, walBytes: copy.walBytes,
+      modifiedAt: copy.modifiedAt, createdBy: backupCreator(copy.path),
+      association: exact ? "Recorded source" : source ? "Same owner and unique database name; recovery not verified" : "Source not confirmed"
+    });
+    if (!source) {
+      record.bytes += copy.bytes || 0;
+      record.walBytes += copy.walBytes || 0;
+    }
+  }
+  for (const source of sources) {
+    if (source.backup?.path && !source.backupCopies.some((copy: Row) => copy.path === source.backup.path)) {
+      source.backupCopies.push({ path: source.backup.path, createdBy: backupCreator(source.backup.path), association: "Recorded backup evidence" });
+    }
+  }
+  return [...sources, ...groups.values()].map(record => ({
+    ...record,
+    remarks: databaseRemarks(record),
+    backedUpBy: [...new Set(record.backupCopies.map((copy: Row) => copy.createdBy))].join(", ") || "Not confirmed"
+  }));
+}
+
 async function yaml(path: string): Promise<Row> {
   return Bun.YAML.parse(await readFile(path, "utf8")) as Row;
 }
@@ -150,7 +209,7 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     const snapshot = JSON.parse(await readFile(join(import.meta.dir, "automations.local.json"), "utf8"));
     const age = Date.now() - Date.parse(snapshot.observedAt);
     automationCoverage = { status: age > 86400_000 ? "stale snapshot" : "snapshot", observedAt: snapshot.observedAt,
-      note: "Zo Scheduled Tasks is a saved list of your scheduled tasks. Task run history is unavailable. Refreshing Garden does not update this saved list." };
+      note: "Zo Scheduled Tasks is a saved list. Use Update task list in Inventory info to fetch current schedules. Task run history is unavailable; Refresh only reloads Garden’s inventory." };
     for (const entry of snapshot.automations) {
       const id = "automation:" + entry.id;
       workflows.push({ id, name: entry.name, type: "automation", status: entry.active ? "enabled" : "paused",
@@ -164,8 +223,8 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     severity: "warning", kind: "scheduled-task-list", entity: "service:zo-platform",
     message: automationCoverage.status === "unavailable" ? "Zo Scheduled Tasks: Garden’s saved list is unavailable." : "Zo Scheduled Tasks: Garden’s saved list needs updating.",
     observedAt: automationCoverage.observedAt,
-    reason: "Garden shows a saved copy of your task names, schedules and enabled states. It cannot check changes until Zo updates that copy. This warning does not report a failed task; task run results are not available here.",
-    nextStep: "Click Copy update request, then paste it into Zo chat and send it. Zo can fetch the current tasks and update Garden’s saved list. Garden’s Refresh button and opening the task settings do not update this copy."
+    reason: "Garden’s saved list of task names, schedules and enabled states needs updating. This warning does not mean your tasks have failed; task run results are not available here.",
+    nextStep: "Click Update task list to get the latest schedules from Zo. Garden will update this list and clear the warning. Your tasks and their schedules stay unchanged."
   });
   for (const app of apps) {
     const gateway = service(app.access === "private" ? "private-apps" : "public-apps");
@@ -187,6 +246,8 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
       if (databaseOwners[db.path]) db.owner = databaseOwners[db.path];
       else if (db.path.startsWith("/root/.hermes/profiles/runa/")) db.owner = "agent:runa";
       else if (db.path.startsWith("/root/.hermes/profiles/orin/")) db.owner = "agent:orin";
+      else if (db.path.startsWith("/root/.hermes/backups/orin/")) db.owner = "agent:orin";
+      else if (db.path.startsWith("/root/.hermes/backups/runa/")) db.owner = "agent:runa";
       else if (db.path.startsWith("/root/.openclaw/")) db.owner = "service:openclaw-dashboard";
       else if (db.path.includes("/zo-drive-data/")) db.owner = "service:zo-drive";
       else if (db.path.includes("/zo-memories-data/")) db.owner = "service:zo-moments";
@@ -196,9 +257,42 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
       }
       if (db.owner) db.ownershipEvidence = "documented runtime location";
     }
+    if (db.owner === "service:orin-hermes-dashboard") {
+      db.component = "Agent dashboard";
+      db.componentEntity = db.owner;
+      relate(db.componentEntity, db.id, db.ownershipEvidence);
+      db.owner = "agent:orin";
+      db.ownershipEvidence = "Orin dashboard belongs to Orin Forgekeeper";
+    } else if (db.owner === "agent:orin" && db.path.startsWith("/root/.hermes/profiles/orin/")) {
+      db.component = "Agent runtime";
+    }
     if (db.owner) relate(db.owner, db.id, db.ownershipEvidence);
     if (db.path.endsWith("/pal-workflow-youtuberesearch/outputs/youtube-research.sqlite")) relate("workflow:youtube-research", db.id, "workflow store");
     if (db.backup.lastAt && Date.now() / 1000 - db.backup.lastAt > 86400) db.backup.status = "old snapshot";
+  }
+  for (const db of databases.filter(db => !db.owner)) {
+    const name = db.path.startsWith("/root/.codex/") ? "Codex" : db.path.startsWith("/home/.z/workspaces/") ? "Zo temporary workspace" :
+      ["/root/.hermes/shared-state.db", "/root/.hermes/kanban.db", "/root/.hermes/state.db"].includes(db.path) ? "Hermes shared runtime" : null;
+    if (name) {
+      db.systemOwnership = { category: "Host system", subcategory: name === "Zo temporary workspace" ? "Temporary files" : "Runtime", name };
+      db.ownershipEvidence = "host runtime location; outside project ownership labels";
+    }
+  }
+  for (const db of databases.filter(db => db.category === "backup" && !db.owner && db.backupSource)) {
+    const source = databases.find(source => source.path === db.backupSource && source.category !== "backup");
+    if (source?.owner || source?.systemOwnership) {
+      db.owner = source.owner;
+      db.systemOwnership = source.systemOwnership;
+      db.ownershipEvidence = "checksum-verified backup of " + source.path;
+      if (db.owner) relate(db.owner, db.id, db.ownershipEvidence);
+    }
+  }
+  for (const db of databases.filter(db => db.category === "backup" && db.backupSource)) {
+    const source = databases.find(source => source.path === db.backupSource && source.category !== "backup");
+    if (source?.component) {
+      db.component = source.component;
+      db.componentEntity = source.componentEntity;
+    }
   }
   for (const s of services) {
     if (servicePresentation[s.name]) {
@@ -218,8 +312,8 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   for (const db of databases) {
     const owner = [...agents, ...services, ...apps, ...workflows].find(row => row.id === db.owner);
     db.ownership = owner?.ownership || (db.owner ? projectOwnership(db.owner.slice(db.owner.indexOf(":") + 1)) : null);
-    db.ownershipLabel = ownershipLabel(db.ownership);
-    db.projectName = db.owner === "service:openclaw-dashboard" ? "PAL OpenClaw (retained files)" : owner?.name || "Ownership pending";
+    db.ownershipLabel = db.systemOwnership ? db.systemOwnership.category + " · " + db.systemOwnership.subcategory : ownershipLabel(db.ownership);
+    db.projectName = db.owner === "service:openclaw-dashboard" ? "PAL OpenClaw (retained files)" : owner?.name || db.systemOwnership?.name || "Ownership pending";
   }
   if (unknownOwners) issues.push({
     severity: "warning", message: unknownOwners + " application databases need an owner mapping.",
@@ -231,16 +325,47 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   if (unknownBackups.length) issues.push({
     severity: "warning", message: unknownBackups.length + " database files have unconfirmed backup status.",
     affected: unknownBackups.map(d => d.id),
-    reason: "Garden currently recognises local backup copies for only Runa's state.db and projects.db. It has no recognised backup evidence for the files below. This does not prove their backups are missing.",
+    reason: "Garden could not verify a saved database copy for the files below. A recognised copy must exist and match its recorded checksum. This does not prove their backups are missing.",
     nextStep: "For each project, check its backup location, latest successful backup and whether a copy can be restored. If backups exist, add their evidence to Garden; if not, arrange backups for data that needs keeping.",
-    scopeNote: "This count includes retained OpenClaw files and supporting runtime files; it is not a count of active apps. Local copies do not confirm protection outside this machine or a tested restore."
+    scopeNote: "This is a count of database files, including supporting runtime files; it is not a count of active apps. Local database copies do not establish protection outside this machine or recovery of attachments, logins and configuration."
   });
-  return { observedAt, services, apps, agents, workflows, databases, dependencies, issues,
+  const oldBackups = databases.filter(d => ["application", "agent runtime"].includes(d.category) && d.backup.status === "old snapshot");
+  if (oldBackups.length) issues.push({
+    severity: "warning", message: oldBackups.length + " database backups are over 24 hours old.",
+    affected: oldBackups.map(d => d.id),
+    reason: "Saved copies exist, but changes since the last copy are not covered.",
+    nextStep: "Use the app or agent backup procedure where available, then update Garden with its evidence. Only explicitly refresh Garden-created copies using Garden's database backup procedure. Regular automatic backups are not configured by this procedure.",
+    scopeNote: "Local copies protect against accidental changes; a separate private destination is needed for host-loss recovery."
+  });
+  try {
+    const text = await readFile(join(import.meta.dir, "database-remarks.local.json"), "utf8");
+    if (text.length > 65536) throw new Error("Remarks file is too large");
+    const remarks = JSON.parse(text);
+    if (!remarks || Array.isArray(remarks) || typeof remarks !== "object" ||
+        Object.values(remarks).some(value => typeof value !== "string" || value.length > 2000)) {
+      throw new Error("Invalid database remarks");
+    }
+    for (const db of databases) {
+      const path = db.category === "backup" ? db.backupSource : db.path;
+      if (Object.hasOwn(remarks, path)) db.remarks = remarks[path];
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      issues.push({ severity: "warning", message: "Saved database remarks could not be read. Check operations/database-remarks.local.json; framework descriptions are still shown." });
+    }
+  }
+  const records = databaseRecords(databases);
+  const recordIds = new Map(databases.filter(db => db.category === "backup").map(db => [
+    db.id, records.find(record => record.backupCopies?.some((copy: Row) => copy.id === db.id))?.id || db.id
+  ]));
+  const recordDependencies = dependencies.map(edge => ({ ...edge, to: recordIds.get(edge.to) || edge.to, from: recordIds.get(edge.from) || edge.from }));
+  return { observedAt, services, apps, agents, workflows, databases: records,
+    dependencies: recordDependencies.filter((edge, i) => edge.from !== edge.to && recordDependencies.findIndex(other => other.from === edge.from && other.to === edge.to) === i), issues,
     coverage: { databases: host.coverage, automations: automationCoverage,
       apps: "Listed catalogue apps, matching the public Apps filter. Compatibility aliases and hidden tools are excluded; their managed services remain under Services. Garden itself is represented by zo-platform under Services.",
       services: "Live supervisor configuration and process state. Running does not prove application health.",
       agents: "Kingdom of PAL manifests; permissions and enabled flags are declarations, not runtime enforcement checks.",
-      backups: "Local Runa snapshots only. No external backup or restore verification.",
+      backups: "Private local database snapshots: recorded SHA-256 checksums are rechecked during discovery. Garden snapshots have passed isolated SQLite restore integrity and table-count checks. Older Runa manifests indicate copies only. No off-host protection or full application recovery is established.",
       workflows: "Registered PAL workflows and Zo Scheduled Tasks. Task run history is shown only where available." } };
 }
 
