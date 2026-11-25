@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from urllib.parse import quote
 
 from playwright.async_api import async_playwright
 
@@ -42,6 +43,15 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
                 await page.locator("#column-menu [data-none]").click()
                 await page.locator("#column-menu").get_by_role("checkbox", name=value, exact=False).check()
                 await page.locator("#column-menu [data-apply]").click()
+            async def grouped_ids():
+                return await page.locator("#rows").evaluate("""body => {
+                    const groups = [];
+                    for (const row of body.children) {
+                        if (row.classList.contains("database-group")) groups.push([]);
+                        if (row.dataset.databaseRow) groups.at(-1).push(row.dataset.databaseRow);
+                    }
+                    return groups;
+                }""")
             async def ids():
                 return await page.locator("#rows .database-name").evaluate_all("nodes => nodes.map(n => n.dataset.entity)")
             async def clear():
@@ -58,10 +68,94 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             by_id = {row["id"]: row for row in inventory["databases"]}
             initial = await ids()
             assert len(initial) == len(by_id)
-            assert await page.locator('#head [data-column-key="remarks"]').count() == 1
+            assert await page.locator("#head th").count() == 4
+            assert await page.locator('#head [data-column-key="remarks"]').count() == 0
             assert await page.locator('#head [data-column-key="component"]').count() == 1
             orin = [row for row in by_id.values() if row.get("owner") == "agent:orin"]
             assert len(orin) == 7
+            for width in [1440, 390]:
+                await page.set_viewport_size({"width": width, "height": 1000})
+                for row in orin:
+                    record = page.locator("#rows tr").filter(has=page.locator('.database-name[data-entity="' + row["id"] + '"]'))
+                    assert await record.locator(".database-name").inner_text() == row["displayName"]
+                    assert await record.locator(".database-filename").inner_text() == row["name"]
+                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+                notes = next(row for row in orin if row["name"] == "notepad.db")
+                for query in [notes["displayName"], notes["name"]]:
+                    await page.locator("#search").fill(query)
+                    assert notes["id"] in await ids()
+                await page.locator("#search").fill("")
+                await choose_only("name", notes["displayName"])
+                assert await ids() == [notes["id"]]
+                await page.reload()
+                await page.wait_for_selector("#rows .database-name", timeout=60000)
+                assert await ids() == [notes["id"]]
+                await page.locator("#rows .database-name").click()
+                details = page.locator("#detail.database-panel")
+                assert await details.is_visible()
+                assert notes["path"] in await details.inner_text()
+                assert await page.locator("#rows .database-record.is-selected").count() == 1
+                assert not await page.locator("#rows [data-db-toggle], #rows .database-detail-row").count()
+                assert await page.locator("#detail-title").inner_text() == notes["displayName"]
+                assert notes["name"] in await details.inner_text()
+                await page.evaluate("Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: async value => {window.copiedRow = value}}})")
+                await details.locator("[data-copy-row]").click()
+                copied = await page.evaluate("window.copiedRow")
+                assert "Database: " + notes["displayName"] in copied
+                assert "Filename: " + notes["name"] in copied
+                await page.locator("#close").click()
+                await clear()
+            await choose_only("owner", "Orin Forgekeeper")
+            assert await page.locator("#rows .database-group").count() == 1
+            assert await page.locator("#rows .database-group-count").inner_text() == "7 databases"
+            for width in [320, 390, 1440]:
+                await page.set_viewport_size({"width": width, "height": 1000})
+                assert await page.locator("#rows .database-detail-row").count() == 0
+                assert await page.locator("#rows .database-record td").count() == 28
+                assert await page.locator("#rows .database-purpose:visible").count() == 7
+                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+                await page.screenshot(path=root / "_scratch" / f"compact-databases-{width}.png", full_page=True)
+                original_url = page.url
+                table_width = await page.locator(".database-table").evaluate("e => e.getBoundingClientRect().width")
+                first = page.locator("#rows .database-name").first
+                await first.focus()
+                await page.keyboard.press("Enter")
+                panel = page.locator("#detail.database-panel")
+                assert await panel.is_visible()
+                assert await panel.evaluate("e => e.matches(':modal')")
+                assert abs(await page.locator(".database-table").evaluate("e => e.getBoundingClientRect().width") - table_width) < 2
+                assert await page.locator("#rows .database-record.is-selected").count() == 1
+                assert await panel.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+                if width < 600:
+                    assert await panel.evaluate("e => Math.abs(e.getBoundingClientRect().width - innerWidth) < 2")
+                else:
+                    assert await panel.evaluate("e => e.getBoundingClientRect().width > 900 && Math.abs(e.getBoundingClientRect().left + e.getBoundingClientRect().width / 2 - innerWidth / 2) < 2")
+                await page.screenshot(path=root / "_scratch" / f"database-panel-{width}.png")
+                if width > 1000:
+                    await page.locator("#close").click()
+                    await page.locator("#rows .database-name").nth(1).click()
+                    assert await page.locator("#detail-title").inner_text() == await page.locator("#rows .database-name").nth(1).inner_text()
+                    await page.locator("#refresh").evaluate("e => e.click()")
+                    await page.wait_for_function("!document.querySelector('#refresh').disabled", timeout=60000)
+                    assert await panel.is_visible()
+                selected_url = page.url
+                await page.reload()
+                await page.wait_for_selector("#detail.database-panel[open]", timeout=60000)
+                assert page.url == selected_url
+                await page.keyboard.press("Escape")
+                assert not await panel.is_visible()
+                await page.wait_for_function("!new URLSearchParams(location.hash.split('?')[1]).has('entity')")
+                assert page.url == original_url, (page.url, original_url)
+                assert await page.locator("#rows .database-record.is-selected").count() == 0
+            await clear()
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            checks.append("Purpose stays visible; centred modal/full-screen details preserve table width, selection, refresh, reload and filters at 320–1440px")
+            old_filter = json.dumps({"filters": {"name": ["notepad.db"]}}, separators=(",", ":"))
+            await page.goto(private + "/#list?tab=databases&columns=" + quote(old_filter))
+            await page.wait_for_selector("#rows .database-name", timeout=60000)
+            assert set(await ids()) == {row["id"] for row in by_id.values() if row["name"] == "notepad.db"}
+            await clear()
+            checks.append("Orin purpose names preserve filenames, search, saved filters, details and copied rows on desktop/mobile")
             dashboard = next(row for row in orin if row["name"] == "karma.sqlite")
             assert dashboard["component"] == "Agent dashboard"
             assert dashboard["componentEntity"] == "service:orin-hermes-dashboard"
@@ -82,14 +176,17 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert hermes_notes
             for row in hermes_notes:
                 note_row = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + row["id"] + '"]'))
-                assert await note_row.locator('[data-label="Remarks"]').inner_text() == row["remarks"]
+                assert await note_row.locator(".database-purpose").text_content() == row["remarks"].removeprefix("Created by Hermes framework.").strip()
             note = next(row for row in hermes_notes if row["path"].endswith("/orin/cron/notepad.db"))
-            note_row = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + note["id"] + '"]'))
             for width in [320, 390, 1440]:
                 await page.set_viewport_size({"width": width, "height": 1000})
-                assert await note_row.locator('[data-label="Remarks"]').is_visible()
+                note_row = page.locator("#rows .database-record").filter(has=page.locator('[data-entity="' + note["id"] + '"]'))
+                await note_row.locator(".database-name").click()
+                assert await page.locator("#detail .database-remarks").text_content() == note["remarks"]
+                assert await page.locator("#detail .database-remarks strong").inner_text() == "Created by Hermes framework."
                 assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
-                await note_row.screenshot(path=root / "_scratch" / f"database-remarks-{width}.png")
+                await page.locator("#detail").screenshot(path=root / "_scratch" / f"database-remarks-{width}.png")
+                await page.locator("#close").click()
             await page.set_viewport_size({"width": 1440, "height": 1000})
             await choose_only("remarks", note["remarks"])
             assert all(by_id[id].get("remarks") == note["remarks"] for id in await ids())
@@ -133,19 +230,19 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert not set(initial).intersection(copy["id"] for copy in copies if not by_id.get(copy["id"], {}).get("backupOnly"))
             backed = next(row for row in inventory["databases"] if row.get("backupCopies") and not row.get("backupOnly"))
             record = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + backed["id"] + '"]'))
-            trigger = record.locator("[data-backup-details]")
             height = (await record.bounding_box())["height"]
+            trigger = record.locator(".database-name")
             await trigger.click()
-            dialog = page.locator("#backup-dialog")
+            dialog = page.locator("#detail.database-panel")
+            record_details = dialog
             assert await dialog.is_visible()
             assert backed["path"] in await dialog.inner_text()
             assert backed["backupCopies"][0]["path"] in await dialog.inner_text()
-            assert "Backed up by: " + backed["backedUpBy"] in await record.inner_text()
+            assert "Backed up by: " + backed["backedUpBy"] in await record_details.inner_text()
             assert "Backed up by: " + backed["backedUpBy"] in await dialog.inner_text()
             backup_text = await dialog.inner_text()
             assert all("Created by: " + copy["createdBy"] in backup_text for copy in backed["backupCopies"])
             assert await dialog.locator(".backup-copies li").count() == len(backed["backupCopies"])
-            assert (await record.bounding_box())["height"] == height
             await page.evaluate("window.copiedPath = null; Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: async value => {window.copiedPath = value}}})")
             await dialog.get_by_role("button", name="Copy source database path", exact=True).click()
             assert await page.evaluate("window.copiedPath") == backed["path"]
@@ -192,7 +289,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             checks.append("Database row context copies full metadata on desktop/mobile; clipboard denial provides selected text and restores focus")
 
             retained = next(row for row in inventory["databases"] if row.get("backupOnly"))
-            await page.locator('[data-backup-details="' + retained["id"] + '"]').click()
+            await page.locator('.database-name[data-entity="' + retained["id"] + '"]').click()
             assert "original database has not been confirmed" in await dialog.inner_text()
             assert not await dialog.get_by_role("button", name="Copy source database path", exact=True).count()
             assert await dialog.locator(".backup-copies li").count() == len(retained["backupCopies"])
@@ -201,9 +298,9 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert "original source unconfirmed" in retained_text
             assert "Source path:" not in retained_text
 
-            await dialog.get_by_role("button", name="Close backups").click()
+            await dialog.locator("#close").click()
             unknown = next(row for row in inventory["databases"] if not row.get("backupCopies"))
-            await page.locator('[data-backup-details="' + unknown["id"] + '"]').click()
+            await page.locator('.database-name[data-entity="' + unknown["id"] + '"]').click()
             assert "does not confirm that backups are missing" in await dialog.inner_text()
             await dialog.locator("[data-copy-row]").click()
             assert "No backup location recorded; this does not confirm backups are missing." in await page.evaluate("window.copiedPath")
@@ -230,7 +327,12 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
                 assert await page.locator("#column-menu").is_visible()
                 await page.locator("#column-menu [data-apply]").click()
                 actual = [len(by_id[id].get("backupCopies", [])) for id in await ids()]
-                assert actual == sorted(actual, reverse=direction == "desc")
+                groups = await grouped_ids()
+                leaders = [len(by_id[group[0]].get("backupCopies", [])) for group in groups]
+                assert leaders == sorted(leaders, reverse=direction == "desc")
+                for group in groups:
+                    actual = [len(by_id[id].get("backupCopies", [])) for id in group]
+                    assert actual == sorted(actual, reverse=direction == "desc")
                 assert await page.locator('#head [data-column-key="backup"]').evaluate("e => e.closest('th').getAttribute('aria-sort')") == ("ascending" if direction == "asc" else "descending")
             await clear()
             await page.set_viewport_size({"width": 390, "height": 700})
@@ -242,7 +344,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
             await clear()
             await page.set_viewport_size({"width": 1440, "height": 1000})
-            assert await page.locator("#head th").count() == 8
+            assert await page.locator("#head th").count() == 4
             checks.append("Backup count filters include zero, persist on reload, intersect with ownership, sort numerically and open from backup header or mobile chooser")
             for direction in ["desc", "asc"]:
                 await open_column("size")
@@ -250,7 +352,12 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
                 assert await page.locator("#column-menu").is_visible()
                 await page.locator("#column-menu [data-apply]").click()
                 values = [by_id[id]["bytes"] + by_id[id]["walBytes"] for id in await ids()]
-                assert values == sorted(values, reverse=direction == "desc")
+                groups = await grouped_ids()
+                leaders = [by_id[group[0]]["bytes"] + by_id[group[0]]["walBytes"] for group in groups]
+                assert leaders == sorted(leaders, reverse=direction == "desc")
+                for group in groups:
+                    values = [by_id[id]["bytes"] + by_id[id]["walBytes"] for id in group]
+                    assert values == sorted(values, reverse=direction == "desc")
                 assert await page.locator('#head th[aria-sort="' + ("descending" if direction == "desc" else "ascending") + '"]').count() == 1
                 assert await page.locator("#sort").input_value() == "column"
             await page.reload()
@@ -279,7 +386,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert await page.locator("#column-menu [data-no-values]").is_visible()
             await page.keyboard.press("Escape")
             assert not await page.locator("#column-menu").is_visible()
-            assert await page.locator('[data-column-key="category"]:visible').evaluate("e=>e===document.activeElement")
+            assert await page.locator('[data-columns-open]:visible').evaluate("e=>e===document.activeElement")
             await open_column("category")
             await page.locator("#column-menu [data-none]").click()
             await page.locator("#column-menu [data-cancel]").click()

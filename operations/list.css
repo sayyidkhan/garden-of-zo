@@ -52,14 +52,10 @@
 #inventory .badge.good::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor }
 #inventory .badge.bad { color:var(--red); border-color:rgba(255,173,169,.3) }
 #inventory .badge.warn { color:var(--gold); border-color:rgba(228,193,120,.25) }
-#inventory table.database-table th:nth-child(1) { width:19% }
-#inventory table.database-table th:nth-child(2) { width:11% }
-#inventory table.database-table th:nth-child(3) { width:10% }
-#inventory table.database-table th:nth-child(4) { width:7% }
-#inventory table.database-table th:nth-child(5) { width:10% }
-#inventory table.database-table th:nth-child(6) { width:8% }
-#inventory table.database-table th:nth-child(7) { width:16% }
-#inventory table.database-table th:nth-child(8) { width:19% }
+#inventory table.database-table thead th:nth-child(1) { width:40% }
+#inventory table.database-table thead th:nth-child(2) { width:19% }
+#inventory table.database-table thead th:nth-child(3) { width:12% }
+#inventory table.database-table thead th:nth-child(4) { width:29% }
 #inventory .database-component,#inventory .database-component .entity { color:#b8c9bc; font-size:12px; line-height:1.5 }
 #inventory .database-remarks { display:block; color:#b6c8c1; font-size:12px; line-height:1.6; overflow-wrap:anywhere }
 #inventory .database-ownership { color:#b8c9bc; font-size:11px }
@@ -67,6 +63,8 @@
 #inventory table.database-table td { vertical-align:middle; padding-block:15px }
 #inventory table.database-table td:first-child { min-width:0 }
 #inventory .database-identity { min-width:0 }
+#inventory .database-filename { display:block; margin-top:4px; color:#8ea9a1; font-size:11px; overflow-wrap:anywhere }
+#inventory .database-heading .database-friendly-name { white-space:normal; overflow-wrap:anywhere; line-height:1.5 }
 #inventory .database-name { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:700 }
 #inventory .database-meta { display:flex; align-items:center; gap:8px; min-width:0; margin-top:4px; color:#8ea9a1; font-size:10px }
 #inventory .database-category { flex:none; color:#b8c9bc; text-transform:capitalize }
@@ -355,4 +353,60 @@
 #inventory table.database-table .backup-summary .backup-provider { margin:0 0 0 13px }
 @media(max-width:600px) {
   #inventory table.database-table .backup-summary .backup-provider { grid-column:1 / -1; grid-row:3; margin-top:6px; font-size:12px }
+}
+
+#inventory .database-group-heading { display:flex; align-items:center; flex-wrap:wrap; gap:8px 16px; text-transform:none; letter-spacing:normal }
+#inventory table.database-table .database-group th { padding:22px 12px 10px; background:rgba(138,199,180,.035) }
+#inventory .database-group-heading .database-owner,#inventory .database-group-heading .entity { font-size:14px; color:#e2eae4 }
+#inventory .database-group-count { margin-left:auto; color:#8ea9a1; font-size:11px; font-weight:400 }
+#inventory table.database-table .database-record { cursor:pointer }
+#inventory table.database-table .database-record td { padding-block:10px }
+#inventory .database-filename { margin-left:16px; margin-top:2px }
+#inventory .database-backup-toggle { display:flex; flex-direction:column; gap:3px; width:100%; border:0; padding:0; background:none; color:var(--text); text-align:left; font-size:12px; line-height:1.5; cursor:pointer }
+#inventory .database-backup-toggle:hover { color:var(--gold) }
+#inventory .database-name:focus-visible,#inventory .database-backup-toggle:focus-visible { outline:2px solid var(--gold); outline-offset:4px; border-radius:3px }
+@media(max-width:600px) {
+  #inventory table.database-table .database-group { display:block; padding:0; margin:18px 0 0; border:0; border-radius:0; background:none }
+  #inventory table.database-table .database-group th { display:block; padding:12px 0; border:0 }
+  #inventory .database-group-heading { gap:6px 12px }
+  #inventory .database-group-count { font-size:11px }
+  #inventory table.database-table .database-record { gap:8px 14px; padding:12px 14px; margin:0 0 8px; border-radius:10px }
+  #inventory table.database-table .database-record td { padding:0; border:0; gap:2px; font-size:13px }
+  #inventory table.database-table .database-record td:first-child { padding:0; grid-column:1 / -1; border:0 }
+  #inventory table.database-table .database-record td[data-label="Component"] { grid-column:1; grid-row:2; justify-content:center }
+  #inventory table.database-table .database-record td[data-label="Size + WAL"] { grid-column:2; grid-row:2; justify-content:center; align-items:flex-end }
+  #inventory table.database-table .database-record td[data-label="Backup evidence"] { grid-column:1 / -1; grid-row:3 }
+  #inventory table.database-table .database-record td::before { display:none }
+  #inventory table.database-table .database-record .database-name { font-size:15px; min-height:44px; line-height:1.4 }
+  #inventory .database-filename { font-size:11px }
+  #inventory table.database-table .database-record .database-storage strong { font-size:13px }
+  #inventory .database-backup-toggle { flex-direction:row; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:4px 12px; min-height:44px; font-size:12px }
+  #inventory .database-backup-toggle .backup-evidence { font-size:11px }
+}
+
+#inventory .database-purpose { margin:3px 0 0; color:#b6c8c1; font-size:12px; line-height:1.6; overflow-wrap:anywhere }
+#inventory .database-filename { margin-left:0 }
+#inventory .database-record.is-selected { background:rgba(228,193,120,.08); box-shadow:inset 3px 0 var(--gold) }
+#inventory #detail.database-panel { position:fixed; inset:0; box-sizing:border-box; margin:auto; width:min(1040px,calc(100vw - 64px)); max-width:none; height:fit-content; max-height:90dvh; padding:24px 32px; border-radius:20px; overflow:auto; overscroll-behavior:contain }
+#inventory #detail.database-panel .dialog-head { position:sticky; top:-24px; padding:20px 0; margin-top:-24px; background:#10282d; z-index:1; align-items:flex-start }
+#inventory #detail.database-panel .dialog-head h2 { font-size:24px; overflow-wrap:anywhere }
+#inventory #detail.database-panel .dialog-head>div { min-width:0 }
+#inventory #detail.database-panel #close { flex:none; min-height:44px }
+#inventory #detail.database-panel h3,#inventory #detail.database-panel h4 { margin:20px 0 10px; font:600 14px/1.5 var(--sans) }
+#inventory .database-panel .database-overview { margin-bottom:24px }
+#inventory .database-panel .database-remarks { font-size:14px; line-height:1.7 }
+#inventory .database-panel .backup-note,#inventory .database-panel .backup-limits { margin-top:10px; color:var(--muted); font-size:12px; line-height:1.7; overflow-wrap:anywhere }
+#inventory .database-panel .backup-explanation { margin-top:10px; font-size:14px }
+#inventory .database-panel .backup-path { flex-direction:column; gap:8px; padding:12px }
+#inventory .database-panel .backup-path code { align-self:stretch; font-size:12px }
+#inventory .database-panel .backup-path .button { min-height:44px; font-size:12px }
+#inventory .database-panel .backup-copies { margin-top:12px }
+#inventory .database-panel .backup-copy-heading { flex-wrap:wrap }
+#inventory .database-panel .backup-limits { border-top:1px solid var(--line); padding-top:16px; margin-top:24px }
+body:has(#detail.database-panel[open]) { overflow:hidden }
+@media(max-width:600px) {
+  #inventory #detail.database-panel { width:100vw; height:100dvh; max-height:100dvh; padding:20px; border:0; border-radius:0 }
+  #inventory #detail.database-panel .dialog-head { top:-20px; margin-top:-20px; gap:12px }
+  #inventory #detail.database-panel .dialog-head h2 { font-size:22px }
+  #inventory #detail.database-panel .dialog-head { flex-direction:column-reverse }
 }

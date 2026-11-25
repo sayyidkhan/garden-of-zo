@@ -42,6 +42,20 @@ export function databaseRemarks(record: Row): string {
   return relative ? "Created by Hermes framework. " + purposes[relative] + " Keep the original filename." : "";
 }
 
+function databaseDisplayName(record: Row): string {
+  const path = record.backupOnly ? record.backupSource : record.path;
+  const names: Record<string, string> = {
+    "/root/.hermes/profiles/orin/state.db": "Conversation history",
+    "/root/.hermes/profiles/orin/projects.db": "Hermes workspaces",
+    "/root/.hermes/profiles/orin/cron/executions.db": "Scheduled-task history",
+    "/root/.hermes/profiles/orin/cron/notepad.db": "Scheduled-task notes",
+    "/home/workspace/Start/pal/pal-agent-orin/workspace/karma.sqlite": "Community Karma scores",
+    "/root/.hermes/profiles/orin/home/.local/share/pki/nssdb/cert9.db": "Browser certificates",
+    "/root/.hermes/profiles/orin/home/.local/share/pki/nssdb/key4.db": "Browser security keys"
+  };
+  return names[path] || record.name;
+}
+
 export function databaseRecords(databases: Row[]): Row[] {
   const sources = databases.filter(db => db.category !== "backup").map(db => ({ ...db }));
   const groups = new Map<string, Row>();
@@ -73,6 +87,7 @@ export function databaseRecords(databases: Row[]): Row[] {
   }
   return [...sources, ...groups.values()].map(record => ({
     ...record,
+    displayName: databaseDisplayName(record),
     remarks: databaseRemarks(record),
     backedUpBy: [...new Set(record.backupCopies.map((copy: Row) => copy.createdBy))].join(", ") || "Not confirmed"
   }));

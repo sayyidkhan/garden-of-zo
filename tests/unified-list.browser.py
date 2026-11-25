@@ -38,6 +38,15 @@ async def main():
                     await page.locator(f'#column-menu [data-field="{key}"]').click()
                 await page.locator("#column-menu").wait_for(state="visible")
 
+            async def grouped_ids():
+                return await page.locator("#rows").evaluate("""body => {
+                    const groups = [];
+                    for (const row of body.children) {
+                        if (row.classList.contains("database-group")) groups.push([]);
+                        if (row.dataset.databaseRow) groups.at(-1).push(row.dataset.databaseRow);
+                    }
+                    return groups;
+                }""")
             async def column_choice(key, value):
                 await open_column(key)
                 await page.locator("#column-menu [data-none]").click()
@@ -237,11 +246,15 @@ async def main():
             visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             by_id = {row["id"]: row for row in inventory["databases"]}
             sizes = [by_id[record]["bytes"] + by_id[record]["walBytes"] for record in visible_ids]
-            assert sizes == sorted(sizes, reverse=True)
+            for group in await grouped_ids():
+                sizes = [by_id[id]["bytes"] + by_id[id]["walBytes"] for id in group]
+                assert sizes == sorted(sizes, reverse=True)
             await column_sort("size", "asc")
             visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             sizes = [by_id[record]["bytes"] + by_id[record]["walBytes"] for record in visible_ids]
-            assert sizes == sorted(sizes)
+            for group in await grouped_ids():
+                sizes = [by_id[id]["bytes"] + by_id[id]["walBytes"] for id in group]
+                assert sizes == sorted(sizes)
             checks.append("Database size sorts numerically in both directions")
             owned = next(row for row in inventory["databases"] if row["category"] == "application" and row.get("owner"))
             await page.goto(private + "/#list?tab=databases&filter=category%3Aapplication&owner=" + owned["owner"] + "&sort=size_asc")
@@ -282,6 +295,48 @@ async def main():
             await page.locator("#close").click()
             await page.wait_for_function("!location.hash.includes('entity=')")
             checks.append("Entity details, dependency navigation and close state")
+            orin = next(row for row in inventory["agents"] if row["id"] == "agent:orin")
+            dashboard = next(row for row in inventory["databases"] if row.get("componentEntity") == "service:orin-hermes-dashboard")
+            database_columns = json.dumps({"filters": {"owner": [orin["name"]]}, "sort": {"key": "size", "direction": "desc"}}, separators=(",", ":"))
+            from urllib.parse import urlencode
+            database_hash = "#list?" + urlencode({"tab": "databases", "q": "orin", "columns": database_columns})
+            for width, close_method in [(1440, "button"), (390, "escape")]:
+                await page.set_viewport_size({"width": width, "height": 1000})
+                await page.goto(private + "/" + database_hash)
+                await page.wait_for_selector("#rows .database-name", timeout=60000)
+                original_url = page.url
+                original_rows = await page.locator("#rows .database-name").all_text_contents()
+                dashboard_row = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + dashboard["id"] + '"]'))
+                component = dashboard_row.get_by_role("button", name="Agent dashboard", exact=True)
+                await component.click()
+                await page.wait_for_selector("#detail[open]")
+                assert await page.locator("#tabs [data-tab='databases']").get_attribute("aria-pressed") == "true"
+                assert await page.locator("#section-title").inner_text() == "Databases"
+                assert await page.locator("#rows .database-name").all_text_contents() == original_rows
+                assert await page.locator("#detail-title").inner_text() == "orin-hermes-dashboard"
+                assert "tab=databases" in page.url
+                await page.reload()
+                await page.wait_for_selector("#detail[open]", timeout=60000)
+                assert await page.locator("#section-title").inner_text() == "Databases"
+                related = page.locator("#detail-body .related [data-entity]").first
+                await related.click()
+                assert await page.locator("#section-title").inner_text() == "Databases"
+                if close_method == "button":
+                    await page.locator("#close").click()
+                else:
+                    await page.keyboard.press("Escape")
+                await page.wait_for_function("!location.hash.includes('entity=')")
+                assert page.url == original_url
+                assert await page.locator("#search").input_value() == "orin"
+                assert await page.locator("#rows .database-name").all_text_contents() == original_rows
+                await component.click()
+                await page.keyboard.press("Escape")
+                await page.wait_for_function("!location.hash.includes('entity=')")
+                assert await component.evaluate("e => e === document.activeElement")
+                assert page.url == original_url
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            checks.append("Dashboard and related entity dialogs preserve database tab, owner filter, search, sorting and rows across close, Escape and reload on desktop/mobile")
+
             await page.goto(private + "/operations/#entity=agent%3Aruna")
             await page.wait_for_selector("#detail[open]", timeout=60000)
             assert "/#list?" in page.url and "entity=agent%3Aruna" in page.url
@@ -318,10 +373,12 @@ async def main():
             checks.append("All inventory sections fit 320–1440px without horizontal tables")
             await page.set_viewport_size({"width": 390, "height": 844})
             await page.locator("#tabs [data-tab='databases']").click()
-            assert await page.locator("#rows .entity").count() > 0
-            await page.locator("#rows .entity").first.click()
-            assert await page.locator("#detail").is_visible()
+            assert await page.locator("#rows .database-name").count() > 0
+            await page.locator("#rows .database-name").first.click()
+            assert await page.locator("#detail.database-panel").is_visible()
+            assert not await page.locator("#rows .database-detail-row").count()
             await page.locator("#close").click()
+            assert not await page.locator("#detail").is_visible()
             await page.screenshot(path=str(root / "_scratch/unified-list-mobile.png"))
             checks.append("Mobile List and database details fit the viewport")
             if public:

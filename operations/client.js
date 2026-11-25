@@ -78,7 +78,8 @@ function writeLocation() {
 }
 const destination = row => catalogue.find(r => (r.kind === "agent" ? "agent:" : "app:") + r.id === row.id)?.href || row.href;
 const openLink = row => { const href = destination(row); return href && /^(https:\/\/|\/(?!\/))/.test(href) ? '<a class="open-link" href="' + escape(href) + '">Open realm ↗</a>' : ""; };
-const name = id => entity(id)?.name || id || "Unmapped";
+const displayName = row => row.displayName || row.name;
+const name = id => { const row = entity(id); return row ? displayName(row) : id || "Unmapped"; };
 const ownerKey = row => row.owner || (row.systemOwnership ? "__system__" : "__unmapped__");
 const ownerName = row => row.owner ? name(row.owner) : row.systemOwnership?.name || "Unmapped";
 const ownerOption = id => id === "__system__" ? "Host system" : id === "__unmapped__" ? "Unmapped owner" : name(id);
@@ -94,14 +95,73 @@ const backupStatus = row => {
   const label = state === "snapshot found" ? (row.backup?.verification?.startsWith("SHA-256 checked") ? "Restore checked" : "Local snapshot") : state === "old snapshot" ? "Older snapshot" : state === "unknown" ? "Not verified" : state;
   return { label, tone: state === "snapshot found" ? "is-found" : state === "old snapshot" ? "is-old" : "" };
 };
-const backupEvidence = row => {
+const databasePurpose = row => (row.remarks || "").replace(/^Created by Hermes framework\.\s*/, "") || "Purpose not recorded.";
+function databaseSummary(row) {
   const copies = row.backupCopies || [];
-  const { label, tone } = backupStatus(row);
-  const date = !row.backupOnly && row.backup?.lastAt ? '<small class="backup-date">' + when(row.backup.lastAt) + '</small>' : '';
-  return '<div class="backup-summary"><span class="backup-evidence ' + tone + '">' + escape(label) + '</span>' + date + '<small class="backup-provider">Backed up by: ' + escape(row.backedUpBy || 'Not confirmed') + '</small>' +
-    '<button type="button" class="backup-view" data-backup-details="' + escape(row.id) + '" aria-haspopup="dialog" aria-controls="backup-dialog" aria-label="View backups for ' + escape(row.name) + '">' +
-    '<span>' + (copies.length ? copies.length + (copies.length === 1 ? ' copy' : ' copies') + '<span aria-hidden="true"> · </span>View backups' : 'View details') + '</span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 4 6 6-6 6"/></svg></button></div>';
-};
+  const provider = (row.backedUpBy || "Not confirmed").replace(/ backup tool/g, "");
+  const evidence = backupStatus(row);
+  return '<button type="button" class="database-backup-toggle" data-entity="' + escape(row.id) + '" aria-haspopup="dialog" aria-controls="detail">' +
+    '<span>' + escape(provider) + ' · ' + copies.length + (copies.length === 1 ? ' copy' : ' copies') + '</span><span class="backup-evidence ' + evidence.tone + '">' + escape(evidence.label) + '</span></button>';
+}
+function databaseOverview(row) {
+  const ownership = rowOwnership(row) || row.systemOwnership;
+  const remarks = escape(row.remarks || "No remarks recorded.").replace(/^Created by Hermes framework\./, '<strong>Created by Hermes framework.</strong>');
+  return '<div class="database-overview">' + copyRowButton(row) + '<section><h3>Purpose & remarks</h3><p class="database-remarks">' + remarks + '</p>' +
+    '<p class="backup-note">Filename: ' + escape(row.name) + '</p><p class="backup-note">Component: ' + (row.componentEntity ? link(row.componentEntity, row.component) : escape(row.component || "Not confirmed")) + ' · Size + WAL: ' + bytes(row.bytes + row.walBytes) + '</p>' +
+    '<h4>' + (row.backupOnly ? 'Representative backup path · source unconfirmed' : 'Source path') + '</h4>' + backupPath(row.path, row.backupOnly ? "representative backup" : "source database") +
+    '<p class="backup-note">' + escape(row.category) + ' · ' + escape(row.engine || "Unknown") + ' · WAL ' + bytes(row.walBytes || 0) + '</p>' +
+    '<p class="backup-note">' + escape(ownerName(row)) + ' · ' + escape(ownership?.category || "Ownership pending") + ' / ' + escape(ownership?.subcategory || "Ownership pending") + '</p></section>' +
+    '</div>';
+}
+function databaseRow(row) {
+  const open = selectedId === row.id;
+  const component = row.component || "Not confirmed";
+  return '<tr class="database-record' + (open ? ' is-selected' : '') + '" data-database-row="' + escape(row.id) + '"><td data-label="Database"><div class="database-heading">' +
+    '<button type="button" class="entity database-name database-friendly-name" data-entity="' + escape(row.id) + '" aria-haspopup="dialog" aria-controls="detail">' + escape(displayName(row)) + '</button>' + copyRowButton(row) +
+    '</div><p class="database-purpose">' + escape(databasePurpose(row)) + '</p>' + (displayName(row) !== row.name ? '<span class="database-filename">' + escape(row.name) + '</span>' : '') +
+    (row.backupOnly ? '<span class="database-filename">Retained backups · source unconfirmed</span>' : '') + '</td>' +
+    '<td data-label="Component"><span class="database-component">' + (row.componentEntity ? link(row.componentEntity, component) : escape(component)) + '</span></td>' +
+    '<td data-label="Size + WAL"><span class="database-storage"><strong>' + bytes(row.bytes + row.walBytes) + '</strong></span></td>' +
+    '<td data-label="Backup evidence">' + databaseSummary(row) + '</td></tr>';
+}
+function databaseGroups(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const ownership = rowOwnership(row) || row.systemOwnership;
+    const key = JSON.stringify([ownerKey(row), ownerName(row), ownership?.category, ownership?.subcategory]);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  return [...groups.values()].map(group => {
+    const row = group[0];
+    const ownership = rowOwnership(row) || row.systemOwnership;
+    return '<tr class="database-group"><th colspan="4" scope="rowgroup"><div class="database-group-heading"><span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) +
+      '</span><span class="database-ownership">' + escape(ownership?.category || "Ownership pending") + ' / ' + escape(ownership?.subcategory || "Ownership pending") +
+      '</span><span class="database-group-count">' + group.length + (group.length === 1 ? ' database' : ' databases') + '</span></div></th></tr>' + group.map(databaseRow).join("");
+  }).join("");
+}
+function highlightDatabase() {
+  for (const record of root.querySelectorAll("[data-database-row]")) record.classList.toggle("is-selected", record.dataset.databaseRow === selectedId);
+}
+let databaseReturnId;
+let databaseReturnScroll = 0;
+function databaseDetails(row) {
+  const dialog = $("#detail");
+  const opening = !dialog.open;
+  if (opening || !dialog.classList.contains("database-panel")) databaseReturnScroll = scrollY;
+  databaseReturnId = row.id;
+  dialog.classList.add("database-panel");
+  $("#detail-title").textContent = displayName(row);
+  $("#close").textContent = innerWidth <= 600 ? "Back to databases" : "Close";
+  const position = dialog.scrollTop;
+  $("#detail-body").innerHTML = databaseOverview(row) + '<div class="database-backup-body">' + backupContent(row, false) + '</div>';
+  highlightDatabase();
+  if (opening) {
+    dialog.showModal();
+    $("#close").focus({ preventScroll: true });
+    scrollTo(0, databaseReturnScroll);
+  } else dialog.scrollTop = position;
+}
 function databaseContext(row) {
   const ownership = rowOwnership(row) || row.systemOwnership;
   const copies = row.backupCopies || [];
@@ -109,7 +169,8 @@ function databaseContext(row) {
     "Garden of Zo — Database",
     "Observed: " + when(snapshot.observedAt) + " SGT" + (snapshot.stale ? " (older observation)" : ""),
     ...(snapshot.collectionError ? ["Collection warning: " + snapshot.collectionError] : []),
-    "Database: " + row.name,
+    "Database: " + displayName(row),
+    "Filename: " + row.name,
     "Record type: " + (row.backupOnly ? "Retained backups; original source unconfirmed" : row.category),
     (row.backupOnly ? "Representative backup path: " : "Source path: ") + row.path,
     "Owner: " + ownerName(row),
@@ -172,10 +233,14 @@ function backupDetails(id) {
   const row = snapshot?.databases.find(item => item.id === id);
   if (!row) return;
   selectedBackupId = id;
+  $("#backup-title").textContent = displayName(row);
+  $("#backup-copy-action").innerHTML = copyRowButton(row);
+  $("#backup-body").innerHTML = backupContent(row);
+  if (!$("#backup-dialog").open) $("#backup-dialog").showModal();
+}
+function backupContent(row, includeSource = true) {
   const { label, tone } = backupStatus(row);
   const copies = row.backupCopies || [];
-  $("#backup-title").textContent = row.name;
-  $("#backup-copy-action").innerHTML = copyRowButton(row);
   const explanation = !copies.length
     ? 'Garden has no backup location recorded for this database. This does not confirm that backups are missing.'
     : row.backupOnly ? 'These retained copies are recorded, but their original database has not been confirmed.'
@@ -185,9 +250,9 @@ function backupDetails(id) {
     : row.backupOnly ? 'Confirm which database these copies belong to before relying on them for recovery.'
     : row.backup?.status === 'old snapshot' ? 'Check for a newer backup and confirm the saved copy can be restored.'
     : 'Confirm the saved copy can be restored and whether a separate off-host copy exists.';
-  $("#backup-body").innerHTML = '<section class="backup-insight"><div class="backup-overview"><span class="backup-evidence ' + tone + '">' + escape(label) + '</span><span>' + escape(ownerName(row)) + '</span></div><p class="backup-explanation">' + escape(explanation) + '</p><p class="backup-provider">Backed up by: ' + escape(row.backedUpBy || 'Not confirmed') + '</p><p class="backup-note">Names identify the backup tool from its recorded storage location; they do not confirm an automatic schedule. Garden checks app and agent backups without creating an extra copy.</p><div class="backup-next"><h3>What to check</h3><p>' + escape(nextStep) + '</p></div></section>' +
-    '<section class="backup-section"><h3>Source database</h3>' +
-    (row.backupOnly ? '<p class="backup-note">The original database has not been confirmed. These retained copies are kept together for review.</p>' : backupPath(row.path, "source database")) + '</section>' +
+  return '<section class="backup-insight"><div class="backup-overview"><span class="backup-evidence ' + tone + '">' + escape(label) + '</span><span>' + escape(ownerName(row)) + '</span></div><p class="backup-explanation">' + escape(explanation) + '</p><p class="backup-provider">Backed up by: ' + escape(row.backedUpBy || 'Not confirmed') + '</p><p class="backup-note">Names identify the backup tool from its recorded storage location; they do not confirm an automatic schedule. Garden checks app and agent backups without creating an extra copy.</p><div class="backup-next"><h3>What to check</h3><p>' + escape(nextStep) + '</p></div></section>' +
+    (includeSource ? '<section class="backup-section"><h3>Source database</h3><p class="backup-note">Filename: ' + escape(row.name) + '</p>' +
+    (row.backupOnly ? '<p class="backup-note">The original database has not been confirmed. These retained copies are kept together for review.</p>' : backupPath(row.path, "source database")) + '</section>' : '') +
     '<section class="backup-section"><h3>Backup locations <span>' + copies.length + '</span></h3>' +
     (copies.length ? '<ol class="backup-copies">' + copies.map((copy, i) => '<li><div class="backup-copy-heading"><strong>Copy ' + (i + 1) + '</strong><span>' +
       (Number.isFinite(copy.bytes) ? bytes(copy.bytes + (copy.walBytes || 0)) : '') + '</span></div>' +
@@ -197,7 +262,6 @@ function backupDetails(id) {
     (!row.backupOnly && row.backup?.lastAt ? '<p class="backup-note">Last backup evidence · ' + when(row.backup.lastAt) + ' SGT</p>' : '') +
     (row.backup?.verification && !row.backupOnly ? '<p class="backup-note">' + escape(row.backup.verification) + '</p>' : '') +
     '<p class="backup-limits">Local copies do not establish off-host protection or full application recovery.</p>';
-  if (!$("#backup-dialog").open) $("#backup-dialog").showModal();
 }
 async function copyBackupPath(button) {
   try {
@@ -275,7 +339,7 @@ function findingDetails(row) {  if (row.kind === "scheduled-task-list") return '
       escape(label) + '</span><strong>' + escape(project) + '</strong></span><span class="finding-file-count">' + databases.length +
       (databases.length === 1 ? ' file' : ' files') + '</span>' + chevron + '</summary><ul>' +
       databases.sort((a, b) => collator.compare(a.path, b.path)).map(db =>
-        '<li>' + link(db.id, db.name) + '<small class="finding-path">' + escape(db.path) + '</small>' +
+        '<li>' + link(db.id, displayName(db)) + '<small class="finding-path">' + escape(db.path) + '</small>' +
         (db.path.startsWith("/root/.openclaw/") || db.path.includes("/migration/openclaw/")
           ? '<small class="finding-retained">Retained OpenClaw file · Review recovery retention</small>' : '') + '</li>').join('') + '</ul></details>';
   }).join('');
@@ -301,7 +365,7 @@ const definitions = {
   agents: ["Agent", "Role / runtime", "Process observation", "Registry state"],
   services: ["Service", "Process state", "Working directory", "Inventory mapping"],
   workflows: ["Workflow", "Trigger", "Declared state", "Last run evidence"],
-  databases: ["Database", "Owner", "Component", "Category", "Sub-category", "Size + WAL", "Backup evidence", "Remarks"],
+  databases: ["Database", "Component", "Size + WAL", "Backup evidence"],
   issues: ["Severity", "Finding", "Entity"]
 };
 const field = (key, label, value, extra = {}) => ({ key, label, value, ...extra });
@@ -315,11 +379,12 @@ const columnDefinitions = {
   services: [nameField("Service"), field("status", "Process state", row => row.status), field("workdir", "Working directory", row => row.workdir), field("mapped", "Inventory mapping", row => row.mapped ? "Linked" : "Unmapped")],
   workflows: [nameField("Workflow"), field("trigger", "Trigger", row => row.trigger), field("status", "Declared state", row => row.status),
     field("lastRun", "Last run evidence", row => (row.lastRun?.status || "Unknown") + (row.lastRun?.lastAt ? " · " + when(row.lastRun.lastAt) : ""), { numeric: true, date: true, sortValue: row => { const value = row.lastRun?.lastAt; return value ? typeof value === "number" ? value * 1000 : Date.parse(value) || null : null; } })],
-  databases: [nameField("Database"), field("owner", "Owner", ownerName), field("component", "Component", row => row.component || "Not confirmed"), ...labelFields, field("size", "Size + WAL", row => row.bytes + row.walBytes, { numeric: true, format: value => bytes(Number(value)) }),
+  databases: [field("name", "Database", displayName), field("owner", "Owner", ownerName), field("component", "Component", row => row.component || "Not confirmed"), ...labelFields, field("size", "Size + WAL", row => row.bytes + row.walBytes, { numeric: true, format: value => bytes(Number(value)) }),
     field("backup", "Backup evidence", row => row.category === "backup" ? "Retained copies · source unconfirmed" : row.backup?.status === "snapshot found" ? "Restore checked · local" : row.backup?.status === "unknown" ? "Not verified" : row.backup?.status || "Unknown", { relatedKeys: ["backup", "backupCount"] }), field("remarks", "Remarks", row => row.remarks || "—")],
   issues: [field("severity", "Severity", row => row.severity), field("finding", "Finding", row => row.message), field("entity", "Entity", row => name(row.entity))]
 };
 const tableKeys = Object.fromEntries(Object.entries(columnDefinitions).map(([key, columns]) => [key, columns.map(column => column.key)]));
+tableKeys.databases = ["name", "component", "size", "backup"];
 columnDefinitions.databases.push(field("type", "Database type", row => row.category));
 columnDefinitions.databases.push(field("backedUpBy", "Backed up by", row => row.backedUpBy || "Not confirmed"));
 columnDefinitions.databases.push(field("backupCount", "Backup count", row => (row.backupCopies || []).length, { numeric: true, format: value => value + (Number(value) === 1 ? " copy" : " copies"), relatedKeys: ["backup", "backupCount"] }));
@@ -331,6 +396,12 @@ const seededLabels = new Set();
 function migrateFilters() {
   if (!snapshot) return;
   const state = columnControls.state;
+  if (current === "databases" && state.filters.name) {
+    state.filters.name = [...new Set(state.filters.name.flatMap(value => {
+      const matches = snapshot.databases.filter(row => row.name === value);
+      return matches.length ? matches.map(displayName) : [value];
+    }))];
+  }
   if (current === "databases" && state.filters.owner) {
     state.filters.owner = [...new Set(state.filters.owner.map(value => value === "orin-hermes-dashboard" ? name("agent:orin") : value))];
   }
@@ -414,7 +485,7 @@ function sortRows(rows) {
   const lastAt = row => { const value = row.lastRun?.lastAt; return typeof value === "number" ? value * 1000 : Date.parse(value || "") || 0; };
   return rows.sort((a, b) => {
     let result = 0;
-    if (order === "name_desc") result = text(b.name || b.message, a.name || a.message);
+    if (order === "name_desc") result = text(displayName(b) || b.message, displayName(a) || a.message);
     else if (order === "size_desc") result = (b.bytes + b.walBytes) - (a.bytes + a.walBytes);
     else if (order === "size_asc") result = (a.bytes + a.walBytes) - (b.bytes + b.walBytes);
     else if (order === "last_desc" || order === "last_asc") result = !lastAt(a) ? 1 : !lastAt(b) ? -1 : order === "last_desc" ? lastAt(b) - lastAt(a) : lastAt(a) - lastAt(b);
@@ -423,7 +494,7 @@ function sortRows(rows) {
     else if (order === "owner") result = text(ownerName(a), ownerName(b));
     else if (order === "backup") result = text(a.backup?.status, b.backup?.status);
     else if (order === "access" || order === "status" || order === "runtime") result = text(a[order], b[order]);
-    else result = text(a.name || a.message, b.name || b.message);
+    else result = text(displayName(a) || a.message, displayName(b) || b.message);
     return result || text(a.name || a.message, b.name || b.message) || text(a.id, b.id);
   });
 }
@@ -466,7 +537,7 @@ function render() {
   columnControls.render($("#head"), true, tableKeys[current]);
   renderColumnToolbar();
   columnControls.summary($("[data-columns-summary]"));
-  $("#rows").innerHTML = rows.map(row => {
+  $("#rows").innerHTML = (current === "databases" ? databaseGroups(rows) : rows.map(row => {
     if (realms) {
       const realm = catalogue.find(r => (r.kind === "agent" ? "agent:" : "app:") + r.id === row.id);
       if (realm && cardTemplates.has(realm.id)) return catalogueCard(row, realm);
@@ -480,27 +551,12 @@ function render() {
     let cells;
     if (current === "services") cells = [link(row.id) + projectLabel(row) + "<small>" + (row.pid ? "PID " + row.pid : "No observed PID") + "</small>", status(row.status), "<small>" + escape(row.workdir) + "</small>", row.mapped ? "Linked" : status("unmapped")];
     if (current === "workflows") cells = [link(row.id) + projectLabel(row) + "<small>" + escape(row.type) + "</small>", "<small>" + escape(row.trigger) + "</small>", status(row.status), escape(row.lastRun?.status) + "<small>" + when(row.lastRun?.lastAt) + "</small>"];
-    if (current === "databases") {
-      const directory = row.path.slice(0, -row.name.length).replace(/\/$/, "");
-      const segments = directory.split("/").filter(Boolean);
-      const location = (segments.length > 4 ? "…/" : "/") + segments.slice(-4).join("/");
-      const ownership = rowOwnership(row);
-      cells = [
-        '<div class="database-identity"><div class="database-heading"><button class="entity database-name" data-entity="' + escape(row.id) + '" title="' + escape(row.name) + '">' + escape(row.name) + '</button>' + copyRowButton(row) + '</div><div class="database-meta"><span class="database-category">' + escape(row.backupOnly ? "retained backups" : row.category) + '</span><span class="database-location" title="' + escape(row.path) + '">' + escape(location) + '</span></div></div>',
-        '<span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) + '</span>',
-        '<span class="database-component">' + (row.componentEntity ? link(row.componentEntity, row.component) : escape(row.component || "Not confirmed")) + '</span>',        '<span class="database-ownership">' + escape(ownership?.category || row.systemOwnership?.category || "Ownership pending") + '</span>',
-        '<span class="database-ownership">' + escape(ownership?.subcategory || row.systemOwnership?.subcategory || "Ownership pending") + '</span>',
-        '<span class="database-storage"><strong>' + bytes(row.bytes + row.walBytes) + '</strong><small>' + escape(row.engine) + (row.walBytes ? ' · WAL ' + bytes(row.walBytes) : '') + '</small></span>',
-        backupEvidence(row),
-        '<span class="database-remarks">' + escape(row.remarks || '—').replace(/^Created by Hermes framework\./, '<strong>Created by Hermes framework.</strong>') + '</span>'
-      ];
-    }
     if (current === "issues") return '<tr><td colspan="3" class="finding-cell">' + findingDetails(row) + '</td></tr>';
     return "<tr>" + cells.map((cell, i) => '<td data-label="' + escape(definitions[current][i]) + '">' + cell + "</td>").join("") + "</tr>";
-  }).join("") || '<tr><td colspan="' + definitions[current].length + '" class="empty">No matching records. Try another search or filter.</td></tr>';
+  }).join("")) || '<tr><td colspan="' + definitions[current].length + '" class="empty">No matching records. Try another search or filter.</td></tr>';
   const total = current === "databases" ? " · " + bytes(rows.reduce((sum, r) => sum + r.bytes + r.walBytes, 0)) + " including WAL" : "";
   const scheduleNote = current === "workflows" ? " · Zo Scheduled Tasks: saved list updated " + when(snapshot.coverage.automations.observedAt) + " SGT; run history unavailable." : "";
-  $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total;
+  $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total + (current === "databases" ? " · Grouped by owner; sorted within each group" : "");
   $("#evidence-caption").textContent = (["services", "agents", "apps"].includes(current) ? "Running confirms a process exists; application health is not verified." : "") + scheduleNote;
   taskUpdateControls();
 }
@@ -508,11 +564,16 @@ function detail(id) {
   const row = entity(id);
   if (!row) return;
   selectedId = id;
-  const section = Object.keys(sections).find(k => k !== "issues" && snapshot[k].some(r => r.id === id));
-  if (section && section !== current) { current = section; options(); render(); }
   writeLocation();
-  $("#detail-title").textContent = row.name;
-  const fields = Object.entries(row).filter(([key]) => !["id", "name"].includes(key));
+  if (snapshot.databases.some(database => database.id === id)) { databaseDetails(row); return; }
+  const dialog = $("#detail");
+  if (dialog.classList.contains("database-panel") && dialog.open) dialog.close();
+  dialog.classList.remove("database-panel");
+  root.classList.remove("database-inspecting");
+  $("#close").textContent = "Close";
+  highlightDatabase();
+  $("#detail-title").textContent = displayName(row);
+  const fields = Object.entries(row).filter(([key]) => !["id", "displayName"].includes(key) && (key !== "name" || row.displayName)).map(([key, value]) => [key === "name" ? "Filename" : key, value]);
   $("#detail-body").innerHTML = "<dl>" + fields.map(([key,value]) => "<dt>" + escape(key.replace(/([A-Z])/g, " $1")) + "</dt><dd>" + (key === "owner" ? link(value) : key === "componentEntity" ? link(value, row.component) : key === "href" && /^https:\/\//.test(value) ? '<a target="_blank" rel="noreferrer" href="' + escape(value) + '">Open destination ↗</a>' : escape(typeof value === "object" ? JSON.stringify(value, null, 2) : value)) + "</dd>").join("") + "</dl>";
   for (const [direction, heading] of [["from", "Depends on / uses"], ["to", "Used by / affected consumers"]]) {
     const other = direction === "from" ? "to" : "from";
@@ -571,7 +632,13 @@ root.addEventListener("toggle", event => {
   if (event.target.open) openFindingSections.add(key);
   else openFindingSections.delete(key);
 }, true);
-root.addEventListener("click", event => {  const update = event.target.closest("[data-update-tasks]");
+root.addEventListener("click", event => {
+  const record = event.target.closest("[data-database-row]");
+  if (record && !event.target.closest("button, a, input") && !window.getSelection()?.toString()) {
+    detail(record.dataset.databaseRow);
+    return;
+  }
+  const update = event.target.closest("[data-update-tasks]");
   if (update) void updateTaskList();
   const tab = event.target.closest("[data-tab]");
   if (tab) select(tab.dataset.tab);
@@ -596,7 +663,19 @@ $("#backup-dialog").addEventListener("close", () => {
   root.querySelector('[data-backup-details="' + CSS.escape(id || "") + '"]')?.focus();
 });
 $("#close").addEventListener("click", () => $("#detail").close());
-$("#detail").addEventListener("close", () => { selectedId = undefined; if (visible()) writeLocation(); });
+$("#detail").addEventListener("close", () => {
+  if ($("#detail").open) return;
+  const returning = $("#detail").classList.contains("database-panel");
+  selectedId = undefined;
+  $("#detail").classList.remove("database-panel");
+  root.classList.remove("database-inspecting");
+  highlightDatabase();
+  if (visible()) writeLocation();
+  if (returning) {
+    root.querySelector('.database-name[data-entity="' + CSS.escape(databaseReturnId || "") + '"]')?.focus({ preventScroll: true });
+    scrollTo(0, databaseReturnScroll);
+  }
+});
 $("#search").addEventListener("input", () => { writeLocation(); render(); });
 $("#filter").addEventListener("change", () => { writeLocation(); render(); });
 $("#owner").addEventListener("change", () => { writeLocation(); render(); });
@@ -639,7 +718,13 @@ document.addEventListener("garden:ownershipchange", () => {
   }
   render();
 });
-addEventListener("resize", () => { if (visible()) renderColumnToolbar(); });
+addEventListener("resize", () => {
+  if (visible()) renderColumnToolbar();
+  const dialog = $("#detail");
+  if (dialog.open && dialog.classList.contains("database-panel")) {
+    $("#close").textContent = innerWidth <= 600 ? "Back to databases" : "Close";
+  }
+});
 addEventListener("hashchange", sync);
 document.addEventListener("visibilitychange", sync);
 options();
