@@ -32,11 +32,16 @@ const sortChoices = {
   agents: [["name_asc", "Name A–Z"], ["name_desc", "Name Z–A"], ["status", "Process state"], ["runtime", "Runtime"]],
   services: [["name_asc", "Name A–Z"], ["name_desc", "Name Z–A"], ["status", "Process state"], ["mapping", "Mapping"]],
   workflows: [["name_asc", "Name A–Z"], ["name_desc", "Name Z–A"], ["last_desc", "Last run: newest"], ["last_asc", "Last run: oldest"], ["status", "Declared state"]],
-  databases: [["name_asc", "Name A–Z"], ["name_desc", "Name Z–A"], ["size_desc", "Size: largest"], ["size_asc", "Size: smallest"], ["owner", "Owner A–Z"], ["backup", "Backup evidence"]],
+  databases: [["name_asc", "Name A–Z"], ["name_desc", "Name Z–A"], ["size_desc", "Size: largest"], ["size_asc", "Size: smallest"], ["owner", "Owner A–Z"]],
   issues: [["severity", "Severity"], ["name_asc", "Finding A–Z"], ["name_desc", "Finding Z–A"]]
 };
 const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const when = value => value ? new Date(typeof value === "number" ? value * 1000 : value).toLocaleString("en-SG", { timeZone: "Asia/Singapore", dateStyle: "medium", timeStyle: "short" }) : "Unknown";
+function databaseBackupTime(value) {
+  if (!value) return "Not recorded";
+  const date = new Date(typeof value === "number" ? value * 1000 : value);
+  return '<span class="database-backup-datetime"><span class="database-backup-date">' + escape(date.toLocaleDateString("en-SG", { timeZone: "Asia/Singapore", dateStyle: "medium" })) + '</span>, <span class="database-backup-time">' + escape(date.toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", timeStyle: "short" })) + ' SGT</span></span>';
+}
 const bytes = value => value >= 1073741824 ? (value / 1073741824).toFixed(2) + " GB" : value >= 1048576 ? (value / 1048576).toFixed(1) + " MB" : Math.round(value / 1024) + " KB";
 const all = () => Object.keys(sections).filter(k => k !== "issues").flatMap(k => snapshot?.[k] || []);
 const entity = id => all().find(row => row.id === id);
@@ -63,6 +68,17 @@ function updateHome(error = false) {
     : "Inventory unavailable · Open List to retry";
 }
 let selectedId;
+const databaseExtraFields = ["component", "size", "engine", "backupOverview", "remarks"];
+function addDatabaseColumn(columns, key) {
+  if (columns.includes(key)) return columns;
+  const next = [...columns];
+  const index = next.findIndex(item => databaseExtraFields.indexOf(item) > databaseExtraFields.indexOf(key));
+  next.splice(index < 0 ? next.length : index, 0, key);
+  return next;
+}
+const databasePresets = { overview: ["size"], backups: ["backupOverview"] };
+let databaseExtraColumns = [...databasePresets.overview];
+let databaseView = "overview";
 const params = () => new URLSearchParams(location.hash.split("?")[1] || "");
 function writeLocation() {
   const state = new URLSearchParams();
@@ -74,11 +90,15 @@ function writeLocation() {
   const columns = columnControls.serialize();
   if (columns) state.set("columns", columns);
   if (selectedId) state.set("entity", selectedId);
+  state.set("dbColumns", databaseExtraColumns.join(","));
+  state.set("dbLayout", "6");
+
   history.replaceState(null, "", location.pathname + location.search + "#list" + (state.size ? "?" + state : ""));
 }
 const destination = row => catalogue.find(r => (r.kind === "agent" ? "agent:" : "app:") + r.id === row.id)?.href || row.href;
 const openLink = row => { const href = destination(row); return href && /^(https:\/\/|\/(?!\/))/.test(href) ? '<a class="open-link" href="' + escape(href) + '">Open realm ↗</a>' : ""; };
 const displayName = row => row.displayName || row.name;
+const databaseUsedBy = row => row.component || ({ application: "App", "agent runtime": "Agent Runtime", "host runtime": "Host System", development: "Development / Testing" }[row.category]) || "Not confirmed";
 const name = id => { const row = entity(id); return row ? displayName(row) : id || "Unmapped"; };
 const ownerKey = row => row.owner || (row.systemOwnership ? "__system__" : "__unmapped__");
 const ownerName = row => row.owner ? name(row.owner) : row.systemOwnership?.name || "Unmapped";
@@ -95,34 +115,73 @@ const backupStatus = row => {
   const label = state === "snapshot found" ? (row.backup?.verification?.startsWith("SHA-256 checked") ? "Restore checked" : "Local snapshot") : state === "old snapshot" ? "Older snapshot" : state === "unknown" ? "Not verified" : state;
   return { label, tone: state === "snapshot found" ? "is-found" : state === "old snapshot" ? "is-old" : "" };
 };
-const databasePurpose = row => (row.remarks || "").replace(/^Created by Hermes framework\.\s*/, "") || "Purpose not recorded.";
+const databasePurpose = row => (row.remarks || "").replace(/^Created by Hermes framework\.\s*/, "").replace(/\s*Keep the original filename\.$/, "");
+function databaseBackupLabel(row) {
+  const count = (row.backupCopies || []).length;
+  if (!count) return "No copies recorded";
+  return (row.backedUpBy || "Not confirmed").replace(/ backup tool/g, "") + " · " + count + (count === 1 ? " copy" : " copies");
+}
+function databaseBackupOverview(row) {
+  return '<div class="database-backup-overview"><strong>' + escape(databaseBackupLabel(row)) + '</strong>' + ((row.backupCopies || []).length ? databaseBackupTime(row.backup?.lastAt) : '') + '</div>';
+}
 function databaseSummary(row) {
   const copies = row.backupCopies || [];
   const provider = (row.backedUpBy || "Not confirmed").replace(/ backup tool/g, "");
   const evidence = backupStatus(row);
-  return '<button type="button" class="database-backup-toggle" data-entity="' + escape(row.id) + '" aria-haspopup="dialog" aria-controls="detail">' +
-    '<span>' + escape(provider) + ' · ' + copies.length + (copies.length === 1 ? ' copy' : ' copies') + '</span><span class="backup-evidence ' + evidence.tone + '">' + escape(evidence.label) + '</span></button>';
+  return '<div class="database-backup-summary"><span>' + escape(provider) + ' · ' + copies.length + (copies.length === 1 ? ' copy' : ' copies') + '</span><span class="backup-evidence ' + evidence.tone + '">' + escape(evidence.label) + '</span></div>';
 }
-function databaseOverview(row) {
-  const ownership = rowOwnership(row) || row.systemOwnership;
-  const remarks = escape(row.remarks || "No remarks recorded.").replace(/^Created by Hermes framework\./, '<strong>Created by Hermes framework.</strong>');
-  return '<div class="database-overview">' + copyRowButton(row) + '<section><h3>Purpose & remarks</h3><p class="database-remarks">' + remarks + '</p>' +
-    '<p class="backup-note">Filename: ' + escape(row.name) + '</p><p class="backup-note">Component: ' + (row.componentEntity ? link(row.componentEntity, row.component) : escape(row.component || "Not confirmed")) + ' · Size + WAL: ' + bytes(row.bytes + row.walBytes) + '</p>' +
-    '<h4>' + (row.backupOnly ? 'Representative backup path · source unconfirmed' : 'Source path') + '</h4>' + backupPath(row.path, row.backupOnly ? "representative backup" : "source database") +
-    '<p class="backup-note">' + escape(row.category) + ' · ' + escape(row.engine || "Unknown") + ' · WAL ' + bytes(row.walBytes || 0) + '</p>' +
-    '<p class="backup-note">' + escape(ownerName(row)) + ' · ' + escape(ownership?.category || "Ownership pending") + ' / ' + escape(ownership?.subcategory || "Ownership pending") + '</p></section>' +
-    '</div>';
+const databaseNextStep = row => !(row.backupCopies || []).length
+  ? "Check where this database is backed up and record the location and latest successful backup."
+  : row.backupOnly ? "Confirm which database these copies belong to before relying on them for recovery."
+  : row.backup?.status === "old snapshot" ? "Check for a newer backup and confirm the saved copy can be restored."
+  : "Confirm the saved copy can be restored and whether a separate off-host copy exists.";
+function databaseCopyDetails(row) {
+  const copies = row.backupCopies || [];
+  return copies.length ? '<ol class="database-copy-list">' + copies.map((copy, i) =>
+    '<li><strong>Copy ' + (i + 1) + '</strong> · ' + bytes((copy.bytes || 0) + (copy.walBytes || 0)) +
+    '<p>Created by: ' + escape(copy.createdBy || "Not confirmed") + '</p>' +
+    backupPath(copy.path, 'backup ' + (i + 1)) +
+    '<p>' + escape(copy.association || "Association not confirmed") + '</p>' +
+    '<p>Modified: ' + escape(copy.modifiedAt ? when(copy.modifiedAt) + ' SGT' : "Not recorded") + '</p></li>'
+  ).join('') + '</ol>' : 'No backup location recorded; this does not confirm that backups are missing.';
+}
+function backupCopiesButton(row) {
+  return '<button type="button" class="copy-row backup-copies-icon" data-backup-details="' + escape(row.id) + '" data-backup-index="-1" aria-haspopup="dialog" aria-controls="backup-dialog" aria-label="View backup copies for ' + escape(displayName(row)) + '" data-tooltip="View backup copies"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h18V3H3zM5 8v13h14V8M10 12h4"/></svg><span class="copy-row-label">View backup copies</span></button>';
+}
+let backupReturnId;
+let backupReturnIndex;
+function openBackupDetails(id, index = -1) {
+  const row = snapshot?.databases.find(item => item.id === id);
+  if (!row) return;
+  backupReturnId = id;
+  backupReturnIndex = index;
+  $("#backup-title").textContent = displayName(row) + " — Backups";
+  $("#backup-body").innerHTML = '<div class="backup-overview">' + databaseSummary(row) + '<span>Observed: ' + escape(when(snapshot.observedAt)) + ' SGT</span></div>' +
+    '<p class="backup-explanation">' + escape(row.backupOnly ? "Original source unconfirmed" : row.backup?.verification || "Not verified") + '</p>' +
+    '<section class="backup-section"><h3>Saved copies</h3>' + databaseCopyDetails(row) + '</section>' +
+    '<section class="backup-next"><h3>What to check</h3><p>' + escape(databaseNextStep(row)) + '</p></section>' +
+    '<p class="backup-limits">Local copies do not establish off-host protection or full application recovery.</p>';
+  $("#backup-dialog").showModal();
+  $("#backup-body .database-copy-list")?.children[index]?.scrollIntoView({ block: "nearest" });
 }
 function databaseRow(row) {
   const open = selectedId === row.id;
-  const component = row.component || "Not confirmed";
+  const fields = tableKeys.databases.slice(1);
   return '<tr class="database-record' + (open ? ' is-selected' : '') + '" data-database-row="' + escape(row.id) + '"><td data-label="Database"><div class="database-heading">' +
-    '<button type="button" class="entity database-name database-friendly-name" data-entity="' + escape(row.id) + '" aria-haspopup="dialog" aria-controls="detail">' + escape(displayName(row)) + '</button>' + copyRowButton(row) +
-    '</div><p class="database-purpose">' + escape(databasePurpose(row)) + '</p>' + (displayName(row) !== row.name ? '<span class="database-filename">' + escape(row.name) + '</span>' : '') +
+    '<div class="database-title"><span class="database-name database-friendly-name" data-entity="' + escape(row.id) + '">' + escape(displayName(row)) + '</span>' + (displayName(row) !== row.name ? '<span class="database-filename">' + escape(row.name) + '</span>' : '') + '</div><div class="database-actions">' + copyRowButton(row) + copyPathButton(row.path, row.backupOnly ? "representative backup, original source unconfirmed" : "source database") + backupCopiesButton(row) + '</div>' +
+    '</div>' +
     (row.backupOnly ? '<span class="database-filename">Retained backups · source unconfirmed</span>' : '') + '</td>' +
-    '<td data-label="Component"><span class="database-component">' + (row.componentEntity ? link(row.componentEntity, component) : escape(component)) + '</span></td>' +
-    '<td data-label="Size + WAL"><span class="database-storage"><strong>' + bytes(row.bytes + row.walBytes) + '</strong></span></td>' +
-    '<td data-label="Backup evidence">' + databaseSummary(row) + '</td></tr>';
+    fields.map((key, index) => {
+      const column = columnDefinitions.databases.find(item => item.key === key);
+      const value = key === "component" ? '<span class="database-component">' + (row.componentEntity ? link(row.componentEntity, databaseUsedBy(row)) : escape(databaseUsedBy(row))) + '</span>'
+        : key === "size" ? '<strong>' + bytes(row.bytes + row.walBytes) + '</strong><span class="database-wal-size">WAL ' + bytes(row.walBytes || 0) + '</span>'
+        : key === "purpose" ? '<p class="database-purpose">' + escape(databasePurpose(row) || "—") + '</p>'
+        : key === "remarks" ? '<span class="database-remarks">' + escape(row.remarks || "—").replace(/^Created by Hermes framework\./, '<strong>Created by Hermes framework.</strong>') + '</span>'
+        : key === "backupOverview" ? databaseBackupOverview(row)
+        : escape(row[key] || "Not confirmed");
+      const layout = '--mobile-order:' + index + ';--mobile-span:3';
+      return '<td data-field="' + key + '" data-label="' + escape(column.label) + '" style="' + layout + '"' + '>' + value + '</td>';
+    }).join("") + '</tr>';
 }
 function databaseGroups(rows) {
   const groups = new Map();
@@ -135,32 +194,15 @@ function databaseGroups(rows) {
   return [...groups.values()].map(group => {
     const row = group[0];
     const ownership = rowOwnership(row) || row.systemOwnership;
-    return '<tr class="database-group"><th colspan="4" scope="rowgroup"><div class="database-group-heading"><span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) +
+    const totalSize = group.reduce((sum, item) => sum + (item.bytes || 0) + (item.walBytes || 0), 0);
+    const totalWal = group.reduce((sum, item) => sum + (item.walBytes || 0), 0);
+    return '<tr class="database-group"><th colspan="' + tableKeys.databases.length + '" scope="rowgroup"><div class="database-group-heading"><span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) +
       '</span><span class="database-ownership">' + escape(ownership?.category || "Ownership pending") + ' / ' + escape(ownership?.subcategory || "Ownership pending") +
-      '</span><span class="database-group-count">' + group.length + (group.length === 1 ? ' database' : ' databases') + '</span></div></th></tr>' + group.map(databaseRow).join("");
+      '</span><span class="database-group-count"><span>' + group.length + (group.length === 1 ? ' database' : ' databases') + '</span><span class="database-group-size">Size + WAL: ' + bytes(totalSize) + '</span><span class="database-group-wal">WAL Only: ' + bytes(totalWal) + '</span></span></div></th></tr>' + group.map(databaseRow).join("");
   }).join("");
 }
 function highlightDatabase() {
   for (const record of root.querySelectorAll("[data-database-row]")) record.classList.toggle("is-selected", record.dataset.databaseRow === selectedId);
-}
-let databaseReturnId;
-let databaseReturnScroll = 0;
-function databaseDetails(row) {
-  const dialog = $("#detail");
-  const opening = !dialog.open;
-  if (opening || !dialog.classList.contains("database-panel")) databaseReturnScroll = scrollY;
-  databaseReturnId = row.id;
-  dialog.classList.add("database-panel");
-  $("#detail-title").textContent = displayName(row);
-  $("#close").textContent = innerWidth <= 600 ? "Back to databases" : "Close";
-  const position = dialog.scrollTop;
-  $("#detail-body").innerHTML = databaseOverview(row) + '<div class="database-backup-body">' + backupContent(row, false) + '</div>';
-  highlightDatabase();
-  if (opening) {
-    dialog.showModal();
-    $("#close").focus({ preventScroll: true });
-    scrollTo(0, databaseReturnScroll);
-  } else dialog.scrollTop = position;
 }
 function databaseContext(row) {
   const ownership = rowOwnership(row) || row.systemOwnership;
@@ -171,10 +213,9 @@ function databaseContext(row) {
     ...(snapshot.collectionError ? ["Collection warning: " + snapshot.collectionError] : []),
     "Database: " + displayName(row),
     "Filename: " + row.name,
-    "Record type: " + (row.backupOnly ? "Retained backups; original source unconfirmed" : row.category),
     (row.backupOnly ? "Representative backup path: " : "Source path: ") + row.path,
     "Owner: " + ownerName(row),
-    "Component: " + (row.component || "Not confirmed"),
+    "Used by: " + databaseUsedBy(row),
     "Category: " + (ownership?.category || "Ownership pending"),
     "Sub-category: " + (ownership?.subcategory || "Ownership pending"),
     "Engine: " + (row.engine || "Unknown"),
@@ -200,7 +241,49 @@ function databaseContext(row) {
 }
 const copyRowIcon = '<svg class="copy-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h4"/></svg>';
 const copyRowCheck = '<svg class="copy-row-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
-const copyRowButton = row => '<button type="button" class="copy-row" data-copy-row="' + escape(row.id) + '" aria-label="Copy row for ' + escape(row.name) + '" title="Copy row">' + copyRowIcon + copyRowCheck + '<span class="copy-row-label">Copy row</span></button>';
+const copyRowButton = row => '<button type="button" class="copy-row" data-copy-row="' + escape(row.id) + '" aria-label="Copy row for ' + escape(row.name) + '" data-tooltip="Copy database details">' + copyRowIcon + copyRowCheck + '<span class="copy-row-label">Copy row</span></button>';
+const copyTooltip = document.createElement("div");
+copyTooltip.id = "database-action-tooltip";
+copyTooltip.className = "database-action-tooltip";
+copyTooltip.role = "tooltip";
+copyTooltip.hidden = true;
+let tooltipTarget;
+function hideCopyTooltip() {
+  tooltipTarget?.removeAttribute("aria-describedby");
+  tooltipTarget = undefined;
+  copyTooltip.hidden = true;
+}
+function showCopyTooltip(button) {
+  hideCopyTooltip();
+  tooltipTarget = button;
+  copyTooltip.textContent = button.dataset.tooltip + (button.dataset.tooltipPath ? "\n" + button.dataset.tooltipPath : "");
+  (button.closest("dialog") || root).append(copyTooltip);
+  copyTooltip.hidden = false;
+  button.setAttribute("aria-describedby", copyTooltip.id);
+  const bounds = button.getBoundingClientRect();
+  const tip = copyTooltip.getBoundingClientRect();
+  copyTooltip.style.left = Math.max(8, Math.min(bounds.left, innerWidth - tip.width - 8)) + "px";
+  copyTooltip.style.top = (bounds.bottom + tip.height + 8 < innerHeight ? bounds.bottom + 6 : Math.max(8, bounds.top - tip.height - 6)) + "px";
+}
+root.addEventListener("pointerover", event => {
+  const button = event.target.closest("[data-tooltip]");
+  if (button && event.pointerType !== "touch") showCopyTooltip(button);
+});
+root.addEventListener("pointerout", event => {
+  if (tooltipTarget && !tooltipTarget.contains(event.relatedTarget)) hideCopyTooltip();
+});
+root.addEventListener("focusin", event => {
+  const button = event.target.closest("[data-tooltip]");
+  if (button) showCopyTooltip(button);
+});
+root.addEventListener("focusout", hideCopyTooltip);
+root.addEventListener("click", hideCopyTooltip);
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") hideCopyTooltip();
+});
+document.addEventListener("scroll", hideCopyTooltip, true);
+window.addEventListener("resize", hideCopyTooltip);
+window.addEventListener("hashchange", hideCopyTooltip);
 let copyReturnFocus;
 async function copyDatabaseRow(button) {
   const row = snapshot?.databases.find(item => item.id === button.dataset.copyRow);
@@ -210,14 +293,16 @@ async function copyDatabaseRow(button) {
     await navigator.clipboard.writeText(text);
     button.classList.add("is-copied");
     button.querySelector(".copy-row-label").textContent = "Copied";
-    button.title = "Copied";
+    button.dataset.tooltip = "Copied";
+    if (tooltipTarget === button) showCopyTooltip(button);
     $("#copy-feedback").textContent = "Copied " + row.name + " with ownership and backup details.";
     clearTimeout(button.copyResetTimer);
     button.copyResetTimer = setTimeout(() => {
       if (!button.isConnected) return;
       button.classList.remove("is-copied");
       button.querySelector(".copy-row-label").textContent = "Copy row";
-      button.title = "Copy row";
+      button.dataset.tooltip = "Copy database details";
+      if (tooltipTarget === button) showCopyTooltip(button);
     }, 2500);
   } catch {
     copyReturnFocus = button;
@@ -227,47 +312,27 @@ async function copyDatabaseRow(button) {
     $("#copy-row-text").select();
   }
 }
+const copyPathIcon = '<svg class="copy-row-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>';
+const copyPathButton = (path, label) => '<button type="button" class="copy-row copy-path-icon" data-copy-path="' + escape(path) + '" aria-label="Copy ' + escape(label) + ' path" data-tooltip="Copy file path" data-tooltip-path="' + escape(path) + '">' + copyPathIcon + copyRowCheck + '<span class="copy-row-label">Copy path</span></button>';
 const backupPath = (path, label) => '<div class="backup-path"><code>' + escape(path) + '</code><button type="button" class="button" data-copy-path="' + escape(path) + '" aria-label="Copy ' + escape(label) + ' path">Copy path</button></div>';
-let selectedBackupId;
-function backupDetails(id) {
-  const row = snapshot?.databases.find(item => item.id === id);
-  if (!row) return;
-  selectedBackupId = id;
-  $("#backup-title").textContent = displayName(row);
-  $("#backup-copy-action").innerHTML = copyRowButton(row);
-  $("#backup-body").innerHTML = backupContent(row);
-  if (!$("#backup-dialog").open) $("#backup-dialog").showModal();
-}
-function backupContent(row, includeSource = true) {
-  const { label, tone } = backupStatus(row);
-  const copies = row.backupCopies || [];
-  const explanation = !copies.length
-    ? 'Garden has no backup location recorded for this database. This does not confirm that backups are missing.'
-    : row.backupOnly ? 'These retained copies are recorded, but their original database has not been confirmed.'
-    : 'Garden records ' + copies.length + (copies.length === 1 ? ' local backup copy.' : ' local backup copies.');
-  const nextStep = !copies.length
-    ? 'Check where this database is backed up and record the location and latest successful backup.'
-    : row.backupOnly ? 'Confirm which database these copies belong to before relying on them for recovery.'
-    : row.backup?.status === 'old snapshot' ? 'Check for a newer backup and confirm the saved copy can be restored.'
-    : 'Confirm the saved copy can be restored and whether a separate off-host copy exists.';
-  return '<section class="backup-insight"><div class="backup-overview"><span class="backup-evidence ' + tone + '">' + escape(label) + '</span><span>' + escape(ownerName(row)) + '</span></div><p class="backup-explanation">' + escape(explanation) + '</p><p class="backup-provider">Backed up by: ' + escape(row.backedUpBy || 'Not confirmed') + '</p><p class="backup-note">Names identify the backup tool from its recorded storage location; they do not confirm an automatic schedule. Garden checks app and agent backups without creating an extra copy.</p><div class="backup-next"><h3>What to check</h3><p>' + escape(nextStep) + '</p></div></section>' +
-    (includeSource ? '<section class="backup-section"><h3>Source database</h3><p class="backup-note">Filename: ' + escape(row.name) + '</p>' +
-    (row.backupOnly ? '<p class="backup-note">The original database has not been confirmed. These retained copies are kept together for review.</p>' : backupPath(row.path, "source database")) + '</section>' : '') +
-    '<section class="backup-section"><h3>Backup locations <span>' + copies.length + '</span></h3>' +
-    (copies.length ? '<ol class="backup-copies">' + copies.map((copy, i) => '<li><div class="backup-copy-heading"><strong>Copy ' + (i + 1) + '</strong><span>' +
-      (Number.isFinite(copy.bytes) ? bytes(copy.bytes + (copy.walBytes || 0)) : '') + '</span></div>' +
-      '<p class="backup-provider">Created by: ' + escape(copy.createdBy || 'Not confirmed') + '</p>' + backupPath(copy.path, 'backup ' + (i + 1)) + '<p class="backup-note">' + escape(copy.association) + '</p>' +
-      (copy.modifiedAt ? '<p class="backup-note">File modified ' + when(copy.modifiedAt) + ' SGT</p>' : '') + '</li>').join('') + '</ol>' :
-      '<p class="backup-note">No locations to show.</p>') + '</section>' +
-    (!row.backupOnly && row.backup?.lastAt ? '<p class="backup-note">Last backup evidence · ' + when(row.backup.lastAt) + ' SGT</p>' : '') +
-    (row.backup?.verification && !row.backupOnly ? '<p class="backup-note">' + escape(row.backup.verification) + '</p>' : '') +
-    '<p class="backup-limits">Local copies do not establish off-host protection or full application recovery.</p>';
-}
 async function copyBackupPath(button) {
   try {
     await navigator.clipboard.writeText(button.dataset.copyPath);
-    button.textContent = "Copied";
+    if (button.classList.contains("copy-path-icon")) {
+      button.classList.add("is-copied");
+      $("#copy-feedback").textContent = "File path copied.";
+      clearTimeout(button.copyResetTimer);
+      button.copyResetTimer = setTimeout(() => button.classList.remove("is-copied"), 2500);
+    } else button.textContent = "Copied";
   } catch {
+    if (button.classList.contains("copy-path-icon")) {
+      copyReturnFocus = button;
+      $("#copy-row-text").value = button.dataset.copyPath;
+      $("#copy-row-dialog").showModal();
+      $("#copy-row-text").focus();
+      $("#copy-row-text").select();
+      return;
+    }
     const selection = getSelection();
     const range = document.createRange();
     range.selectNodeContents(button.previousElementSibling);
@@ -365,7 +430,7 @@ const definitions = {
   agents: ["Agent", "Role / runtime", "Process observation", "Registry state"],
   services: ["Service", "Process state", "Working directory", "Inventory mapping"],
   workflows: ["Workflow", "Trigger", "Declared state", "Last run evidence"],
-  databases: ["Database", "Component", "Size + WAL", "Backup evidence"],
+  databases: ["Database", "Purpose", "Size + WAL"],
   issues: ["Severity", "Finding", "Entity"]
 };
 const field = (key, label, value, extra = {}) => ({ key, label, value, ...extra });
@@ -379,15 +444,18 @@ const columnDefinitions = {
   services: [nameField("Service"), field("status", "Process state", row => row.status), field("workdir", "Working directory", row => row.workdir), field("mapped", "Inventory mapping", row => row.mapped ? "Linked" : "Unmapped")],
   workflows: [nameField("Workflow"), field("trigger", "Trigger", row => row.trigger), field("status", "Declared state", row => row.status),
     field("lastRun", "Last run evidence", row => (row.lastRun?.status || "Unknown") + (row.lastRun?.lastAt ? " · " + when(row.lastRun.lastAt) : ""), { numeric: true, date: true, sortValue: row => { const value = row.lastRun?.lastAt; return value ? typeof value === "number" ? value * 1000 : Date.parse(value) || null : null; } })],
-  databases: [field("name", "Database", displayName), field("owner", "Owner", ownerName), field("component", "Component", row => row.component || "Not confirmed"), ...labelFields, field("size", "Size + WAL", row => row.bytes + row.walBytes, { numeric: true, format: value => bytes(Number(value)) }),
-    field("backup", "Backup evidence", row => row.category === "backup" ? "Retained copies · source unconfirmed" : row.backup?.status === "snapshot found" ? "Restore checked · local" : row.backup?.status === "unknown" ? "Not verified" : row.backup?.status || "Unknown", { relatedKeys: ["backup", "backupCount"] }), field("remarks", "Remarks", row => row.remarks || "—")],
+  databases: [field("name", "Database", displayName), field("owner", "Owner", ownerName), field("component", "Used by", databaseUsedBy), ...labelFields, field("size", "Size + WAL", row => row.bytes + row.walBytes, { numeric: true, format: value => bytes(Number(value)) }),
+    field("remarks", "Remarks", row => row.remarks || "—")],
   issues: [field("severity", "Severity", row => row.severity), field("finding", "Finding", row => row.message), field("entity", "Entity", row => name(row.entity))]
 };
 const tableKeys = Object.fromEntries(Object.entries(columnDefinitions).map(([key, columns]) => [key, columns.map(column => column.key)]));
-tableKeys.databases = ["name", "component", "size", "backup"];
-columnDefinitions.databases.push(field("type", "Database type", row => row.category));
+tableKeys.databases = ["name", "purpose", "size"];
+columnDefinitions.databases.push(field("backupOverview", "Backup Info", databaseBackupLabel));
+columnDefinitions.databases.push(field("purpose", "Purpose", row => databasePurpose(row) || "—"));
+columnDefinitions.databases.push(field("engine", "Engine", row => row.engine || "Unknown"));
+columnDefinitions.databases.push(field("lastBackup", "Last backup", row => row.backup?.lastAt ? when(row.backup.lastAt) + " SGT" : "Not recorded", { date: true, numeric: true, sortValue: row => row.backup?.lastAt ? typeof row.backup.lastAt === "number" ? row.backup.lastAt * 1000 : Date.parse(row.backup.lastAt) || null : null }));
 columnDefinitions.databases.push(field("backedUpBy", "Backed up by", row => row.backedUpBy || "Not confirmed"));
-columnDefinitions.databases.push(field("backupCount", "Backup count", row => (row.backupCopies || []).length, { numeric: true, format: value => value + (Number(value) === 1 ? " copy" : " copies"), relatedKeys: ["backup", "backupCount"] }));
+columnDefinitions.databases.push(field("backupCount", "Backup count", row => (row.backupCopies || []).length, { numeric: true, format: value => value + (Number(value) === 1 ? " copy" : " copies"), relatedKeys: ["backupCount"] }));
 columnDefinitions.workflows.push(field("type", "Workflow type", row => row.type));
 for (const section of ["services", "workflows", "issues"]) columnDefinitions[section].push(...labelFields.map(column => section !== "issues" ? column : {
   ...column, values: row => row.affected ? [...new Set(row.affected.map(entity).filter(Boolean).map(column.value))] : [column.value(row)]
@@ -396,6 +464,10 @@ const seededLabels = new Set();
 function migrateFilters() {
   if (!snapshot) return;
   const state = columnControls.state;
+  if (current === "databases" && state.filters.component) {
+    const labels = { "Agent runtime": "Agent Runtime", "Agent dashboard": "Agent Dashboard" };
+    state.filters.component = [...new Set(state.filters.component.map(value => labels[value] || value))];
+  }
   if (current === "databases" && state.filters.name) {
     state.filters.name = [...new Set(state.filters.name.flatMap(value => {
       const matches = snapshot.databases.filter(row => row.name === value);
@@ -417,7 +489,7 @@ function migrateFilters() {
   if (filter) {
     const matches = snapshot[current].filter(row => matchesFilter(row, filter));
     const [legacyKey] = filter.split(":");
-    const key = current === "databases" && legacyKey === "category" ? "type" : legacyKey;
+    const key = current === "databases" && legacyKey === "category" ? "component" : legacyKey;
     const column = columnDefinitions[current].find(column => column.key === key);
     if (column) state.filters[key] = [...new Set(matches.map(row => String(column.value(row) ?? "")))];
     $("#filter").value = "";
@@ -512,6 +584,34 @@ function renderColumnToolbar() {
   const toolbar = $("[data-columns-toolbar]");
   columnControls.render(toolbar, false, ["apps", "agents", "issues"].includes(current) || innerWidth <= 760 ? undefined : columnDefinitions[current].filter(column => !tableKeys[current].includes(column.key)).map(column => column.key));
 }
+function renderDatabaseColumns() {
+  const list = $("#database-column-list");
+  const active = document.activeElement;
+  const focusedKey = active?.dataset.databaseColumn || active?.dataset.columnGrip;
+  const wasGrip = !!active?.dataset.columnGrip;
+  const scrollTop = list.scrollTop;
+  const query = $("#database-column-search").value.trim().toLowerCase();
+  const keys = [...databaseExtraColumns, ...databaseExtraFields.filter(key => !databaseExtraColumns.includes(key))];
+  list.innerHTML = '<li class="database-column-locked"><span>Database</span><small>Locked</small></li><li class="database-column-locked"><span>Purpose</span><small>Locked</small></li>' + keys.map(key => {
+    const label = columnDefinitions.databases.find(column => column.key === key).label;
+    const checked = databaseExtraColumns.includes(key);
+    return '<li data-column-item="' + key + '"' + (label.toLowerCase().includes(query) ? '' : ' hidden') + '><label><input type="checkbox" data-database-column="' + key + '"' + (checked ? ' checked' : '') + '>' + escape(label) + '</label>' + (checked ? '<button type="button" data-column-grip="' + key + '" aria-label="Reorder ' + escape(label) + '" aria-describedby="database-column-help" title="Drag to reorder, or use arrow keys">⠿</button>' : '') + '</li>';
+  }).join("");
+  $("#database-column-empty").hidden = keys.some(key => columnDefinitions.databases.find(column => column.key === key).label.toLowerCase().includes(query));
+  list.scrollTop = scrollTop;
+  if (focusedKey) list.querySelector('[data-' + (wasGrip ? 'column-grip' : 'database-column') + '="' + focusedKey + '"]')?.focus({ preventScroll: true });
+}
+function reorderDatabaseColumn(key, target) {
+  const from = databaseExtraColumns.indexOf(key);
+  const to = databaseExtraColumns.indexOf(target);
+  if (from < 0 || to < 0 || from === to) return;
+  databaseExtraColumns.splice(from, 1);
+  databaseExtraColumns.splice(to, 0, key);
+  writeLocation();
+  render();
+  $('#database-column-list [data-column-grip="' + key + '"]')?.focus({ preventScroll: true });
+  $("#database-column-status").textContent = columnDefinitions.databases.find(column => column.key === key).label + " moved to position " + (to + 3);
+}
 function render() {
   if (!snapshot) return;
   const focusedTab = document.activeElement?.closest("#tabs [data-tab]")?.dataset.tab;
@@ -532,8 +632,33 @@ function render() {
   const owner = $("#owner").value;
   const access = document.querySelector('[data-filter][aria-pressed="true"]').dataset.filter;
   migrateFilters();
-  columnRows = snapshot[current].filter(row => !query || (JSON.stringify(row) + name(row.owner)).toLowerCase().includes(query));
+  columnRows = snapshot[current].filter(row => !query || (JSON.stringify(row) + name(row.owner) + (current === "databases" ? databaseUsedBy(row) : "")).toLowerCase().includes(query));
   const rows = sortRows(columnControls.filter(columnRows));
+  tableKeys.databases = ["name", "purpose", ...databaseExtraColumns];
+
+  $("#database-column-options").hidden = current !== "databases";
+  $("#database-columns-toggle").hidden = current !== "databases";
+  $("#database-table-help").hidden = current !== "databases";
+  $(".table-wrap").classList.toggle("database-scroll", current === "databases");
+  $(".table-wrap").tabIndex = current === "databases" ? 0 : -1;
+  $(".table-wrap").setAttribute("aria-label", current === "databases" ? "Database records" : "Inventory table");
+  renderDatabaseColumns();
+  const oldColumns = $("table colgroup");
+  if (oldColumns) oldColumns.remove();
+  if (current === "databases") {
+    const colgroup = document.createElement("colgroup");
+    const widths = { size:96, component:136, engine:88, backupOverview:208 };
+    const columnWidth = key => widths[key] || (key === "remarks" ? 360 : 160);
+    colgroup.innerHTML = '<col class="database-label-col"><col class="database-purpose-col">' + databaseExtraColumns.map(key => '<col style="width:' + columnWidth(key) + 'px">').join("");
+    $("table").prepend(colgroup);
+    $("table").style.setProperty("--database-table-min", (databaseExtraColumns.reduce((total, key) => total + columnWidth(key), 380)) + "px");
+    $("table").classList.toggle("database-locked-only", !databaseExtraColumns.length);
+  }
+  $("#database-columns-toggle").textContent = "Columns · " + (databaseExtraColumns.length + 2);
+  requestAnimationFrame(() => {
+    const cell = $("#head th");
+    if (cell) $(".table-wrap").style.setProperty("--database-label-width", cell.getBoundingClientRect().width + "px");
+  });
   columnControls.render($("#head"), true, tableKeys[current]);
   renderColumnToolbar();
   columnControls.summary($("[data-columns-summary]"));
@@ -553,7 +678,7 @@ function render() {
     if (current === "workflows") cells = [link(row.id) + projectLabel(row) + "<small>" + escape(row.type) + "</small>", "<small>" + escape(row.trigger) + "</small>", status(row.status), escape(row.lastRun?.status) + "<small>" + when(row.lastRun?.lastAt) + "</small>"];
     if (current === "issues") return '<tr><td colspan="3" class="finding-cell">' + findingDetails(row) + '</td></tr>';
     return "<tr>" + cells.map((cell, i) => '<td data-label="' + escape(definitions[current][i]) + '">' + cell + "</td>").join("") + "</tr>";
-  }).join("")) || '<tr><td colspan="' + definitions[current].length + '" class="empty">No matching records. Try another search or filter.</td></tr>';
+  }).join("")) || '<tr><td colspan="' + tableKeys[current].length + '" class="empty">No matching records. Try another search or filter.</td></tr>';
   const total = current === "databases" ? " · " + bytes(rows.reduce((sum, r) => sum + r.bytes + r.walBytes, 0)) + " including WAL" : "";
   const scheduleNote = current === "workflows" ? " · Zo Scheduled Tasks: saved list updated " + when(snapshot.coverage.automations.observedAt) + " SGT; run history unavailable." : "";
   $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total + (current === "databases" ? " · Grouped by owner; sorted within each group" : "");
@@ -563,14 +688,23 @@ function render() {
 function detail(id) {
   const row = entity(id);
   if (!row) return;
+  if (snapshot.databases.some(database => database.id === id)) {
+    const changed = selectedId !== id || current !== "databases";
+    if ($("#detail").open) $("#detail").close();
+    if (current !== "databases") select("databases");
+    selectedId = id;
+    render();
+    writeLocation();
+    if (changed) requestAnimationFrame(() => {
+      const record = root.querySelector('[data-database-row="' + CSS.escape(id) + '"]');
+      record?.scrollIntoView({ block: "nearest" });
+    });
+    return;
+  }
   selectedId = id;
   writeLocation();
-  if (snapshot.databases.some(database => database.id === id)) { databaseDetails(row); return; }
   const dialog = $("#detail");
-  if (dialog.classList.contains("database-panel") && dialog.open) dialog.close();
-  dialog.classList.remove("database-panel");
-  root.classList.remove("database-inspecting");
-  $("#close").textContent = "Close";
+
   highlightDatabase();
   $("#detail-title").textContent = displayName(row);
   const fields = Object.entries(row).filter(([key]) => !["id", "displayName"].includes(key) && (key !== "name" || row.displayName)).map(([key, value]) => [key === "name" ? "Filename" : key, value]);
@@ -614,7 +748,6 @@ async function refresh(fresh = false) {
     $("#sort").value = state.get("sort") || sortChoices[current][0][0];
     if (!$("#sort").selectedOptions.length) $("#sort").value = sortChoices[current][0][0];
     render();
-    if ($("#backup-dialog").open && selectedBackupId) backupDetails(selectedBackupId);
     if (visible() && params().get("entity")) detail(params().get("entity"));
     if (snapshot.stale && observing() && staleRetries < 3) {
       staleRetries++;
@@ -633,48 +766,145 @@ root.addEventListener("toggle", event => {
   else openFindingSections.delete(key);
 }, true);
 root.addEventListener("click", event => {
-  const record = event.target.closest("[data-database-row]");
-  if (record && !event.target.closest("button, a, input") && !window.getSelection()?.toString()) {
-    detail(record.dataset.databaseRow);
-    return;
-  }
+  const backup = event.target.closest("[data-backup-details]");
+  if (backup) openBackupDetails(backup.dataset.backupDetails, Number(backup.dataset.backupIndex));
   const update = event.target.closest("[data-update-tasks]");
   if (update) void updateTaskList();
   const tab = event.target.closest("[data-tab]");
   if (tab) select(tab.dataset.tab);
-  const backup = event.target.closest("[data-backup-details]");
-  if (backup) backupDetails(backup.dataset.backupDetails);
   const copyRow = event.target.closest("[data-copy-row]");
   if (copyRow) void copyDatabaseRow(copyRow);
   const copy = event.target.closest("[data-copy-path]");
   if (copy) void copyBackupPath(copy);
-  const target = event.target.closest("[data-entity]");
+  const target = event.target.closest("button[data-entity]");
   if (target) detail(target.dataset.entity);
+});
+$("#close-backup").addEventListener("click", () => $("#backup-dialog").close());
+$("#backup-dialog").addEventListener("close", () => {
+  [...root.querySelectorAll("[data-backup-details]")].find(button => button.dataset.backupDetails === backupReturnId && Number(button.dataset.backupIndex) === backupReturnIndex)?.focus({ preventScroll: true });
+  backupReturnId = undefined;
 });
 $("#close-copy-row").addEventListener("click", () => $("#copy-row-dialog").close());
 $("#copy-row-dialog").addEventListener("close", () => {
   if (copyReturnFocus?.isConnected) copyReturnFocus.focus();
   copyReturnFocus = undefined;
 });
-$("#close-backups").addEventListener("click", () => $("#backup-dialog").close());
-$("#backup-dialog").addEventListener("close", () => {
-  const id = selectedBackupId;
-  selectedBackupId = undefined;
-  root.querySelector('[data-backup-details="' + CSS.escape(id || "") + '"]')?.focus();
+$("#database-column-list").addEventListener("keydown", event => {
+  const grip = event.target.closest("[data-column-grip]");
+  if (!grip || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+  event.preventDefault();
+  const index = databaseExtraColumns.indexOf(grip.dataset.columnGrip);
+  reorderDatabaseColumn(grip.dataset.columnGrip, databaseExtraColumns[index + (event.key === "ArrowUp" ? -1 : 1)]);
+});
+let columnDrag;
+$("#database-column-list").addEventListener("pointerdown", event => {
+  const grip = event.target.closest("[data-column-grip]");
+  if (!grip || event.button !== 0) return;
+  event.preventDefault();
+  grip.focus({ preventScroll: true });
+  columnDrag = { key: grip.dataset.columnGrip, id: event.pointerId, y: event.clientY, target: null };
+  grip.setPointerCapture(event.pointerId);
+});
+$("#database-column-list").addEventListener("pointermove", event => {
+  if (!columnDrag || columnDrag.id !== event.pointerId || Math.abs(event.clientY - columnDrag.y) < 5) return;
+  const list = $("#database-column-list");
+  const bounds = list.getBoundingClientRect();
+  if (event.clientY < bounds.top + 32) list.scrollTop -= 12;
+  if (event.clientY > bounds.bottom - 32) list.scrollTop += 12;
+  const item = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-column-item]");
+  list.querySelectorAll(".column-drop-target").forEach(node => node.classList.remove("column-drop-target"));
+  columnDrag.target = item && databaseExtraColumns.includes(item.dataset.columnItem) ? item.dataset.columnItem : null;
+  if (columnDrag.target && columnDrag.target !== columnDrag.key) item.classList.add("column-drop-target");
+});
+function finishColumnDrag(event) {
+  if (!columnDrag || columnDrag.id !== event.pointerId) return;
+  const drag = columnDrag;
+  columnDrag = null;
+  $("#database-column-list").querySelectorAll(".column-drop-target").forEach(node => node.classList.remove("column-drop-target"));
+  if (event.type === "pointerup") reorderDatabaseColumn(drag.key, drag.target);
+}
+$("#database-column-list").addEventListener("pointerup", finishColumnDrag);
+$("#database-column-list").addEventListener("pointercancel", finishColumnDrag);
+$("#database-column-list").addEventListener("lostpointercapture", finishColumnDrag);
+let columnHoverTimer;
+let columnsOpenedByHover = false;
+function positionDatabaseColumns() {
+  const choices = $("#database-column-choices");
+  if (choices.hidden) return;
+  const bounds = $("#database-columns-toggle").getBoundingClientRect();
+  const width = Math.min(360, window.innerWidth - 24);
+  const top = Math.max(12, Math.min(bounds.bottom + 8, window.innerHeight - 240));
+  choices.style.width = width + "px";
+  choices.style.left = Math.max(12, Math.min(bounds.right - width, window.innerWidth - width - 12)) + "px";
+  choices.style.top = top + "px";
+  choices.style.maxHeight = Math.max(120, window.innerHeight - top - 12) + "px";
+}
+function openDatabaseColumns(hover = false) {
+  clearTimeout(columnHoverTimer);
+  columnsOpenedByHover = hover;
+  $("#database-column-choices").hidden = false;
+  $("#database-columns-toggle").setAttribute("aria-expanded", "true");
+  positionDatabaseColumns();
+}
+function closeDatabaseColumns(returnFocus = true) {
+  clearTimeout(columnHoverTimer);
+  columnsOpenedByHover = false;
+  $("#database-column-choices").hidden = true;
+  $("#database-columns-toggle").setAttribute("aria-expanded", "false");
+  if (returnFocus) $("#database-columns-toggle").focus({ preventScroll: true });
+}
+$("#database-columns-done").addEventListener("click", () => closeDatabaseColumns());
+for (const node of [$("#database-columns-toggle"), $("#database-column-choices")]) {
+  node.addEventListener("keydown", event => {
+    if (event.key === "Escape") { event.preventDefault(); closeDatabaseColumns(); }
+  });
+  node.addEventListener("pointerenter", event => {
+    clearTimeout(columnHoverTimer);
+    if (event.pointerType === "mouse" && matchMedia("(hover: hover)").matches && $("#database-column-choices").hidden) openDatabaseColumns(true);
+  });
+  node.addEventListener("pointerleave", () => {
+    clearTimeout(columnHoverTimer);
+    columnHoverTimer = setTimeout(() => {
+      if (columnsOpenedByHover && !columnDrag && !$("#database-column-choices").contains(document.activeElement)) closeDatabaseColumns(false);
+    }, 250);
+  });
+}
+$("#database-columns-toggle").addEventListener("click", () => {
+  if ($("#database-column-choices").hidden || columnsOpenedByHover) openDatabaseColumns();
+  else closeDatabaseColumns();
+});
+document.addEventListener("pointerdown", event => {
+  if (!event.target.closest("#database-column-choices, #database-columns-toggle")) closeDatabaseColumns(false);
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !$("#database-column-choices").hidden) closeDatabaseColumns();
+});
+window.addEventListener("resize", positionDatabaseColumns);
+window.addEventListener("scroll", positionDatabaseColumns, true);
+for (const button of root.querySelectorAll("[data-database-select]")) button.addEventListener("click", () => {
+  databaseExtraColumns = button.dataset.databaseSelect === "all" ? databaseExtraFields.reduce(addDatabaseColumn, databaseExtraColumns) : [];
+  writeLocation();
+  render();
+});
+$("#database-column-search").addEventListener("input", renderDatabaseColumns);
+new ResizeObserver(() => {
+  const cell = $("#head th");
+  if (cell) $(".table-wrap").style.setProperty("--database-label-width", cell.getBoundingClientRect().width + "px");
+}).observe($(".table-wrap"));
+root.addEventListener("change", event => {
+  if (!event.target.matches("[data-database-column]")) return;
+  if (snapshot?.databases.some(row => row.id === selectedId)) selectedId = undefined;
+  const key = event.target.dataset.databaseColumn;
+  databaseExtraColumns = event.target.checked ? addDatabaseColumn(databaseExtraColumns, key) : databaseExtraColumns.filter(item => item !== key);
+  writeLocation();
+  render();
 });
 $("#close").addEventListener("click", () => $("#detail").close());
 $("#detail").addEventListener("close", () => {
   if ($("#detail").open) return;
-  const returning = $("#detail").classList.contains("database-panel");
-  selectedId = undefined;
-  $("#detail").classList.remove("database-panel");
-  root.classList.remove("database-inspecting");
+  if (!snapshot?.databases.some(row => row.id === selectedId)) selectedId = undefined;
   highlightDatabase();
   if (visible()) writeLocation();
-  if (returning) {
-    root.querySelector('.database-name[data-entity="' + CSS.escape(databaseReturnId || "") + '"]')?.focus({ preventScroll: true });
-    scrollTo(0, databaseReturnScroll);
-  }
 });
 $("#search").addEventListener("input", () => { writeLocation(); render(); });
 $("#filter").addEventListener("change", () => { writeLocation(); render(); });
@@ -686,13 +916,29 @@ $("#close-inventory-info").addEventListener("click", () => $("#inventory-info-di
 $("#inventory-info-dialog").addEventListener("close", () => $("#inventory-info").focus());
 function sync() {
   if (!visible()) {
-    if ($("#backup-dialog").open) $("#backup-dialog").close();
     if ($("#detail").open) $("#detail").close();
     if ($("#inventory-info-dialog").open) $("#inventory-info-dialog").close();
     if (observing() && !snapshot) refresh();
     return;
   }
   const state = params();
+  databaseView = state.get("dbView") === "backups" ? "backups" : "overview";
+  const savedColumns = [...new Set((state.get("dbColumns") || "").split(",").map(key => key === "type" ? "component" : key === "wal" ? "size" : ["backedUpBy", "lastBackup", "backupCount"].includes(key) ? "backupOverview" : key).filter(key => databaseExtraFields.includes(key)))];
+  databaseExtraColumns = ["2", "3", "4", "5", "6"].includes(state.get("dbLayout")) ? savedColumns : [...new Set([...databasePresets[databaseView], ...savedColumns])];
+  if (!["3", "4", "5", "6"].includes(state.get("dbLayout"))) databaseExtraColumns.sort((a, b) => databaseExtraFields.indexOf(a) - databaseExtraFields.indexOf(b));
+  if (state.get("dbLayout") === "3") {
+    const sizeIndex = databaseExtraColumns.indexOf("size");
+    const componentIndex = databaseExtraColumns.indexOf("component");
+    if (sizeIndex >= 0 && componentIndex > sizeIndex) {
+      [databaseExtraColumns[sizeIndex], databaseExtraColumns[componentIndex]] = ["component", "size"];
+    }
+  }
+  if (["3", "4"].includes(state.get("dbLayout"))) {
+    const technicalColumns = ["engine"].filter(key => databaseExtraColumns.includes(key));
+    databaseExtraColumns = databaseExtraColumns.filter(key => !technicalColumns.includes(key));
+    const backupIndex = databaseExtraColumns.findIndex(key => ["backupOverview", "remarks"].includes(key));
+    databaseExtraColumns.splice(backupIndex < 0 ? databaseExtraColumns.length : backupIndex, 0, ...technicalColumns);
+  }
   current = sections[state.get("tab")] ? state.get("tab") : "apps";
   columnControls.activate(current, columnDefinitions[current]);
   columnControls.restore(state.get("columns"));
@@ -704,6 +950,7 @@ function sync() {
   $("#sort").value = state.get("sort") || sortChoices[current][0][0];
   if (!$("#sort").selectedOptions.length) $("#sort").value = sortChoices[current][0][0];
   selectedId = state.get("entity") || undefined;
+  if (state.has("dbColumns") && state.get("dbLayout") !== "6") writeLocation();
   render();
   if (snapshot && selectedId) detail(selectedId);
   else if ($("#detail").open) $("#detail").close();
@@ -720,10 +967,6 @@ document.addEventListener("garden:ownershipchange", () => {
 });
 addEventListener("resize", () => {
   if (visible()) renderColumnToolbar();
-  const dialog = $("#detail");
-  if (dialog.open && dialog.classList.contains("database-panel")) {
-    $("#close").textContent = innerWidth <= 600 ? "Back to databases" : "Close";
-  }
 });
 addEventListener("hashchange", sync);
 document.addEventListener("visibilitychange", sync);

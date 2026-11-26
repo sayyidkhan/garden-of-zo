@@ -68,133 +68,249 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             by_id = {row["id"]: row for row in inventory["databases"]}
             initial = await ids()
             assert len(initial) == len(by_id)
-            assert await page.locator("#head th").count() == 4
+            assert await page.locator("#head th").count() == 3
             assert await page.locator('#head [data-column-key="remarks"]').count() == 0
-            assert await page.locator('#head [data-column-key="component"]').count() == 1
-            orin = [row for row in by_id.values() if row.get("owner") == "agent:orin"]
-            assert len(orin) == 7
-            for width in [1440, 390]:
+            assert await page.locator('#head [data-column-key="backup"]').count() == 0
+            assert await page.locator('#head [data-column-key="purpose"]').count() == 1
+            legacy = await browser.new_page()
+            for saved, expected_columns in [
+                ("engine,size,backup", ["name", "purpose", "size", "engine"]),
+                ("backup", ["name", "purpose"]),
+                ("backup,size,copies", ["name", "purpose", "size"]),
+                ("path,engine,size", ["name", "purpose", "size", "engine"]),
+                ("path", ["name", "purpose"]),
+                ("type", ["name", "purpose", "component"]),
+                ("component,type,engine", ["name", "purpose", "component", "engine"]),
+                ("", ["name", "purpose"]),
+                ("backedUpBy,lastBackup,backupCount", ["name", "purpose", "backupOverview"]),
+                ("backupCount,engine,lastBackup", ["name", "purpose", "engine", "backupOverview"]),
+            ]:
+                await legacy.goto(private + "/#list?tab=databases&dbLayout=2&dbColumns=" + saved)
+                await legacy.wait_for_selector("#rows .database-name", timeout=60000)
+                assert await legacy.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == expected_columns
+                assert "dbLayout=6" in legacy.url
+                await legacy.reload()
+                await legacy.wait_for_selector("#rows .database-name", timeout=60000)
+                assert await legacy.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == expected_columns
+            await legacy.close()
+            checks.append("Old column layouts adopt recommended order while preserving visibility, including no optional columns")
+            async def show_columns(keys):
+                if not await page.locator("#database-column-choices").is_visible():
+                    await page.locator("#database-columns-toggle").click()
+                for key in await page.locator("[data-database-column]").evaluate_all("nodes => nodes.map(n => n.dataset.databaseColumn)"):
+                    await page.locator(f'[data-database-column="{key}"]').set_checked(key in keys or key in ["size"])
+                await page.locator("#database-columns-done").click()
+            await page.locator("#database-columns-toggle").scroll_into_view_if_needed()
+            table_before = await page.locator(".database-scroll").bounding_box()
+            await page.locator("#database-columns-toggle").hover()
+            await page.locator("#database-column-choices").wait_for(state="visible")
+            assert await page.locator(".database-scroll").bounding_box() == table_before
+            await page.locator("#database-column-search").hover()
+            await page.wait_for_timeout(300)
+            assert await page.locator("#database-column-choices").is_visible()
+            await page.mouse.move(0, 0)
+            await page.locator("#database-column-choices").wait_for(state="hidden")
+            await page.locator("#database-columns-toggle").hover()
+            await page.keyboard.press("Escape")
+            assert not await page.locator("#database-column-choices").is_visible()
+            checks.append("Columns hover floats without moving the table; pointer transfer and Escape work")
+            await page.locator("#database-columns-toggle").click()
+            await page.locator('[data-database-select="none"]').click()
+            assert await page.locator("#head th").count() == 2
+            await page.reload()
+            await page.wait_for_selector("#rows .database-name", timeout=60000)
+            assert await page.locator("#head th").count() == 2
+            await page.locator("#database-columns-toggle").click()
+            await page.locator("#database-column-search").fill("backup")
+            assert await page.locator("#database-column-choices label:visible").count() == 1
+            await page.locator("#database-column-search").fill("")
+            await page.locator('[data-database-select="all"]').click()
+            assert await page.locator("#head th").count() == 7
+            assert await page.locator('#head [data-column-key="component"]').get_attribute("aria-label") == "Sort and filter Used by"
+            assert await page.locator('[data-database-column="type"]').count() == 0
+            for row in by_id.values():
+                expected_usage = row.get("component") or {"application": "App", "agent runtime": "Agent Runtime", "host runtime": "Host System", "development": "Development / Testing"}.get(row["category"], "Not confirmed")
+                assert await page.locator('[data-database-row="' + row["id"] + '"] [data-field="component"]').inner_text() == expected_usage
+            assert await page.locator('#head [data-column-key="wal"]').count() == 0
+            assert await page.locator('#rows [data-field="size"] .database-wal-size').count() > 0
+            assert await page.locator('[data-database-column="verification"], [data-database-column="nextStep"], [data-database-column="backup"]').count() == 0
+            await page.locator("#database-columns-toggle").click()
+            await page.locator("[data-columns-open]:visible").click()
+            assert await page.locator('#column-menu [data-field="verification"], #column-menu [data-field="nextStep"], #column-menu [data-field="backup"], #column-menu [data-field="type"]').count() == 0
+            await page.keyboard.press("Escape")
+            await page.locator("#database-columns-toggle").click()
+            await page.locator('[data-database-select="none"]').click()
+            await page.locator('[data-database-column="size"]').check()
+            await page.locator('[data-database-column="remarks"]').check()
+            await page.locator("#database-columns-toggle").click()
+            for width in [390, 1440]:
                 await page.set_viewport_size({"width": width, "height": 1000})
-                for row in orin:
-                    record = page.locator("#rows tr").filter(has=page.locator('.database-name[data-entity="' + row["id"] + '"]'))
-                    assert await record.locator(".database-name").inner_text() == row["displayName"]
-                    assert await record.locator(".database-filename").inner_text() == row["name"]
-                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
-                notes = next(row for row in orin if row["name"] == "notepad.db")
-                for query in [notes["displayName"], notes["name"]]:
-                    await page.locator("#search").fill(query)
-                    assert notes["id"] in await ids()
-                await page.locator("#search").fill("")
-                await choose_only("name", notes["displayName"])
-                assert await ids() == [notes["id"]]
+                widths = await page.locator("#head th").evaluate_all("cells => cells.slice(0,2).map(c => c.getBoundingClientRect().width)")
+                assert widths == ([0, 0] if width == 390 else [180, 200]), widths
+                await page.locator("#database-columns-toggle").click()
+                assert await page.locator("[data-column-move]").count() == 0
+                assert await page.locator("[data-database-column]").count() == 5
+                assert await page.locator('[data-database-column="wal"]').count() == 0
+                grip = page.get_by_role("button", name="Reorder Remarks", exact=True)
+                await page.locator('[data-column-item="size"]').scroll_into_view_if_needed()
+                source = await grip.bounding_box()
+                target = await page.locator('[data-column-item="size"]').bounding_box()
+                x, y = source["x"] + 22, source["y"] + 22
+                tx, ty = x, target["y"] + 22
+                if width == 390:
+                    session = await page.context.new_cdp_session(page)
+                    await session.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+                    await session.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": tx, "y": ty}]})
+                    await session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+                    await session.detach()
+                else:
+                    await page.mouse.move(x, y)
+                    await page.mouse.down()
+                    await page.mouse.move(tx, ty, steps=8)
+                    await page.mouse.up()
+                assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "remarks", "size"]
                 await page.reload()
                 await page.wait_for_selector("#rows .database-name", timeout=60000)
-                assert await ids() == [notes["id"]]
-                await page.locator("#rows .database-name").click()
-                details = page.locator("#detail.database-panel")
-                assert await details.is_visible()
-                assert notes["path"] in await details.inner_text()
-                assert await page.locator("#rows .database-record.is-selected").count() == 1
-                assert not await page.locator("#rows [data-db-toggle], #rows .database-detail-row").count()
-                assert await page.locator("#detail-title").inner_text() == notes["displayName"]
-                assert notes["name"] in await details.inner_text()
-                await page.evaluate("Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: async value => {window.copiedRow = value}}})")
-                await details.locator("[data-copy-row]").click()
-                copied = await page.evaluate("window.copiedRow")
-                assert "Database: " + notes["displayName"] in copied
-                assert "Filename: " + notes["name"] in copied
-                await page.locator("#close").click()
-                await clear()
+                assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "remarks", "size"]
+                await page.locator("#database-columns-toggle").click()
+                await page.locator('[data-database-column="engine"]').check()
+                await page.locator('[data-database-column="engine"]').uncheck()
+                assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "remarks", "size"]
+                await page.get_by_role("button", name="Reorder Remarks", exact=True).focus()
+                await page.keyboard.press("ArrowDown")
+                await page.screenshot(path=root / "_scratch" / f"column-order-{width}.png", full_page=True)
+                await page.locator("#database-columns-done").click()
+                assert await page.locator("#database-columns-toggle").evaluate("e => e === document.activeElement")
+            orin = [row for row in by_id.values() if row.get("owner") == "agent:orin"]
+            assert len(orin) == 7
+            notes = next(row for row in orin if row["name"] == "notepad.db")
             await choose_only("owner", "Orin Forgekeeper")
-            assert await page.locator("#rows .database-group").count() == 1
-            assert await page.locator("#rows .database-group-count").inner_text() == "7 databases"
+            expected = await ids()
+            for width in [320, 390, 768, 1440]:
+                await page.set_viewport_size({"width": width, "height": 1000})
+                assert await page.locator("#rows .database-group").count() == 1
+                assert await page.locator("#rows .database-record td").count() == len(orin) * 4
+                if width <= 600:
+                    assert not await page.locator("#head").is_visible()
+                    assert await page.locator(".database-scroll").evaluate("e => e.scrollWidth <= e.clientWidth")
+                    assert await page.locator("#rows .database-record").evaluate_all("""rows => rows.every(row => {
+                        const cells = [...row.children];
+                        return getComputedStyle(row).display === "grid" && cells.every((cell, i) => {
+                            const box = cell.getBoundingClientRect();
+                            return box.width > 0 && box.right <= innerWidth &&
+                                (!i || box.top >= cells[i - 1].getBoundingClientRect().bottom - 1 ||
+                                 (Math.abs(box.top - cells[i - 1].getBoundingClientRect().top) < 1 &&
+                                  box.left >= cells[i - 1].getBoundingClientRect().right));
+                        }) && cells.slice(2).every(cell =>
+                            getComputedStyle(cell, "::before").content.includes(cell.dataset.label));
+                    })""")
+                else:
+                    assert await page.locator("#rows .database-record").first.evaluate("e => getComputedStyle(e).display === 'table-row'")
+                    header = await page.locator("#head th").first.bounding_box()
+                    cell = await page.locator("#rows .database-record td").first.bounding_box()
+                    assert abs(header["width"] - cell["width"]) < 2
+                original_url = page.url
+                first = page.locator("#rows .database-name").first
+                await first.click()
+                assert page.url == original_url
+                assert not await page.locator("dialog:modal").count()
+                assert await page.locator(".table-wrap").is_visible()
+                wrap = page.locator(".database-scroll")
+                left = (await first.bounding_box())["x"]
+                purpose = page.locator('#rows .database-record td[data-field="purpose"]').first
+                purpose_left = (await purpose.bounding_box())["x"]
+                await wrap.evaluate("e => e.scrollLeft = 250")
+                await page.wait_for_timeout(80)
+                assert abs((await first.bounding_box())["x"] - left) < 2
+                assert abs((await purpose.bounding_box())["x"] - purpose_left) < 2
+                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+                await wrap.evaluate("e => e.scrollLeft = 0")
+                await page.screenshot(path=root / "_scratch" / f"spreadsheet-default-{width}.png", full_page=True)
+                if width < 600:
+                    await page.locator("#rows .database-name").last.scroll_into_view_if_needed()
+                    await page.screenshot(path=root / "_scratch" / f"spreadsheet-bottom-{width}.png")
+            await show_columns(["remarks", "component"])
+            assert await ids() == expected
+            record = page.locator('[data-database-row="' + notes["id"] + '"]')
+            path_cell = record.locator(".database-actions")
+            path_copy = path_cell.get_by_role("button", name="Copy source database path", exact=True)
+            assert await path_copy.get_attribute("data-copy-path") == notes["path"]
+            assert await path_copy.get_attribute("data-tooltip-path") == notes["path"]
+            assert await path_copy.get_attribute("data-tooltip") == "Copy file path"
+            assert await path_cell.locator("code").count() == 0
+            await page.locator("#database-columns-toggle").click()
+            assert await page.locator('#database-column-list [data-database-column="path"]').count() == 0
+            await page.keyboard.press("Escape")
+            assert notes["remarks"] == await record.locator(".database-remarks").inner_text()
+            assert await record.locator(".database-remarks strong").inner_text() == "Created by Hermes framework."
+            selected_url = page.url
+            await page.reload()
+            await page.wait_for_selector('#head [data-column-key="remarks"]', timeout=60000)
+            assert await page.locator('#head [data-column-key="path"]').count() == 0
+            assert page.url == selected_url
+            assert await ids() == expected
             for width in [320, 390, 1440]:
                 await page.set_viewport_size({"width": width, "height": 1000})
-                assert await page.locator("#rows .database-detail-row").count() == 0
-                assert await page.locator("#rows .database-record td").count() == 28
-                assert await page.locator("#rows .database-purpose:visible").count() == 7
+                await page.locator(".database-scroll").evaluate("e => e.scrollLeft = e.scrollWidth")
                 assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
-                await page.screenshot(path=root / "_scratch" / f"compact-databases-{width}.png", full_page=True)
-                original_url = page.url
-                table_width = await page.locator(".database-table").evaluate("e => e.getBoundingClientRect().width")
-                first = page.locator("#rows .database-name").first
-                await first.focus()
-                await page.keyboard.press("Enter")
-                panel = page.locator("#detail.database-panel")
-                assert await panel.is_visible()
-                assert await panel.evaluate("e => e.matches(':modal')")
-                assert abs(await page.locator(".database-table").evaluate("e => e.getBoundingClientRect().width") - table_width) < 2
-                assert await page.locator("#rows .database-record.is-selected").count() == 1
-                assert await panel.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
-                if width < 600:
-                    assert await panel.evaluate("e => Math.abs(e.getBoundingClientRect().width - innerWidth) < 2")
-                else:
-                    assert await panel.evaluate("e => e.getBoundingClientRect().width > 900 && Math.abs(e.getBoundingClientRect().left + e.getBoundingClientRect().width / 2 - innerWidth / 2) < 2")
-                await page.screenshot(path=root / "_scratch" / f"database-panel-{width}.png")
-                if width > 1000:
-                    await page.locator("#close").click()
-                    await page.locator("#rows .database-name").nth(1).click()
-                    assert await page.locator("#detail-title").inner_text() == await page.locator("#rows .database-name").nth(1).inner_text()
-                    await page.locator("#refresh").evaluate("e => e.click()")
-                    await page.wait_for_function("!document.querySelector('#refresh').disabled", timeout=60000)
-                    assert await panel.is_visible()
-                selected_url = page.url
-                await page.reload()
-                await page.wait_for_selector("#detail.database-panel[open]", timeout=60000)
-                assert page.url == selected_url
-                await page.keyboard.press("Escape")
-                assert not await panel.is_visible()
-                await page.wait_for_function("!new URLSearchParams(location.hash.split('?')[1]).has('entity')")
-                assert page.url == original_url, (page.url, original_url)
-                assert await page.locator("#rows .database-record.is-selected").count() == 0
+                assert await record.locator(".database-name").is_visible()
+                row_copy_bounds = await record.locator("[data-copy-row]").bounding_box()
+                path_copy_bounds = await record.locator("[data-copy-path]").bounding_box()
+                assert abs(row_copy_bounds["y"] - path_copy_bounds["y"]) < 1
+                assert path_copy_bounds["x"] >= row_copy_bounds["x"] + row_copy_bounds["width"]
+                backup_bounds = await record.locator("[data-backup-details]").bounding_box()
+                assert abs(backup_bounds["y"] - path_copy_bounds["y"]) < 1
+                assert backup_bounds["x"] >= path_copy_bounds["x"] + path_copy_bounds["width"]
+                cell_bounds = await record.locator("td").first.bounding_box()
+                assert path_copy_bounds["x"] + path_copy_bounds["width"] <= cell_bounds["x"] + cell_bounds["width"]
+                await page.screenshot(path=root / "_scratch" / f"spreadsheet-details-{width}.png", full_page=True)
+            await page.locator(".database-scroll").evaluate("e => e.scrollLeft = 0")
+            for query in [notes["displayName"], notes["name"]]:
+                await page.locator("#search").fill(query)
+                assert notes["id"] in await ids()
+            await page.locator("#search").fill("")
+            await show_columns([])
+            await page.locator("#database-columns-toggle").click()
+            await page.locator('[data-database-select="none"]').click()
+            for key in ["backupOverview"]:
+                await page.locator(f'[data-database-column="{key}"]').check()
+            await page.locator("#database-columns-toggle").click()
+            assert await ids() == expected
+            assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "backupOverview"]
+            await show_columns(["engine"])
+            await page.reload()
+            await page.wait_for_selector('#head [data-column-key="engine"]', timeout=60000)
+            assert await page.locator('[data-database-view]').count() == 0
+            assert await ids() == expected
+            await show_columns([])
+            await page.locator("#database-columns-toggle").click()
+            await page.locator('[data-database-select="none"]').click()
+            await page.locator('[data-database-column="size"]').check()
+            await page.locator('[data-database-column="remarks"]').check()
             await clear()
-            await page.set_viewport_size({"width": 1440, "height": 1000})
-            checks.append("Purpose stays visible; centred modal/full-screen details preserve table width, selection, refresh, reload and filters at 320–1440px")
             old_filter = json.dumps({"filters": {"name": ["notepad.db"]}}, separators=(",", ":"))
             await page.goto(private + "/#list?tab=databases&columns=" + quote(old_filter))
             await page.wait_for_selector("#rows .database-name", timeout=60000)
             assert set(await ids()) == {row["id"] for row in by_id.values() if row["name"] == "notepad.db"}
             await clear()
-            checks.append("Orin purpose names preserve filenames, search, saved filters, details and copied rows on desktop/mobile")
+            await show_columns(["component"])
             dashboard = next(row for row in orin if row["name"] == "karma.sqlite")
-            assert dashboard["component"] == "Agent dashboard"
-            assert dashboard["componentEntity"] == "service:orin-hermes-dashboard"
-            assert all(row["component"] == "Agent runtime" for row in orin if row != dashboard)
             for width in [1440, 390]:
                 await page.set_viewport_size({"width": width, "height": 1000})
-                await choose_only("component", "Agent dashboard")
+                await choose_only("component", "Agent Dashboard")
                 assert await ids() == [dashboard["id"]]
-                component = page.locator('#rows [data-label="Component"]')
-                assert await component.inner_text() == "Agent dashboard"
+                component = page.locator('#rows [data-label="Used by"]')
                 await component.locator("button").click()
                 assert await page.locator("#detail-title").inner_text() == "orin-hermes-dashboard"
                 await page.locator("#detail #close").click()
-                await page.locator('#tabs [data-tab="databases"]').click()
                 await clear()
-            checks.append("Orin owner is unified; component filters and dashboard service links work on desktop/mobile")
-            hermes_notes = [row for row in by_id.values() if row.get("remarks", "").startswith("Created by Hermes framework.")]
-            assert hermes_notes
-            for row in hermes_notes:
-                note_row = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + row["id"] + '"]'))
-                assert await note_row.locator(".database-purpose").text_content() == row["remarks"].removeprefix("Created by Hermes framework.").strip()
-            note = next(row for row in hermes_notes if row["path"].endswith("/orin/cron/notepad.db"))
-            for width in [320, 390, 1440]:
-                await page.set_viewport_size({"width": width, "height": 1000})
-                note_row = page.locator("#rows .database-record").filter(has=page.locator('[data-entity="' + note["id"] + '"]'))
-                await note_row.locator(".database-name").click()
-                assert await page.locator("#detail .database-remarks").text_content() == note["remarks"]
-                assert await page.locator("#detail .database-remarks strong").inner_text() == "Created by Hermes framework."
-                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
-                await page.locator("#detail").screenshot(path=root / "_scratch" / f"database-remarks-{width}.png")
-                await page.locator("#close").click()
+            await show_columns([])
             await page.set_viewport_size({"width": 1440, "height": 1000})
-            await choose_only("remarks", note["remarks"])
-            assert all(by_id[id].get("remarks") == note["remarks"] for id in await ids())
-            await clear()
-            checks.append("Hermes remarks show exact purposes, filter by note and fit desktop/mobile")
+            checks.append("Spreadsheet columns, fixed names, no row navigation, exact remarks, copy metadata, saved choices and order, compact locked widths, search and filters work at 320–1440px")
 
             for width in [1440, 390]:
                 await page.set_viewport_size({"width": width, "height": 844})
+                await page.wait_for_timeout(150)
                 await open_column("owner")
                 await page.locator('#column-menu input[type="search"]').fill("orin")
                 shown = page.locator("#column-menu [data-value-index]:visible")
@@ -230,85 +346,67 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert not set(initial).intersection(copy["id"] for copy in copies if not by_id.get(copy["id"], {}).get("backupOnly"))
             backed = next(row for row in inventory["databases"] if row.get("backupCopies") and not row.get("backupOnly"))
             record = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + backed["id"] + '"]'))
-            height = (await record.bounding_box())["height"]
-            trigger = record.locator(".database-name")
-            await trigger.click()
-            dialog = page.locator("#detail.database-panel")
-            record_details = dialog
-            assert await dialog.is_visible()
-            assert backed["path"] in await dialog.inner_text()
-            assert backed["backupCopies"][0]["path"] in await dialog.inner_text()
-            assert "Backed up by: " + backed["backedUpBy"] in await record_details.inner_text()
-            assert "Backed up by: " + backed["backedUpBy"] in await dialog.inner_text()
-            backup_text = await dialog.inner_text()
-            assert all("Created by: " + copy["createdBy"] in backup_text for copy in backed["backupCopies"])
-            assert await dialog.locator(".backup-copies li").count() == len(backed["backupCopies"])
-            await page.evaluate("window.copiedPath = null; Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: async value => {window.copiedPath = value}}})")
-            await dialog.get_by_role("button", name="Copy source database path", exact=True).click()
-            assert await page.evaluate("window.copiedPath") == backed["path"]
-            assert await dialog.get_by_role("button", name="Copy source database path", exact=True).inner_text() == "Copied"
-            await dialog.locator("[data-copy-row]").click()
-            copied = await page.evaluate("window.copiedPath")
-            assert backed["path"] in copied and backed["name"] in copied
-            assert "Observed:" in copied and "SGT" in copied
-            assert "Category:" in copied and "Sub-category:" in copied
-            assert "Backed up by: " + backed["backedUpBy"] in copied
-            assert "Remarks: " + (backed.get("remarks") or "—") in copied
-            assert "Component: " + (backed.get("component") or "Not confirmed") in copied
-            assert all("Created by: " + copy["createdBy"] in copied for copy in backed["backupCopies"])
-            assert f'Backup copies: {len(backed["backupCopies"])}' in copied
-            assert all(copy["path"] in copied and copy["association"] in copied for copy in backed["backupCopies"])
-            assert "Local copies do not establish off-host protection" in copied
-
-            for width in [320, 390, 768, 1440]:
-                await page.set_viewport_size({"width": width, "height": 1000})
-                assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
-                assert await dialog.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
-                await dialog.screenshot(path=root / "_scratch" / f"backup-dialog-{width}.png")
+            await show_columns(["remarks"])
+            assert await record.locator(".database-actions [data-copy-path]").get_attribute("data-copy-path") == backed["path"]
+            assert await record.locator(".database-actions [data-copy-path] + [data-backup-details]").count() == 1
+            assert await page.locator('[data-field="copies"], [data-column-key="copies"], [data-database-column="copies"]').count() == 0
+            before_backup_url = page.url
+            backup_trigger = record.locator("[data-backup-details]").last
+            await backup_trigger.click()
+            backup_dialog = page.locator("#backup-dialog")
+            assert await backup_dialog.is_visible()
+            for copy in backed["backupCopies"]:
+                assert copy["path"] in await backup_dialog.inner_text()
+                assert copy["association"] in await backup_dialog.inner_text()
+                assert "Created by: " + copy["createdBy"] in await backup_dialog.inner_text()
+            assert await backup_dialog.locator(".database-copy-list li").count() == len(backed["backupCopies"])
             await page.keyboard.press("Escape")
-            assert not await dialog.is_visible()
-            assert await trigger.evaluate("e => e === document.activeElement")
+            assert await backup_trigger.evaluate("e => e === document.activeElement")
+            assert page.url == before_backup_url
+            await page.evaluate("Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: async value => {window.copiedPath = value}}})")
+            await record.get_by_role("button", name="Copy source database path", exact=True).click()
+            assert await page.evaluate("window.copiedPath") == backed["path"]
             copy_row = record.locator("[data-copy-row]")
             await copy_row.click()
-            assert await page.evaluate("window.copiedPath") == copied
-            assert "Copied" == await copy_row.inner_text()
-            assert not await page.locator("#detail").is_visible()
+            copied = await page.evaluate("window.copiedPath")
+            assert all(copy["path"] in copied and copy["association"] in copied for copy in backed["backupCopies"])
+            assert "Observed:" in copied and "SGT" in copied
+            assert "Backed up by: " + backed["backedUpBy"] in copied
+            assert "Remarks: " + (backed.get("remarks") or "—") in copied
+            assert "Local copies do not establish off-host protection" in copied
             await page.set_viewport_size({"width": 390, "height": 700})
             assert (await copy_row.bounding_box())["height"] >= 44
+            assert (await backup_trigger.bounding_box())["height"] >= 44
+            await backup_trigger.click()
+            assert await backup_dialog.is_visible()
+            assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+            await page.locator("#close-backup").click()
+            assert await backup_trigger.evaluate("e => e === document.activeElement")
             await page.evaluate("() => {navigator.clipboard.writeText = async () => {throw new Error('denied')}}")
             await copy_row.click()
-            fallback = page.locator("#copy-row-dialog")
-            assert await fallback.is_visible()
+            assert await page.locator("#copy-row-dialog").is_visible()
             assert await page.locator("#copy-row-text").input_value() == copied
-            assert await page.locator("#copy-row-text").evaluate("e => e.selectionEnd === e.value.length && e.selectionStart === 0")
-            assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
             await page.keyboard.press("Escape")
             assert await copy_row.evaluate("e => e === document.activeElement")
             await page.evaluate("() => {navigator.clipboard.writeText = async value => {window.copiedPath = value}}")
             await page.set_viewport_size({"width": 1440, "height": 1000})
-            checks.append("Database row context copies full metadata on desktop/mobile; clipboard denial provides selected text and restores focus")
-
             retained = next(row for row in inventory["databases"] if row.get("backupOnly"))
-            await page.locator('.database-name[data-entity="' + retained["id"] + '"]').click()
-            assert "original database has not been confirmed" in await dialog.inner_text()
-            assert not await dialog.get_by_role("button", name="Copy source database path", exact=True).count()
-            assert await dialog.locator(".backup-copies li").count() == len(retained["backupCopies"])
-            await dialog.locator("[data-copy-row]").click()
-            retained_text = await page.evaluate("window.copiedPath")
-            assert "original source unconfirmed" in retained_text
-            assert "Source path:" not in retained_text
-
-            await dialog.locator("#close").click()
+            retained_row = page.locator('[data-database-row="' + retained["id"] + '"]')
+            assert "source unconfirmed" in await retained_row.inner_text()
+            assert "original source unconfirmed" in await retained_row.locator(".database-actions [data-copy-path]").get_attribute("aria-label")
+            assert not await retained_row.get_by_role("button", name="Copy source database path", exact=True).count()
+            assert await retained_row.locator("[data-backup-details]").count() == 1
+            await retained_row.locator("[data-copy-row]").click()
+            assert "Source path:" not in await page.evaluate("window.copiedPath")
             unknown = next(row for row in inventory["databases"] if not row.get("backupCopies"))
-            await page.locator('.database-name[data-entity="' + unknown["id"] + '"]').click()
-            assert "does not confirm that backups are missing" in await dialog.inner_text()
-            await dialog.locator("[data-copy-row]").click()
-            assert "No backup location recorded; this does not confirm backups are missing." in await page.evaluate("window.copiedPath")
-
-            await page.keyboard.press("Escape")
-            checks.append("Backup dialog preserves source/copy paths, retained/unknown evidence, compact rows, copy action, Escape focus and 320–1440px layouts")
-            await open_column("backup")
-            await page.locator('#column-menu [data-related-field="backupCount"]').click()
+            unknown_row = page.locator('[data-database-row="' + unknown["id"] + '"]')
+            assert await unknown_row.locator("[data-backup-details]").count() == 1
+            await unknown_row.locator("[data-backup-details]").click()
+            assert "does not confirm that backups are missing" in await page.locator("#backup-dialog").inner_text()
+            await page.locator("#close-backup").click()
+            await show_columns([])
+            checks.append("Table preserves source/copy paths, creator/association/date evidence, retained and unknown limits, copy actions and clipboard fallback")
+            await open_column("backupCount")
             assert await page.locator("#column-menu-title").inner_text() == "Backup count"
             await page.keyboard.press("Escape")
             counts = sorted(set(len(row.get("backupCopies", [])) for row in by_id.values()))
@@ -333,7 +431,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
                 for group in groups:
                     actual = [len(by_id[id].get("backupCopies", [])) for id in group]
                     assert actual == sorted(actual, reverse=direction == "desc")
-                assert await page.locator('#head [data-column-key="backup"]').evaluate("e => e.closest('th').getAttribute('aria-sort')") == ("ascending" if direction == "asc" else "descending")
+                assert "Backup count" in await page.locator("[data-columns-summary]").inner_text()
             await clear()
             await page.set_viewport_size({"width": 390, "height": 700})
             await choose_only("backupCount", "0 copies")
@@ -344,7 +442,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
             await clear()
             await page.set_viewport_size({"width": 1440, "height": 1000})
-            assert await page.locator("#head th").count() == 4
+            assert await page.locator("#head th").count() == 3
             checks.append("Backup count filters include zero, persist on reload, intersect with ownership, sort numerically and open from backup header or mobile chooser")
             for direction in ["desc", "asc"]:
                 await open_column("size")
@@ -423,9 +521,18 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             for width in [320, 390, 768, 1440]:
                 await page.set_viewport_size({"width": width, "height": 844})
                 await page.locator("[data-columns-open]:visible").wait_for()
-                search_box = await page.locator("#search").bounding_box()
-                launcher_box = await page.locator("[data-columns-open]:visible").bounding_box()
-                assert abs(search_box["y"] + search_box["height"] - launcher_box["y"] - launcher_box["height"]) < 2
+                search_box, launcher_box, columns_box = await page.evaluate("""() => [
+                    document.querySelector('#search'),
+                    [...document.querySelectorAll('[data-columns-open]')].find(e => e.checkVisibility()),
+                    document.querySelector('#database-columns-toggle')
+                ].map(e => e.getBoundingClientRect().toJSON())""")
+                assert abs(columns_box["y"] - launcher_box["y"]) < 2
+                assert columns_box["x"] >= launcher_box["x"] + launcher_box["width"]
+                assert columns_box["x"] + columns_box["width"] <= width
+                if width <= 600:
+                    assert launcher_box["y"] >= search_box["y"] + search_box["height"]
+                else:
+                    assert abs(search_box["y"] + search_box["height"] - launcher_box["y"] - launcher_box["height"]) < 2
                 await page.locator("[data-columns-open]:visible").click()
                 if width == 1440:
                     fields = page.locator("#column-menu [data-field]")
@@ -459,7 +566,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert await page.locator("[data-columns-open]:visible").count() == 1
             assert not await page.locator("[data-columns-toolbar] [data-column-key]").count()
             await page.locator("[data-columns-open]").click()
-            assert await page.locator("#column-menu [data-field]").count() == 11
+            assert await page.locator("#column-menu [data-field]").count() == 13
             assert await page.locator('#column-menu [data-field="backedUpBy"]').count() == 1
             assert await page.locator("#column-menu").evaluate("e => e.matches(':modal')")
             await page.screenshot(path=str(root / "_scratch/filter-fields-mobile.png"))

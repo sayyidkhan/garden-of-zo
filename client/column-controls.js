@@ -248,7 +248,7 @@ export function createColumnControls({ rows, onChange }) {
         container.innerHTML = '<button type="button" class="column-trigger column-launcher" data-columns-open aria-haspopup="dialog" aria-controls="column-menu" aria-expanded="false"><span aria-hidden="true">☷</span><span>Filter &amp; sort</span>' + (count ? '<span class="column-launcher__count">' + count + '</span>' : '') + '</button>';
         return;
       }
-      const buttons = columns.filter(column => !keys || keys.includes(column.key)).map(column => {
+      const buttons = (keys ? keys.map(key => columns.find(column => column.key === key)).filter(Boolean) : columns).map(column => {
         const related = column.relatedKeys || [column.key];
         const filtered = related.some(key => Object.hasOwn(current.filters, key));
         const sorted = related.includes(current.sort?.key) ? current.sort.direction : null;

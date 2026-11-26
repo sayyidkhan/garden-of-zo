@@ -273,13 +273,13 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
       if (db.owner) db.ownershipEvidence = "documented runtime location";
     }
     if (db.owner === "service:orin-hermes-dashboard") {
-      db.component = "Agent dashboard";
+      db.component = "Agent Dashboard";
       db.componentEntity = db.owner;
       relate(db.componentEntity, db.id, db.ownershipEvidence);
       db.owner = "agent:orin";
       db.ownershipEvidence = "Orin dashboard belongs to Orin Forgekeeper";
     } else if (db.owner === "agent:orin" && db.path.startsWith("/root/.hermes/profiles/orin/")) {
-      db.component = "Agent runtime";
+      db.component = "Agent Runtime";
     }
     if (db.owner) relate(db.owner, db.id, db.ownershipEvidence);
     if (db.path.endsWith("/pal-workflow-youtuberesearch/outputs/youtube-research.sqlite")) relate("workflow:youtube-research", db.id, "workflow store");

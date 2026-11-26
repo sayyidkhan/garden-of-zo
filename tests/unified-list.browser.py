@@ -228,9 +228,9 @@ async def main():
             database_link = finding.locator(".finding-project[open] li [data-entity]").first
             expected_id = await database_link.get_attribute("data-entity")
             await database_link.click()
-            assert await page.locator("#detail").is_visible()
-            assert expected_id in __import__("urllib.parse", fromlist=["unquote"]).unquote(page.url)
-            await page.locator("#close").click()
+            assert await page.locator(".database-scroll").is_visible()
+            assert await page.locator('[data-database-row="' + expected_id + '"]').count() == 1
+            assert not await page.locator("dialog:modal").count()
             await page.locator("#tabs [data-tab='apps']").click()
             checks.append("Full-width warning cards show project labels and counts, preserve expansion on refresh, support keyboard/mobile and link to database details")
             await page.unroute("**/operations/api/inventory*", backup_fixture)
@@ -267,12 +267,12 @@ async def main():
             await page.wait_for_selector("#rows .database-name", timeout=60000)
             visible_ids = await page.locator("#rows .database-name").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             assert set(visible_ids) == expected
-            assert await page.locator('[data-column-remove="type"]:visible').count() == 1
+            assert await page.locator('[data-column-remove="component"]:visible').count() == 1
             assert await page.locator('[data-column-remove="owner"]:visible').count() == 1
             assert not await page.locator(".directory-options:visible").count()
             await page.locator("[data-columns-reset]:visible").click()
             assert await page.locator("#rows .database-name").count() == len(inventory["databases"])
-            checks.append("Old database links migrate type, owner and numeric sorting into visible field menus, survive reload and clear together")
+            checks.append("Old database links migrate usage, owner and numeric sorting into visible field menus, survive reload and clear together")
             await page.locator("#tabs [data-tab='services']").click()
             await page.locator("#search").fill("runa")
             assert await page.locator("#rows .entity").count() > 0
@@ -307,7 +307,11 @@ async def main():
                 original_url = page.url
                 original_rows = await page.locator("#rows .database-name").all_text_contents()
                 dashboard_row = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + dashboard["id"] + '"]'))
-                component = dashboard_row.get_by_role("button", name="Agent dashboard", exact=True)
+                await page.locator("#database-columns-toggle").click()
+                await page.locator('[data-database-column="component"]').check()
+                await page.locator("#database-columns-toggle").click()
+                original_url = page.url
+                component = dashboard_row.get_by_role("button", name="Agent Dashboard", exact=True)
                 await component.click()
                 await page.wait_for_selector("#detail[open]")
                 assert await page.locator("#tabs [data-tab='databases']").get_attribute("aria-pressed") == "true"
@@ -321,10 +325,17 @@ async def main():
                 related = page.locator("#detail-body .related [data-entity]").first
                 await related.click()
                 assert await page.locator("#section-title").inner_text() == "Databases"
-                if close_method == "button":
-                    await page.locator("#close").click()
+                if await page.locator("#detail").is_visible():
+                    if close_method == "button":
+                        await page.locator("#close").click()
+                    else:
+                        await page.keyboard.press("Escape")
                 else:
-                    await page.keyboard.press("Escape")
+                    assert await page.locator(".database-scroll").is_visible()
+                    assert await page.locator("#head [data-column-key='path']").count() == 0
+                    assert await page.locator("#rows .database-actions [data-copy-path]").count() > 0
+                    await page.goto(original_url)
+                    await page.wait_for_selector("#rows .database-name", timeout=60000)
                 await page.wait_for_function("!location.hash.includes('entity=')")
                 assert page.url == original_url
                 assert await page.locator("#search").input_value() == "orin"
@@ -369,18 +380,21 @@ async def main():
                 for section in ["apps", "agents", "services", "workflows", "databases", "issues"]:
                     await page.locator("#tabs [data-tab='" + section + "']").click()
                     assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth"), (width, section)
-                    assert await page.locator("#inventory .table-wrap").evaluate("e => e.scrollWidth <= e.clientWidth"), (width, section)
-            checks.append("All inventory sections fit 320–1440px without horizontal tables")
+                    assert await page.locator(".catalogue__intro").is_visible(), (width, section)
+                    assert await page.locator("[data-view-title]").inner_text() == "Choose the next horizon."
+                    assert await page.locator("[data-view-description]").inner_text() == "Find your next destination in the Garden of Zo."
+                    if section != "databases" or width <= 600:
+                        assert await page.locator("#inventory .table-wrap").evaluate("e => e.scrollWidth <= e.clientWidth"), (width, section)
+            checks.append("All sections fit 320–1440px; mobile database records need no horizontal scrolling")
             await page.set_viewport_size({"width": 390, "height": 844})
             await page.locator("#tabs [data-tab='databases']").click()
             assert await page.locator("#rows .database-name").count() > 0
             await page.locator("#rows .database-name").first.click()
-            assert await page.locator("#detail.database-panel").is_visible()
+            assert await page.locator(".database-scroll").is_visible()
             assert not await page.locator("#rows .database-detail-row").count()
-            await page.locator("#close").click()
             assert not await page.locator("#detail").is_visible()
             await page.screenshot(path=str(root / "_scratch/unified-list-mobile.png"))
-            checks.append("Mobile List and database details fit the viewport")
+            checks.append("Mobile database clicks keep the table visible")
             if public:
                 requested.clear()
                 await page.goto(public + "/#list")

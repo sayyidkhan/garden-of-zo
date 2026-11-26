@@ -134,12 +134,12 @@ test("Orin databases share agent ownership while retaining runtime, dashboard an
   }));
   const dashboard = snapshot.databases.find(row => row.path === karma)!;
   expect(dashboard).toMatchObject({
-    owner: "agent:orin", projectName: "Orin Forgekeeper", component: "Agent dashboard",
+    owner: "agent:orin", projectName: "Orin Forgekeeper", component: "Agent Dashboard",
     componentEntity: "service:orin-hermes-dashboard", ownershipLabel: "PAL | AGENT"
   });
   expect(dashboard.backupCopies).toHaveLength(1);
   expect(dashboard.backedUpBy).toBe("Garden");
-  expect(snapshot.databases.find(row => row.path === runtime)).toMatchObject({ owner: "agent:orin", component: "Agent runtime" });
+  expect(snapshot.databases.find(row => row.path === runtime)).toMatchObject({ owner: "agent:orin", component: "Agent Runtime" });
   expect(snapshot.databases.find(row => row.path.includes("/unrelated/"))).toMatchObject({ owner: null });
   expect(snapshot.dependencies).toContainEqual({ from: "service:orin-hermes-dashboard", to: dashboard.id, evidence: "service working directory" });
   expect(snapshot.dependencies.some(row => row.from === "agent:orin" && row.to === dashboard.id)).toBe(true);

@@ -22,8 +22,18 @@ export function renderInventory(cards = "") {
       <div class="directory-options" hidden>${renderInventoryFilters()}</div>
     </div>
     <div class="directory-refine">${renderInventorySearch()}
-    <div class="column-toolbar" data-columns-toolbar aria-label="Sort and filter record fields"></div></div>
+    <div class="directory-refine-actions"><div class="column-toolbar" data-columns-toolbar aria-label="Sort and filter record fields"></div><button type="button" class="button" id="database-columns-toggle" aria-expanded="false" aria-controls="database-column-choices" hidden>Columns</button></div></div>
+    <div id="database-column-options" hidden><section id="database-column-choices" aria-label="Choose table columns" hidden>
+      <div class="database-column-actions"><strong>Choose columns</strong><button class="button" type="button" id="database-columns-done">Done</button></div>
+      <input id="database-column-search" type="search" placeholder="Find a column…" aria-label="Find a column">
+      <p id="database-column-help">Tick to show. Drag the grip to reorder, or focus it and use ↑ ↓.</p>
+      <ol id="database-column-list" aria-label="Table columns"></ol>
+      <p id="database-column-empty" hidden>No matching columns.</p>
+      <div class="database-column-footer"><button class="button" type="button" data-database-select="all">Show all</button><button class="button" type="button" data-database-select="none">Clear optional</button></div>
+      <span id="database-column-status" class="sr-only" role="status"></span>
+    </section></div>
     <div class="column-summary" data-columns-summary hidden role="status"></div>
+    <p id="database-table-help" hidden>Database and purpose stay visible. Use Columns to choose and reorder the other fields. Phones show stacked records; wider screens show a table. Local copies do not establish off-host protection or full recovery.</p>
     <div class="table-wrap"><table aria-label="Inventory records"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
     <div id="notice" class="alert" hidden role="status"></div>
     <p data-task-feedback role="status" aria-live="polite"></p>
@@ -35,8 +45,8 @@ export function renderInventory(cards = "") {
       <div id="coverage" class="coverage">Waiting for inventory.</div>
     </dialog>
     <p id="copy-feedback" class="copy-feedback" role="status" aria-live="polite"></p>
+    <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-head"><h2 id="backup-title">Backup details</h2><button type="button" class="button" id="close-backup">Close</button></div><div id="backup-body"></div></dialog>
     <dialog id="copy-row-dialog" aria-labelledby="copy-row-title"><div class="dialog-head"><h2 id="copy-row-title">Copy row</h2><button type="button" class="button" id="close-copy-row">Close</button></div><p id="copy-row-help">Clipboard access is blocked. Select and copy this text, then paste it into your chat.</p><textarea id="copy-row-text" readonly aria-label="Row context to copy" aria-describedby="copy-row-help"></textarea></dialog>
-    <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-head"><div><p class="inventory-label">Database backups</p><h2 id="backup-title"></h2></div><div class="backup-dialog-actions"><span id="backup-copy-action"></span><button type="button" class="backup-close" id="close-backups" aria-label="Close backups" title="Close backups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div></div><div id="backup-body"></div></dialog>
     <dialog id="detail" aria-labelledby="detail-title"><div class="dialog-head"><div><p class="inventory-label">In your garden</p><h2 id="detail-title"></h2></div><button class="button" id="close" aria-label="Close details">Close</button></div><div id="detail-body"></div></dialog>
   </div>`;
 }
