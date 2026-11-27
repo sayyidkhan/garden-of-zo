@@ -392,10 +392,6 @@
 #inventory .database-backup-date,#inventory .database-backup-time { display:block; white-space:nowrap }
 #inventory .database-filename { margin-left:0 }
 #inventory .database-record.is-selected { background:rgba(228,193,120,.08); box-shadow:inset 3px 0 var(--gold) }
-#inventory #database-column-options:not([hidden]) { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:12px 0 }
-#inventory #database-column-choices { border:1px solid var(--line); padding:10px 16px; border-radius:8px; display:flex; flex-wrap:wrap; gap:16px; font-size:14px }
-#inventory #database-column-choices[hidden] { display:none }
-#inventory #database-column-choices label { display:flex; gap:8px; align-items:center; min-height:32px }
 #inventory table.database-table { table-layout:auto }
 #inventory table.database-table td { overflow-wrap:anywhere }
 @media(max-width:600px) {
@@ -440,7 +436,6 @@
   #inventory .database-title .database-filename { margin-top:-3px }
 }
 
-#inventory #database-table-help { color:var(--muted); font-size:12px; margin:0 0 12px; max-width:80ch }
 #inventory .table-wrap.database-scroll { overflow:auto; max-width:100%; isolation:isolate; scrollbar-color:#819c91 #10282d }
 #inventory .database-scroll:focus-visible { outline:2px solid var(--gold); outline-offset:2px }
 #inventory .database-scroll table.database-table { display:table; width:100%; min-width:940px; table-layout:auto; border-collapse:separate; border-spacing:0 }
@@ -468,32 +463,17 @@
 #inventory .database-scroll .backup-path .button { align-self:flex-start; min-height:36px; font-size:11px }
 #inventory .database-scroll .database-group-heading { position:sticky; left:16px; width:max-content; max-width:calc(100vw - 80px); flex-wrap:wrap }
 #inventory .database-scroll .database-record.is-selected td { background:#18373b }
-#inventory #database-column-choices { flex-basis:100%; gap:8px 24px }
 @media(max-width:600px) {
   #inventory .database-scroll table.database-table thead th:first-child,
   #inventory .database-scroll table.database-table .database-record td:first-child { min-width:140px; width:140px; max-width:140px; padding:10px 8px }
   #inventory .database-scroll .database-heading { flex-wrap:wrap }
   #inventory .database-scroll .database-heading .copy-row { margin-left:0 }
-  #inventory .database-scroll .backup-path .button,
-  #inventory #database-column-choices label { min-height:44px }
+  #inventory .database-scroll .backup-path .button { min-height:44px }
 }
 
-#inventory #database-column-choices { display:block; width:100%; box-sizing:border-box; padding:16px; background:#10282d }
-#inventory #database-column-choices[hidden], #inventory #database-column-choices label[hidden] { display:none }
-#inventory .database-column-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px }
-#inventory .database-column-actions strong { margin-right:auto; font-size:13px; color:var(--muted) }
-#inventory #database-column-search { width:180px; min-height:40px; padding:8px 12px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--text) }
-#inventory .database-column-groups { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px }
-#inventory .database-column-groups fieldset { border:0; margin:0; padding:0; min-width:0 }
-#inventory .database-column-groups legend { font-weight:600; margin-bottom:8px; color:var(--muted) }
-#inventory #database-column-choices label { min-height:44px; padding:0 10px; border-radius:6px; cursor:pointer }
-#inventory #database-column-choices label:has(input:checked) { background:rgba(149,194,175,.12) }
-#inventory #database-column-choices input[type=checkbox] { width:18px; height:18px; accent-color:#99cbb7 }
 #inventory .database-scroll table.database-table thead th:nth-child(2),
 #inventory .database-scroll table.database-table td[data-field=purpose] { position:sticky; left:var(--database-label-width,272px); z-index:2; background:#10282d; box-shadow:1px 0 0 var(--line); min-width:240px; width:240px; max-width:280px }
 @media(max-width:600px) {
-  #inventory .database-column-groups { grid-template-columns:1fr; gap:16px }
-  #inventory #database-column-search { width:100%; box-sizing:border-box }
   #inventory .database-scroll table.database-table thead th:first-child,
   #inventory .database-scroll table.database-table .database-record td:first-child { min-width:92px; width:92px; max-width:92px; overflow-wrap:anywhere }
   #inventory .database-scroll table.database-table thead th:nth-child(2),
@@ -538,12 +518,10 @@
 }
 
 #inventory .directory-refine-actions { display:flex; align-items:center; gap:12px; flex:none }
-#inventory #database-columns-toggle { min-height:44px; white-space:nowrap }
 @media(max-width:600px) {
-  #inventory .directory-refine:has(#database-columns-toggle:not([hidden])) { flex-wrap:wrap }
-  #inventory .directory-refine:has(#database-columns-toggle:not([hidden])) .directory-search { flex-basis:100% }
+  #inventory .directory-refine:has(#database-group-controls:not([hidden])) { flex-wrap:wrap }
+  #inventory .directory-refine:has(#database-group-controls:not([hidden])) .directory-search { flex-basis:100% }
   #inventory .directory-refine-actions { gap:8px }
-  #inventory #database-columns-toggle { padding:10px; font-size:13px }
 }
 
 #inventory .database-copy-bullets { margin:0; padding-left:18px; font-size:12px; line-height:1.7 }
@@ -560,22 +538,6 @@
 #inventory #backup-body .database-copy-list li { padding-bottom:16px; border-bottom:1px solid var(--line) }
 #inventory #backup-body .database-copy-list p { margin:6px 0; color:var(--muted); font-size:13px }
 
-#inventory #database-column-choices { position:fixed; z-index:50; max-width:360px; margin:0; overflow:auto; overscroll-behavior:contain; box-shadow:0 12px 36px rgba(0,0,0,.4) }
-#inventory .database-column-actions { justify-content:space-between; margin-bottom:10px }
-#inventory #database-column-search { width:100%; box-sizing:border-box }
-#inventory #database-column-help { font-size:12px; color:var(--muted); margin:10px 0; white-space:normal; overflow:visible }
-#inventory #database-column-list { list-style:none; padding:0; margin:0; max-height:360px; overflow:auto; overscroll-behavior:contain }
-#inventory #database-column-list li { display:flex; align-items:center; min-height:44px; border-bottom:1px solid var(--line) }
-#inventory #database-column-list li[hidden] { display:none }
-#inventory #database-column-list label { flex:1; min-width:0; margin:0 }
-#inventory #database-column-list button { width:44px; height:44px; flex-shrink:0; border:0; border-radius:6px; color:var(--muted); background:transparent; cursor:grab; touch-action:none; font-size:24px }
-#inventory #database-column-list button:active { cursor:grabbing }
-#inventory #database-column-list button:focus-visible { outline:2px solid #99cbb7; outline-offset:-2px }
-#inventory #database-column-list .column-drop-target { box-shadow:inset 0 0 0 2px #99cbb7; background:rgba(149,194,175,.16) }
-#inventory .database-column-locked { padding:0 10px; gap:12px; color:var(--muted) }
-#inventory .database-column-locked small { margin-left:auto }
-#inventory .database-column-footer { display:flex; gap:8px; padding-top:12px }
-#inventory #database-column-status { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%) }
 #inventory .database-scroll .database-heading { flex-direction:column; align-items:flex-start; flex-wrap:nowrap; gap:6px }
 #inventory .database-actions { display:flex; flex-flow:row nowrap; align-items:center; gap:2px; flex:none }
 #inventory .database-scroll .database-actions .copy-row { margin:0; flex:none }
@@ -623,4 +585,25 @@
 #inventory .database-backup-datetime .database-backup-date,#inventory .database-backup-datetime .database-backup-time { display:inline }
 @media(max-width:600px) {
   #inventory .database-scroll table.database-table .database-record td[data-field=backupOverview] { grid-column:1 / -1 }
+}
+
+#inventory #database-group-controls { display:inline-flex; align-items:center; flex:none; margin-left:4px }
+#inventory #database-group-controls .database-group-link { min-height:44px; min-width:72px; padding:0; font-size:13px }
+#inventory #database-group-controls button:disabled { cursor:default; opacity:.45 }
+#inventory .database-scroll .database-group-heading { display:grid; grid-template-columns:minmax(0,1fr) auto; width:var(--database-group-width,100%); max-width:calc(var(--database-table-min) - 32px); gap:12px }
+#inventory .database-group-summary { display:flex; align-items:center; flex-wrap:wrap; gap:6px 16px; min-width:0 }
+#inventory .database-group-count { margin-left:0 }
+#inventory .database-group-link { display:inline-flex; align-items:center; justify-content:center; border:0; border-radius:0; background:none; color:var(--muted); white-space:nowrap; font:500 12px var(--sans); min-height:32px; padding:0 4px; text-decoration:underline; text-underline-offset:3px }
+#inventory .database-group-link:not(:disabled):hover { color:var(--gold) }
+#inventory .database-group-toggle { align-self:center }
+@media(max-width:600px) {
+  #inventory .database-scroll .database-group-heading { width:100%; max-width:100%; gap:6px 12px }
+  #inventory .database-group-summary { display:contents }
+  #inventory .database-group-summary .database-owner { grid-column:1; align-self:center }
+  #inventory .database-group-summary :is(.database-ownership,.database-group-count) { grid-column:1 / -1 }
+  #inventory .database-group-toggle { grid-column:2; grid-row:1 }
+  #inventory .database-group-link { min-height:44px }
+  #inventory .directory-refine-actions:has(#database-group-controls:not([hidden])) { width:100%; gap:6px }
+  #inventory #database-group-controls { margin-left:auto }
+  #inventory #database-group-controls .database-group-link { font-size:12px; min-width:68px }
 }

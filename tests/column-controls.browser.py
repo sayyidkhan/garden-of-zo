@@ -3,7 +3,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, parse_qsl, urlencode
 
 from playwright.async_api import async_playwright
 
@@ -22,6 +22,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
 '''], cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         private, public = json.loads(fixture.stdout.readline())
     checks = []
+    skipped = []
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=True, args=["--no-sandbox"])
@@ -68,8 +69,8 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             by_id = {row["id"]: row for row in inventory["databases"]}
             initial = await ids()
             assert len(initial) == len(by_id)
-            assert await page.locator("#head th").count() == 3
-            assert await page.locator('#head [data-column-key="remarks"]').count() == 0
+            assert await page.locator("#head th").count() == 7
+            assert await page.locator('#head [data-column-key="remarks"]').count() == 1
             assert await page.locator('#head [data-column-key="backup"]').count() == 0
             assert await page.locator('#head [data-column-key="purpose"]').count() == 1
             legacy = await browser.new_page()
@@ -94,93 +95,43 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
                 assert await legacy.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == expected_columns
             await legacy.close()
             checks.append("Old column layouts adopt recommended order while preserving visibility, including no optional columns")
+            async def saved_columns(keys):
+                state = dict(parse_qsl(urlsplit(page.url).fragment.partition("?")[2], keep_blank_values=True))
+                state.update(dbColumns=",".join(keys), dbLayout="6")
+                await page.goto(private + "/#list?" + urlencode(state))
+                await page.wait_for_selector("#rows .database-name", timeout=60000)
+
             async def show_columns(keys):
-                if not await page.locator("#database-column-choices").is_visible():
-                    await page.locator("#database-columns-toggle").click()
-                for key in await page.locator("[data-database-column]").evaluate_all("nodes => nodes.map(n => n.dataset.databaseColumn)"):
-                    await page.locator(f'[data-database-column="{key}"]').set_checked(key in keys or key in ["size"])
-                await page.locator("#database-columns-done").click()
-            await page.locator("#database-columns-toggle").scroll_into_view_if_needed()
-            table_before = await page.locator(".database-scroll").bounding_box()
-            await page.locator("#database-columns-toggle").hover()
-            await page.locator("#database-column-choices").wait_for(state="visible")
-            assert await page.locator(".database-scroll").bounding_box() == table_before
-            await page.locator("#database-column-search").hover()
-            await page.wait_for_timeout(300)
-            assert await page.locator("#database-column-choices").is_visible()
-            await page.mouse.move(0, 0)
-            await page.locator("#database-column-choices").wait_for(state="hidden")
-            await page.locator("#database-columns-toggle").hover()
-            await page.keyboard.press("Escape")
-            assert not await page.locator("#database-column-choices").is_visible()
-            checks.append("Columns hover floats without moving the table; pointer transfer and Escape work")
-            await page.locator("#database-columns-toggle").click()
-            await page.locator('[data-database-select="none"]').click()
+                order = ["component", "size", "engine", "backupOverview", "remarks"]
+                await saved_columns([key for key in order if key in keys or key == "size"])
+
+            assert await page.locator("#database-columns-toggle, #database-column-choices").count() == 0
+            await saved_columns([])
             assert await page.locator("#head th").count() == 2
             await page.reload()
             await page.wait_for_selector("#rows .database-name", timeout=60000)
             assert await page.locator("#head th").count() == 2
-            await page.locator("#database-columns-toggle").click()
-            await page.locator("#database-column-search").fill("backup")
-            assert await page.locator("#database-column-choices label:visible").count() == 1
-            await page.locator("#database-column-search").fill("")
-            await page.locator('[data-database-select="all"]').click()
+            await show_columns(["component", "engine", "backupOverview", "remarks"])
             assert await page.locator("#head th").count() == 7
             assert await page.locator('#head [data-column-key="component"]').get_attribute("aria-label") == "Sort and filter Used by"
-            assert await page.locator('[data-database-column="type"]').count() == 0
             for row in by_id.values():
                 expected_usage = row.get("component") or {"application": "App", "agent runtime": "Agent Runtime", "host runtime": "Host System", "development": "Development / Testing"}.get(row["category"], "Not confirmed")
                 assert await page.locator('[data-database-row="' + row["id"] + '"] [data-field="component"]').inner_text() == expected_usage
             assert await page.locator('#head [data-column-key="wal"]').count() == 0
             assert await page.locator('#rows [data-field="size"] .database-wal-size').count() > 0
-            assert await page.locator('[data-database-column="verification"], [data-database-column="nextStep"], [data-database-column="backup"]').count() == 0
-            await page.locator("#database-columns-toggle").click()
             await page.locator("[data-columns-open]:visible").click()
             assert await page.locator('#column-menu [data-field="verification"], #column-menu [data-field="nextStep"], #column-menu [data-field="backup"], #column-menu [data-field="type"]').count() == 0
             await page.keyboard.press("Escape")
-            await page.locator("#database-columns-toggle").click()
-            await page.locator('[data-database-select="none"]').click()
-            await page.locator('[data-database-column="size"]').check()
-            await page.locator('[data-database-column="remarks"]').check()
-            await page.locator("#database-columns-toggle").click()
             for width in [390, 1440]:
                 await page.set_viewport_size({"width": width, "height": 1000})
+                await saved_columns(["remarks", "size"])
                 widths = await page.locator("#head th").evaluate_all("cells => cells.slice(0,2).map(c => c.getBoundingClientRect().width)")
                 assert widths == ([0, 0] if width == 390 else [180, 200]), widths
-                await page.locator("#database-columns-toggle").click()
-                assert await page.locator("[data-column-move]").count() == 0
-                assert await page.locator("[data-database-column]").count() == 5
-                assert await page.locator('[data-database-column="wal"]').count() == 0
-                grip = page.get_by_role("button", name="Reorder Remarks", exact=True)
-                await page.locator('[data-column-item="size"]').scroll_into_view_if_needed()
-                source = await grip.bounding_box()
-                target = await page.locator('[data-column-item="size"]').bounding_box()
-                x, y = source["x"] + 22, source["y"] + 22
-                tx, ty = x, target["y"] + 22
-                if width == 390:
-                    session = await page.context.new_cdp_session(page)
-                    await session.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
-                    await session.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": tx, "y": ty}]})
-                    await session.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
-                    await session.detach()
-                else:
-                    await page.mouse.move(x, y)
-                    await page.mouse.down()
-                    await page.mouse.move(tx, ty, steps=8)
-                    await page.mouse.up()
-                assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "remarks", "size"]
                 await page.reload()
                 await page.wait_for_selector("#rows .database-name", timeout=60000)
                 assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "remarks", "size"]
-                await page.locator("#database-columns-toggle").click()
-                await page.locator('[data-database-column="engine"]').check()
-                await page.locator('[data-database-column="engine"]').uncheck()
-                assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "remarks", "size"]
-                await page.get_by_role("button", name="Reorder Remarks", exact=True).focus()
-                await page.keyboard.press("ArrowDown")
-                await page.screenshot(path=root / "_scratch" / f"column-order-{width}.png", full_page=True)
-                await page.locator("#database-columns-done").click()
-                assert await page.locator("#database-columns-toggle").evaluate("e => e === document.activeElement")
+                await show_columns(["remarks"])
+            checks.append("Columns control is removed; existing saved visibility and ordering still load on desktop and phones")
             orin = [row for row in by_id.values() if row.get("owner") == "agent:orin"]
             assert len(orin) == 7
             notes = next(row for row in orin if row["name"] == "notepad.db")
@@ -238,9 +189,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert await path_copy.get_attribute("data-tooltip-path") == notes["path"]
             assert await path_copy.get_attribute("data-tooltip") == "Copy file path"
             assert await path_cell.locator("code").count() == 0
-            await page.locator("#database-columns-toggle").click()
-            assert await page.locator('#database-column-list [data-database-column="path"]').count() == 0
-            await page.keyboard.press("Escape")
+            assert await page.locator('#head [data-column-key="path"]').count() == 0
             assert notes["remarks"] == await record.locator(".database-remarks").inner_text()
             assert await record.locator(".database-remarks strong").inner_text() == "Created by Hermes framework."
             selected_url = page.url
@@ -270,11 +219,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
                 assert notes["id"] in await ids()
             await page.locator("#search").fill("")
             await show_columns([])
-            await page.locator("#database-columns-toggle").click()
-            await page.locator('[data-database-select="none"]').click()
-            for key in ["backupOverview"]:
-                await page.locator(f'[data-database-column="{key}"]').check()
-            await page.locator("#database-columns-toggle").click()
+            await saved_columns(["backupOverview"])
             assert await ids() == expected
             assert await page.locator("#head [data-column-key]").evaluate_all("nodes => nodes.map(n => n.dataset.columnKey)") == ["name", "purpose", "backupOverview"]
             await show_columns(["engine"])
@@ -283,10 +228,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert await page.locator('[data-database-view]').count() == 0
             assert await ids() == expected
             await show_columns([])
-            await page.locator("#database-columns-toggle").click()
-            await page.locator('[data-database-select="none"]').click()
-            await page.locator('[data-database-column="size"]').check()
-            await page.locator('[data-database-column="remarks"]').check()
+            await show_columns(["remarks"])
             await clear()
             old_filter = json.dumps({"filters": {"name": ["notepad.db"]}}, separators=(",", ":"))
             await page.goto(private + "/#list?tab=databases&columns=" + quote(old_filter))
@@ -390,14 +332,17 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert await copy_row.evaluate("e => e === document.activeElement")
             await page.evaluate("() => {navigator.clipboard.writeText = async value => {window.copiedPath = value}}")
             await page.set_viewport_size({"width": 1440, "height": 1000})
-            retained = next(row for row in inventory["databases"] if row.get("backupOnly"))
-            retained_row = page.locator('[data-database-row="' + retained["id"] + '"]')
-            assert "source unconfirmed" in await retained_row.inner_text()
-            assert "original source unconfirmed" in await retained_row.locator(".database-actions [data-copy-path]").get_attribute("aria-label")
-            assert not await retained_row.get_by_role("button", name="Copy source database path", exact=True).count()
-            assert await retained_row.locator("[data-backup-details]").count() == 1
-            await retained_row.locator("[data-copy-row]").click()
-            assert "Source path:" not in await page.evaluate("window.copiedPath")
+            retained = next((row for row in inventory["databases"] if row.get("backupOnly")), None)
+            if retained:
+                retained_row = page.locator('[data-database-row="' + retained["id"] + '"]')
+                assert "source unconfirmed" in await retained_row.inner_text()
+                assert "original source unconfirmed" in await retained_row.locator(".database-actions [data-copy-path]").get_attribute("aria-label")
+                assert not await retained_row.get_by_role("button", name="Copy source database path", exact=True).count()
+                assert await retained_row.locator("[data-backup-details]").count() == 1
+                await retained_row.locator("[data-copy-row]").click()
+                assert "Source path:" not in await page.evaluate("window.copiedPath")
+            else:
+                skipped.append("Retained-only backup copy checks: no such records in the live inventory")
             unknown = next(row for row in inventory["databases"] if not row.get("backupCopies"))
             unknown_row = page.locator('[data-database-row="' + unknown["id"] + '"]')
             assert await unknown_row.locator("[data-backup-details]").count() == 1
@@ -405,7 +350,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert "does not confirm that backups are missing" in await page.locator("#backup-dialog").inner_text()
             await page.locator("#close-backup").click()
             await show_columns([])
-            checks.append("Table preserves source/copy paths, creator/association/date evidence, retained and unknown limits, copy actions and clipboard fallback")
+            checks.append("Table preserves source/copy paths, creator/association/date evidence, unknown limits, copy actions and clipboard fallback")
             await open_column("backupCount")
             assert await page.locator("#column-menu-title").inner_text() == "Backup count"
             await page.keyboard.press("Escape")
@@ -524,7 +469,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
                 search_box, launcher_box, columns_box = await page.evaluate("""() => [
                     document.querySelector('#search'),
                     [...document.querySelectorAll('[data-columns-open]')].find(e => e.checkVisibility()),
-                    document.querySelector('#database-columns-toggle')
+                    document.querySelector('#database-groups-toggle')
                 ].map(e => e.getBoundingClientRect().toJSON())""")
                 assert abs(columns_box["y"] - launcher_box["y"]) < 2
                 assert columns_box["x"] >= launcher_box["x"] + launcher_box["width"]
@@ -640,7 +585,7 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             checks.append("Public catalogue and Agents menus, filters and sorting persist without exposing inventory")
             assert not errors, errors
             await browser.close()
-        print(json.dumps({"checks": checks, "pageErrors": errors}, indent=2))
+        print(json.dumps({"checks": checks, "skipped": skipped, "pageErrors": errors}, indent=2))
     finally:
         if fixture:
             fixture.terminate()

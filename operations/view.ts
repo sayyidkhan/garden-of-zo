@@ -22,18 +22,8 @@ export function renderInventory(cards = "") {
       <div class="directory-options" hidden>${renderInventoryFilters()}</div>
     </div>
     <div class="directory-refine">${renderInventorySearch()}
-    <div class="directory-refine-actions"><div class="column-toolbar" data-columns-toolbar aria-label="Sort and filter record fields"></div><button type="button" class="button" id="database-columns-toggle" aria-expanded="false" aria-controls="database-column-choices" hidden>Columns</button></div></div>
-    <div id="database-column-options" hidden><section id="database-column-choices" aria-label="Choose table columns" hidden>
-      <div class="database-column-actions"><strong>Choose columns</strong><button class="button" type="button" id="database-columns-done">Done</button></div>
-      <input id="database-column-search" type="search" placeholder="Find a column…" aria-label="Find a column">
-      <p id="database-column-help">Tick to show. Drag the grip to reorder, or focus it and use ↑ ↓.</p>
-      <ol id="database-column-list" aria-label="Table columns"></ol>
-      <p id="database-column-empty" hidden>No matching columns.</p>
-      <div class="database-column-footer"><button class="button" type="button" data-database-select="all">Show all</button><button class="button" type="button" data-database-select="none">Clear optional</button></div>
-      <span id="database-column-status" class="sr-only" role="status"></span>
-    </section></div>
+    <div class="directory-refine-actions"><div class="column-toolbar" data-columns-toolbar aria-label="Sort and filter record fields"></div><div id="database-group-controls" aria-label="Database groups" hidden><button type="button" class="database-group-link" id="database-groups-toggle" data-database-groups-action="collapse">Collapse all</button></div></div></div>
     <div class="column-summary" data-columns-summary hidden role="status"></div>
-    <p id="database-table-help" hidden>Database and purpose stay visible. Use Columns to choose and reorder the other fields. Phones show stacked records; wider screens show a table. Local copies do not establish off-host protection or full recovery.</p>
     <div class="table-wrap"><table aria-label="Inventory records"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
     <div id="notice" class="alert" hidden role="status"></div>
     <p data-task-feedback role="status" aria-live="polite"></p>

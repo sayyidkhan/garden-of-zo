@@ -26,6 +26,7 @@ const glyphs = {
 const glyph = section => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + glyphs[section] + '</svg>';
 let snapshot, current = "apps", busy = false;
 let staleRetries = 0;
+const collapsedDatabaseGroups = new Set();
 const collator = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
 const sortChoices = {
   apps: [["name_asc", "Name A–Z"], ["name_desc", "Name Z–A"], ["access", "Access"], ["status", "Process state"]],
@@ -69,14 +70,7 @@ function updateHome(error = false) {
 }
 let selectedId;
 const databaseExtraFields = ["component", "size", "engine", "backupOverview", "remarks"];
-function addDatabaseColumn(columns, key) {
-  if (columns.includes(key)) return columns;
-  const next = [...columns];
-  const index = next.findIndex(item => databaseExtraFields.indexOf(item) > databaseExtraFields.indexOf(key));
-  next.splice(index < 0 ? next.length : index, 0, key);
-  return next;
-}
-const databasePresets = { overview: ["size"], backups: ["backupOverview"] };
+const databasePresets = { overview: [...databaseExtraFields], backups: ["backupOverview"] };
 let databaseExtraColumns = [...databasePresets.overview];
 let databaseView = "overview";
 const params = () => new URLSearchParams(location.hash.split("?")[1] || "");
@@ -191,15 +185,34 @@ function databaseGroups(rows) {
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
   }
-  return [...groups.values()].map(group => {
+  return [...groups.entries()].map(([key, group]) => {
     const row = group[0];
     const ownership = rowOwnership(row) || row.systemOwnership;
     const totalSize = group.reduce((sum, item) => sum + (item.bytes || 0) + (item.walBytes || 0), 0);
     const totalWal = group.reduce((sum, item) => sum + (item.walBytes || 0), 0);
-    return '<tr class="database-group"><th colspan="' + tableKeys.databases.length + '" scope="rowgroup"><div class="database-group-heading"><span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) +
+    return '<tr class="database-group" data-database-group="' + escape(key) + '"><th colspan="' + tableKeys.databases.length + '" scope="rowgroup"><div class="database-group-heading"><div class="database-group-summary"><span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) +
       '</span><span class="database-ownership">' + escape(ownership?.category || "Ownership pending") + ' / ' + escape(ownership?.subcategory || "Ownership pending") +
-      '</span><span class="database-group-count"><span>' + group.length + (group.length === 1 ? ' database' : ' databases') + '</span><span class="database-group-size">Size + WAL: ' + bytes(totalSize) + '</span><span class="database-group-wal">WAL Only: ' + bytes(totalWal) + '</span></span></div></th></tr>' + group.map(databaseRow).join("");
+      '</span><span class="database-group-count"><span>' + group.length + (group.length === 1 ? ' database' : ' databases') + '</span><span class="database-group-size">Size + WAL: ' + bytes(totalSize) + '</span><span class="database-group-wal">WAL Only: ' + bytes(totalWal) + '</span></span></div><button type="button" class="database-group-link database-group-toggle" data-database-group-toggle aria-expanded="true" aria-label="Collapse ' + escape(ownerName(row)) + ' databases"><span data-group-action>Collapse</span></button></div></th></tr>' + group.map(databaseRow).join("");
   }).join("");
+}
+function updateDatabaseGroups() {
+  const groups = [...root.querySelectorAll("[data-database-group]")];
+  for (const group of groups) {
+    const collapsed = collapsedDatabaseGroups.has(group.dataset.databaseGroup);
+    const button = group.querySelector("[data-database-group-toggle]");
+    button.setAttribute("aria-expanded", String(!collapsed));
+    const action = collapsed ? "Expand" : "Collapse";
+    button.querySelector("[data-group-action]").textContent = action;
+    button.setAttribute("aria-label", action + " " + group.querySelector(".database-owner").textContent + " databases");
+    for (let row = group.nextElementSibling; row?.matches(".database-record"); row = row.nextElementSibling) row.hidden = collapsed;
+  }
+  $("#database-group-controls").hidden = current !== "databases";
+  const toggle = $("#database-groups-toggle");
+  const hasCollapsed = groups.some(group => collapsedDatabaseGroups.has(group.dataset.databaseGroup));
+  toggle.dataset.databaseGroupsAction = hasCollapsed ? "expand" : "collapse";
+  toggle.textContent = hasCollapsed ? "Expand all" : "Collapse all";
+  toggle.setAttribute("aria-label", toggle.textContent + " database groups");
+  toggle.disabled = groups.length === 0;
 }
 function highlightDatabase() {
   for (const record of root.querySelectorAll("[data-database-row]")) record.classList.toggle("is-selected", record.dataset.databaseRow === selectedId);
@@ -584,34 +597,6 @@ function renderColumnToolbar() {
   const toolbar = $("[data-columns-toolbar]");
   columnControls.render(toolbar, false, ["apps", "agents", "issues"].includes(current) || innerWidth <= 760 ? undefined : columnDefinitions[current].filter(column => !tableKeys[current].includes(column.key)).map(column => column.key));
 }
-function renderDatabaseColumns() {
-  const list = $("#database-column-list");
-  const active = document.activeElement;
-  const focusedKey = active?.dataset.databaseColumn || active?.dataset.columnGrip;
-  const wasGrip = !!active?.dataset.columnGrip;
-  const scrollTop = list.scrollTop;
-  const query = $("#database-column-search").value.trim().toLowerCase();
-  const keys = [...databaseExtraColumns, ...databaseExtraFields.filter(key => !databaseExtraColumns.includes(key))];
-  list.innerHTML = '<li class="database-column-locked"><span>Database</span><small>Locked</small></li><li class="database-column-locked"><span>Purpose</span><small>Locked</small></li>' + keys.map(key => {
-    const label = columnDefinitions.databases.find(column => column.key === key).label;
-    const checked = databaseExtraColumns.includes(key);
-    return '<li data-column-item="' + key + '"' + (label.toLowerCase().includes(query) ? '' : ' hidden') + '><label><input type="checkbox" data-database-column="' + key + '"' + (checked ? ' checked' : '') + '>' + escape(label) + '</label>' + (checked ? '<button type="button" data-column-grip="' + key + '" aria-label="Reorder ' + escape(label) + '" aria-describedby="database-column-help" title="Drag to reorder, or use arrow keys">⠿</button>' : '') + '</li>';
-  }).join("");
-  $("#database-column-empty").hidden = keys.some(key => columnDefinitions.databases.find(column => column.key === key).label.toLowerCase().includes(query));
-  list.scrollTop = scrollTop;
-  if (focusedKey) list.querySelector('[data-' + (wasGrip ? 'column-grip' : 'database-column') + '="' + focusedKey + '"]')?.focus({ preventScroll: true });
-}
-function reorderDatabaseColumn(key, target) {
-  const from = databaseExtraColumns.indexOf(key);
-  const to = databaseExtraColumns.indexOf(target);
-  if (from < 0 || to < 0 || from === to) return;
-  databaseExtraColumns.splice(from, 1);
-  databaseExtraColumns.splice(to, 0, key);
-  writeLocation();
-  render();
-  $('#database-column-list [data-column-grip="' + key + '"]')?.focus({ preventScroll: true });
-  $("#database-column-status").textContent = columnDefinitions.databases.find(column => column.key === key).label + " moved to position " + (to + 3);
-}
 function render() {
   if (!snapshot) return;
   const focusedTab = document.activeElement?.closest("#tabs [data-tab]")?.dataset.tab;
@@ -636,13 +621,9 @@ function render() {
   const rows = sortRows(columnControls.filter(columnRows));
   tableKeys.databases = ["name", "purpose", ...databaseExtraColumns];
 
-  $("#database-column-options").hidden = current !== "databases";
-  $("#database-columns-toggle").hidden = current !== "databases";
-  $("#database-table-help").hidden = current !== "databases";
   $(".table-wrap").classList.toggle("database-scroll", current === "databases");
   $(".table-wrap").tabIndex = current === "databases" ? 0 : -1;
   $(".table-wrap").setAttribute("aria-label", current === "databases" ? "Database records" : "Inventory table");
-  renderDatabaseColumns();
   const oldColumns = $("table colgroup");
   if (oldColumns) oldColumns.remove();
   if (current === "databases") {
@@ -654,7 +635,6 @@ function render() {
     $("table").style.setProperty("--database-table-min", (databaseExtraColumns.reduce((total, key) => total + columnWidth(key), 380)) + "px");
     $("table").classList.toggle("database-locked-only", !databaseExtraColumns.length);
   }
-  $("#database-columns-toggle").textContent = "Columns · " + (databaseExtraColumns.length + 2);
   requestAnimationFrame(() => {
     const cell = $("#head th");
     if (cell) $(".table-wrap").style.setProperty("--database-label-width", cell.getBoundingClientRect().width + "px");
@@ -679,6 +659,7 @@ function render() {
     if (current === "issues") return '<tr><td colspan="3" class="finding-cell">' + findingDetails(row) + '</td></tr>';
     return "<tr>" + cells.map((cell, i) => '<td data-label="' + escape(definitions[current][i]) + '">' + cell + "</td>").join("") + "</tr>";
   }).join("")) || '<tr><td colspan="' + tableKeys[current].length + '" class="empty">No matching records. Try another search or filter.</td></tr>';
+  updateDatabaseGroups();
   const total = current === "databases" ? " · " + bytes(rows.reduce((sum, r) => sum + r.bytes + r.walBytes, 0)) + " including WAL" : "";
   const scheduleNote = current === "workflows" ? " · Zo Scheduled Tasks: saved list updated " + when(snapshot.coverage.automations.observedAt) + " SGT; run history unavailable." : "";
   $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total + (current === "databases" ? " · Grouped by owner; sorted within each group" : "");
@@ -766,6 +747,23 @@ root.addEventListener("toggle", event => {
   else openFindingSections.delete(key);
 }, true);
 root.addEventListener("click", event => {
+  const groupToggle = event.target.closest("[data-database-group-toggle]");
+  if (groupToggle) {
+    const key = groupToggle.closest("[data-database-group]").dataset.databaseGroup;
+    if (collapsedDatabaseGroups.has(key)) collapsedDatabaseGroups.delete(key);
+    else collapsedDatabaseGroups.add(key);
+    updateDatabaseGroups();
+    return;
+  }
+  const allGroups = event.target.closest("[data-database-groups-action]");
+  if (allGroups) {
+    for (const group of root.querySelectorAll("[data-database-group]")) {
+      if (allGroups.dataset.databaseGroupsAction === "collapse") collapsedDatabaseGroups.add(group.dataset.databaseGroup);
+      else collapsedDatabaseGroups.delete(group.dataset.databaseGroup);
+    }
+    updateDatabaseGroups();
+    return;
+  }
   const backup = event.target.closest("[data-backup-details]");
   if (backup) openBackupDetails(backup.dataset.backupDetails, Number(backup.dataset.backupIndex));
   const update = event.target.closest("[data-update-tasks]");
@@ -789,116 +787,11 @@ $("#copy-row-dialog").addEventListener("close", () => {
   if (copyReturnFocus?.isConnected) copyReturnFocus.focus();
   copyReturnFocus = undefined;
 });
-$("#database-column-list").addEventListener("keydown", event => {
-  const grip = event.target.closest("[data-column-grip]");
-  if (!grip || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
-  event.preventDefault();
-  const index = databaseExtraColumns.indexOf(grip.dataset.columnGrip);
-  reorderDatabaseColumn(grip.dataset.columnGrip, databaseExtraColumns[index + (event.key === "ArrowUp" ? -1 : 1)]);
-});
-let columnDrag;
-$("#database-column-list").addEventListener("pointerdown", event => {
-  const grip = event.target.closest("[data-column-grip]");
-  if (!grip || event.button !== 0) return;
-  event.preventDefault();
-  grip.focus({ preventScroll: true });
-  columnDrag = { key: grip.dataset.columnGrip, id: event.pointerId, y: event.clientY, target: null };
-  grip.setPointerCapture(event.pointerId);
-});
-$("#database-column-list").addEventListener("pointermove", event => {
-  if (!columnDrag || columnDrag.id !== event.pointerId || Math.abs(event.clientY - columnDrag.y) < 5) return;
-  const list = $("#database-column-list");
-  const bounds = list.getBoundingClientRect();
-  if (event.clientY < bounds.top + 32) list.scrollTop -= 12;
-  if (event.clientY > bounds.bottom - 32) list.scrollTop += 12;
-  const item = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-column-item]");
-  list.querySelectorAll(".column-drop-target").forEach(node => node.classList.remove("column-drop-target"));
-  columnDrag.target = item && databaseExtraColumns.includes(item.dataset.columnItem) ? item.dataset.columnItem : null;
-  if (columnDrag.target && columnDrag.target !== columnDrag.key) item.classList.add("column-drop-target");
-});
-function finishColumnDrag(event) {
-  if (!columnDrag || columnDrag.id !== event.pointerId) return;
-  const drag = columnDrag;
-  columnDrag = null;
-  $("#database-column-list").querySelectorAll(".column-drop-target").forEach(node => node.classList.remove("column-drop-target"));
-  if (event.type === "pointerup") reorderDatabaseColumn(drag.key, drag.target);
-}
-$("#database-column-list").addEventListener("pointerup", finishColumnDrag);
-$("#database-column-list").addEventListener("pointercancel", finishColumnDrag);
-$("#database-column-list").addEventListener("lostpointercapture", finishColumnDrag);
-let columnHoverTimer;
-let columnsOpenedByHover = false;
-function positionDatabaseColumns() {
-  const choices = $("#database-column-choices");
-  if (choices.hidden) return;
-  const bounds = $("#database-columns-toggle").getBoundingClientRect();
-  const width = Math.min(360, window.innerWidth - 24);
-  const top = Math.max(12, Math.min(bounds.bottom + 8, window.innerHeight - 240));
-  choices.style.width = width + "px";
-  choices.style.left = Math.max(12, Math.min(bounds.right - width, window.innerWidth - width - 12)) + "px";
-  choices.style.top = top + "px";
-  choices.style.maxHeight = Math.max(120, window.innerHeight - top - 12) + "px";
-}
-function openDatabaseColumns(hover = false) {
-  clearTimeout(columnHoverTimer);
-  columnsOpenedByHover = hover;
-  $("#database-column-choices").hidden = false;
-  $("#database-columns-toggle").setAttribute("aria-expanded", "true");
-  positionDatabaseColumns();
-}
-function closeDatabaseColumns(returnFocus = true) {
-  clearTimeout(columnHoverTimer);
-  columnsOpenedByHover = false;
-  $("#database-column-choices").hidden = true;
-  $("#database-columns-toggle").setAttribute("aria-expanded", "false");
-  if (returnFocus) $("#database-columns-toggle").focus({ preventScroll: true });
-}
-$("#database-columns-done").addEventListener("click", () => closeDatabaseColumns());
-for (const node of [$("#database-columns-toggle"), $("#database-column-choices")]) {
-  node.addEventListener("keydown", event => {
-    if (event.key === "Escape") { event.preventDefault(); closeDatabaseColumns(); }
-  });
-  node.addEventListener("pointerenter", event => {
-    clearTimeout(columnHoverTimer);
-    if (event.pointerType === "mouse" && matchMedia("(hover: hover)").matches && $("#database-column-choices").hidden) openDatabaseColumns(true);
-  });
-  node.addEventListener("pointerleave", () => {
-    clearTimeout(columnHoverTimer);
-    columnHoverTimer = setTimeout(() => {
-      if (columnsOpenedByHover && !columnDrag && !$("#database-column-choices").contains(document.activeElement)) closeDatabaseColumns(false);
-    }, 250);
-  });
-}
-$("#database-columns-toggle").addEventListener("click", () => {
-  if ($("#database-column-choices").hidden || columnsOpenedByHover) openDatabaseColumns();
-  else closeDatabaseColumns();
-});
-document.addEventListener("pointerdown", event => {
-  if (!event.target.closest("#database-column-choices, #database-columns-toggle")) closeDatabaseColumns(false);
-});
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape" && !$("#database-column-choices").hidden) closeDatabaseColumns();
-});
-window.addEventListener("resize", positionDatabaseColumns);
-window.addEventListener("scroll", positionDatabaseColumns, true);
-for (const button of root.querySelectorAll("[data-database-select]")) button.addEventListener("click", () => {
-  databaseExtraColumns = button.dataset.databaseSelect === "all" ? databaseExtraFields.reduce(addDatabaseColumn, databaseExtraColumns) : [];
-  writeLocation();
-  render();
-});
-$("#database-column-search").addEventListener("input", renderDatabaseColumns);
 new ResizeObserver(() => {
+  $(".table-wrap").style.setProperty("--database-group-width", Math.max(0, $(".table-wrap").clientWidth - 32) + "px");
   const cell = $("#head th");
   if (cell) $(".table-wrap").style.setProperty("--database-label-width", cell.getBoundingClientRect().width + "px");
 }).observe($(".table-wrap"));
-root.addEventListener("change", event => {
-  if (!event.target.matches("[data-database-column]")) return;
-  if (snapshot?.databases.some(row => row.id === selectedId)) selectedId = undefined;
-  const key = event.target.dataset.databaseColumn;
-  databaseExtraColumns = event.target.checked ? addDatabaseColumn(databaseExtraColumns, key) : databaseExtraColumns.filter(item => item !== key);
-  writeLocation();
-  render();
-});
 $("#close").addEventListener("click", () => $("#detail").close());
 $("#detail").addEventListener("close", () => {
   if ($("#detail").open) return;

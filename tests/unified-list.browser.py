@@ -242,6 +242,52 @@ async def main():
             assert int(await page.locator("#tabs [data-tab='apps'] .tab-count").inner_text()) == len(catalogue_apps)
             checks.append("Private Apps count and entries match catalogue apps; aliases and the platform do not inflate totals")
             await page.locator("#tabs [data-tab='databases']").click()
+            for width in [1440, 390, 320]:
+                await page.set_viewport_size({"width": width, "height": 900})
+                await page.locator("[data-database-group-toggle]").first.wait_for()
+                total = await page.locator(".database-record").count()
+                assert await page.locator(".directory-refine-actions #database-group-controls").count() == 1
+                boxes = await page.locator(".directory-refine-actions").evaluate("e => [...e.children].filter(n => !n.hidden).map(n => n.getBoundingClientRect().toJSON())")
+                assert max(b["top"] for b in boxes) < min(b["bottom"] for b in boxes)
+                assert max(b["right"] for b in boxes) <= width
+                caption = await page.locator("#caption").inner_text()
+                toggle = page.locator("[data-database-group-toggle]").first
+                summary = await page.locator(".database-group-summary").first.inner_text()
+                key = await toggle.evaluate("e => e.closest('[data-database-group]').dataset.databaseGroup")
+                await toggle.focus()
+                await toggle.press("Enter")
+                assert await toggle.get_attribute("aria-expanded") == "false"
+                hidden = await page.locator(".database-record[hidden]").count()
+                assert 0 < hidden <= total
+                assert await page.locator(".database-record[hidden]:visible").count() == 0
+                assert await page.locator("#caption").inner_text() == caption
+                assert await page.locator(".database-group-summary").first.inner_text() == summary
+                assert await toggle.evaluate("e => document.activeElement === e")
+                await column_sort("size", "asc")
+                same_group = page.locator("[data-database-group]").filter(has=page.locator("[data-database-group-toggle][aria-expanded=false]"))
+                assert key in await same_group.evaluate_all("nodes => nodes.map(e => e.dataset.databaseGroup)")
+                if await page.locator("#database-groups-toggle").get_attribute("data-database-groups-action") == "expand":
+                    await page.locator("#database-groups-toggle").click()
+                await page.locator("#database-groups-toggle").click()
+                assert await page.locator(".database-record:visible").count() == 0
+                assert await page.locator(".database-group:visible").count() > 0
+                assert await page.locator("#database-groups-toggle").is_enabled()
+                await page.locator("#database-groups-toggle").click()
+                assert await page.locator(".database-record:visible").count() == total
+                assert await page.locator("#database-groups-toggle").inner_text() == "Collapse all"
+                if await page.locator("#database-groups-toggle").get_attribute("data-database-groups-action") == "expand":
+                    await page.locator("#database-groups-toggle").click()
+                await page.locator("#database-groups-toggle").click()
+                await page.locator("#search").fill("orin")
+                assert await page.locator(".database-record:visible").count() == 0
+                await page.locator("#database-groups-toggle").click()
+                assert await page.locator(".database-record:visible").count() > 0
+                await page.locator("#search").fill("")
+                await page.locator("#database-groups-toggle").click()
+                assert await page.locator(".database-record:visible").count() == total
+                assert await page.locator("#inventory").evaluate("e => e.getBoundingClientRect().right <= innerWidth + 1")
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            checks.append("Database groups collapse by keyboard, preserve totals and state while sorting/filtering, and expand individually or together on desktop and phones")
             await column_sort("size", "desc")
             visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
             by_id = {row["id"]: row for row in inventory["databases"]}
@@ -299,7 +345,7 @@ async def main():
             dashboard = next(row for row in inventory["databases"] if row.get("componentEntity") == "service:orin-hermes-dashboard")
             database_columns = json.dumps({"filters": {"owner": [orin["name"]]}, "sort": {"key": "size", "direction": "desc"}}, separators=(",", ":"))
             from urllib.parse import urlencode
-            database_hash = "#list?" + urlencode({"tab": "databases", "q": "orin", "columns": database_columns})
+            database_hash = "#list?" + urlencode({"tab": "databases", "q": "orin", "columns": database_columns, "dbColumns": "component,size", "dbLayout": "6"})
             for width, close_method in [(1440, "button"), (390, "escape")]:
                 await page.set_viewport_size({"width": width, "height": 1000})
                 await page.goto(private + "/" + database_hash)
@@ -307,9 +353,7 @@ async def main():
                 original_url = page.url
                 original_rows = await page.locator("#rows .database-name").all_text_contents()
                 dashboard_row = page.locator("#rows tr").filter(has=page.locator('[data-entity="' + dashboard["id"] + '"]'))
-                await page.locator("#database-columns-toggle").click()
-                await page.locator('[data-database-column="component"]').check()
-                await page.locator("#database-columns-toggle").click()
+                assert await page.locator("#database-columns-toggle").count() == 0
                 original_url = page.url
                 component = dashboard_row.get_by_role("button", name="Agent Dashboard", exact=True)
                 await component.click()
