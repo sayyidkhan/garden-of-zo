@@ -64,10 +64,20 @@ export function createColumnControls({ rows, onChange }) {
     const top = viewport?.offsetTop || 0, left = viewport?.offsetLeft || 0;
     const width = viewport?.width || innerWidth, height = viewport?.height || innerHeight;
     const mobile = width <= 600;
-    menu.style.width = Math.min(activeColumn ? 520 : 680, width - (mobile ? 16 : 48)) + "px";
+    menu.classList.toggle("column-menu--field", Boolean(activeColumn));
+    menu.style.width = Math.min(activeColumn ? 340 : 680, width - (mobile ? 16 : 48)) + "px";
     menu.style.maxHeight = Math.max(120, height - (mobile ? 16 : 48)) + "px";
-    menu.style.left = left + (width - menu.offsetWidth) / 2 + "px";
-    menu.style.top = top + (mobile ? height - menu.offsetHeight - 8 : (height - menu.offsetHeight) / 2) + "px";
+    const anchor = activeColumn && trigger?.matches("[data-column-key]") && trigger.getBoundingClientRect();
+    if (anchor && !mobile) {
+      const below = top + height - anchor.bottom - 16, above = anchor.top - top - 16;
+      const upwards = below < 300 && above > below;
+      menu.style.maxHeight = Math.max(120, Math.min(560, upwards ? above : below)) + "px";
+      menu.style.left = Math.max(left + 8, Math.min(anchor.left, left + width - menu.offsetWidth - 8)) + "px";
+      menu.style.top = Math.max(top + 8, Math.min(upwards ? anchor.top - menu.offsetHeight - 6 : anchor.bottom + 6, top + height - menu.offsetHeight - 8)) + "px";
+    } else {
+      menu.style.left = left + (width - menu.offsetWidth) / 2 + "px";
+      menu.style.top = top + (mobile ? height - menu.offsetHeight - 8 : (height - menu.offsetHeight) / 2) + "px";
+    }
   }
   function fieldSummary(column) {
     const values = state().filters[column.key];
@@ -106,15 +116,15 @@ export function createColumnControls({ rows, onChange }) {
     const values = [...counts.keys()].sort((a, b) => column.numeric ? Number(a) - Number(b) : collator.compare(a, b));
     const selected = new Set(current.filters[column.key] || values);
     const sortLabels = column.date ? ["Oldest first", "Newest first"] : column.numeric ? ["Smallest to largest", "Largest to smallest"] : ["Sort A to Z", "Sort Z to A"];
-    menu.innerHTML = '<button type="button" class="column-menu__back" data-back>‹ All fields</button><div class="column-menu__heading"><h2 id="column-menu-title">' + escape(column.label) + '</h2><button type="button" data-close aria-label="Close column menu">×</button></div>' +
+    menu.innerHTML = '<div class="column-menu__heading"><h2 id="column-menu-title">' + escape(column.label) + '</h2><button type="button" data-close aria-label="Close column menu" title="Close">×</button></div>' +
       (column.relatedKeys ? '<div class="column-menu__sort" role="group" aria-label="Backup filter field">' + column.relatedKeys.map(key => {
         const related = columns.find(item => item.key === key);
         return related ? '<button type="button" data-related-field="' + escape(key) + '" aria-pressed="' + (key === column.key) + '">' + escape(related.label) + '</button>' : "";
       }).join("") + '</div>' : '') +
       '<div class="column-menu__sort">' + ["asc", "desc"].map((direction, i) => '<button type="button" data-sort="' + direction + '" aria-pressed="' + (current.sort?.key === column.key && current.sort.direction === direction) + '">' + sortLabels[i] + '</button>').join("") +
-      '<button type="button" data-unsort' + (current.sort?.key === column.key ? "" : " disabled") + '>Clear sorting</button></div>' +
-      '<label class="column-menu__search">Search values<input type="search" aria-label="Search ' + escape(column.label) + ' values" autocomplete="off"></label>' +
-      '<div class="column-menu__selection"><button type="button" data-all>Select all</button><button type="button" data-none>Select none</button><span data-selection aria-live="polite"></span></div>' +
+      '<button type="button" data-unsort aria-pressed="' + (current.sort?.key !== column.key) + '">Default</button></div>' +
+      '<label class="column-menu__search"><input type="search" placeholder="Search values…" aria-label="Search ' + escape(column.label) + ' values" autocomplete="off"></label>' +
+      '<div class="column-menu__selection"><button type="button" data-all>All</button><button type="button" data-none>None</button><span data-selection aria-live="polite"></span></div>' +
       '<div class="column-menu__values" role="group" aria-label="' + escape(column.label) + ' values">' + values.map((value, index) => '<div class="column-menu__value" data-value-index="' + index + '"><label><input type="checkbox" value="' + escape(value) + '"' + (selected.has(value) ? " checked" : "") + '><span>' + escape(labelOf(column, value)) + '</span><small>' + counts.get(value) + '</small></label><button type="button" data-only="' + index + '" aria-label="Only ' + escape(labelOf(column, value)) + '">Only</button></div>').join("") + '<p data-no-values hidden>No matching values</p></div>' +
       '<div class="column-menu__footer"><button type="button" data-clear>Clear filter</button><button type="button" data-cancel>Cancel</button><button type="button" data-apply>Apply</button></div>';
     const shownValues = () => {
@@ -125,7 +135,7 @@ export function createColumnControls({ rows, onChange }) {
     const update = () => {
       menu.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = selected.has(input.value); });
       menu.querySelectorAll("[data-sort]").forEach(button => button.setAttribute("aria-pressed", String(draftSort?.key === column.key && draftSort.direction === button.dataset.sort)));
-      menu.querySelector("[data-unsort]").disabled = draftSort?.key !== column.key;
+      menu.querySelector("[data-unsort]").setAttribute("aria-pressed", String(draftSort?.key !== column.key));
       const shown = shownValues(), selection = effectiveSelection();
       menu.querySelector("[data-selection]").textContent = selection.length + " of " + shown.length + (shown.length < values.length ? " shown selected" : " selected");
       const draft = { ...current, filters: { ...current.filters, [column.key]: selection } };
@@ -140,7 +150,6 @@ export function createColumnControls({ rows, onChange }) {
     menu.querySelectorAll("[data-related-field]").forEach(button => {
       button.onclick = () => open({ dataset: { columnKey: button.dataset.relatedField }, launcher: trigger });
     });
-    menu.querySelector("[data-back]").onclick = () => openFields(trigger);
     update();
     menu.querySelectorAll('input[type="checkbox"]').forEach(input => input.addEventListener("change", () => {
       if (input.checked) selected.add(input.value); else selected.delete(input.value);
@@ -154,8 +163,8 @@ export function createColumnControls({ rows, onChange }) {
         if (!label.hidden) shown++;
       });
       menu.querySelector("[data-no-values]").hidden = shown > 0;
-      menu.querySelector("[data-all]").textContent = term ? "Select shown" : "Select all";
-      menu.querySelector("[data-none]").textContent = term ? "Clear shown" : "Select none";
+      menu.querySelector("[data-all]").textContent = term ? "All shown" : "All";
+      menu.querySelector("[data-none]").textContent = term ? "None shown" : "None";
       update();
     });
     menu.querySelector("[data-all]").onclick = () => {
@@ -179,7 +188,7 @@ export function createColumnControls({ rows, onChange }) {
       draftSort = { key: column.key, direction: button.dataset.sort };
       update();
     }; });
-    menu.querySelector("[data-unsort]").onclick = () => { draftSort = null; update(); };
+    menu.querySelector("[data-unsort]").onclick = () => { if (draftSort?.key === column.key) draftSort = null; update(); };
     menu.querySelector("[data-clear]").onclick = () => { delete current.filters[column.key]; commit(); };
     menu.querySelector("[data-apply]").onclick = () => {
       applySelection();
@@ -252,7 +261,7 @@ export function createColumnControls({ rows, onChange }) {
         const related = column.relatedKeys || [column.key];
         const filtered = related.some(key => Object.hasOwn(current.filters, key));
         const sorted = related.includes(current.sort?.key) ? current.sort.direction : null;
-        const button = '<button type="button" class="column-trigger" data-column-key="' + escape(column.key) + '" data-active="' + Boolean(filtered || sorted) + '" aria-label="Sort and filter ' + escape(column.label) + '" aria-haspopup="dialog" aria-controls="column-menu" aria-expanded="false"><span>' + escape(column.label) + '</span><span class="column-trigger__indicator" aria-hidden="true">' + (sorted === "asc" ? "↑" : sorted === "desc" ? "↓" : "") + (filtered ? " ●" : "") + ' ▾</span></button>';
+        const button = '<button type="button" class="column-trigger" data-column-key="' + escape(column.key) + '" data-active="' + Boolean(filtered || sorted) + '" aria-label="Sort and filter ' + escape(column.label) + '" aria-haspopup="dialog" aria-controls="column-menu" aria-expanded="false"><span>' + escape(column.label) + '</span><span class="column-trigger__indicator" aria-hidden="true">' + (sorted === "asc" ? "↑" : sorted === "desc" ? "↓" : "") + (filtered ? " ●" : "") + ' <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></button>';
         return headers ? '<th scope="col" aria-sort="' + (sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "none") + '">' + button + '</th>' : button;
       }).join("");
       container.innerHTML = headers ? "<tr>" + buttons + "</tr>" : buttons;

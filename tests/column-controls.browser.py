@@ -506,6 +506,28 @@ console.log(JSON.stringify(servers.map(s => "http://127.0.0.1:" + s.port)));
             assert not await page.locator("[data-columns-summary]").is_visible()
             checks.append("Sort choices stay pending until applied; Cancel preserves rows and saved state")
 
+            await page.set_viewport_size({"width": 1440, "height": 1000})
+            await open_column("size")
+            bounds = await page.locator("#column-menu").bounding_box()
+            anchor = await page.locator('#head [data-column-key="size"]').bounding_box()
+            assert bounds["width"] <= 340
+            assert abs(bounds["x"] - anchor["x"]) < 2
+            assert bounds["y"] >= anchor["y"] + anchor["height"]
+            await page.locator('#column-menu [data-sort="asc"]').click()
+            await page.locator("#column-menu [data-apply]").click()
+            assert await page.locator('#head th[aria-sort="ascending"]').count() == 1
+            await open_column("size")
+            await page.locator("#column-menu [data-unsort]").click()
+            assert await page.locator("#column-menu [data-unsort]").get_attribute("aria-pressed") == "true"
+            await page.locator("#column-menu [data-cancel]").click()
+            assert await page.locator('#head th[aria-sort="ascending"]').count() == 1
+            await open_column("size")
+            await page.locator("#column-menu [data-unsort]").click()
+            await page.locator("#column-menu [data-apply]").click()
+            assert not await page.locator('#head th[aria-sort="ascending"]').count()
+            checks.append("Compact 340px header menu anchors below its column; Default sorting applies explicitly and Cancel preserves sorting")
+
+
             await page.set_viewport_size({"width": 390, "height": 844})
             await clear()
             assert await page.locator("[data-columns-open]:visible").count() == 1
