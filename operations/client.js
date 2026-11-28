@@ -2,6 +2,8 @@ const { createColumnControls } = await import(document.querySelector("[data-colu
 const root = document.querySelector("#inventory");
 const controls = document.querySelector(".catalogue__filters");
 const $ = selector => root.querySelector(selector) || controls.querySelector(selector);
+const { searchableSelect } = await import(document.querySelector("script[data-atlas-client]").src);
+const viewerTableSelect = searchableSelect($("#database-view-table"));
 const catalogue = JSON.parse(document.querySelector("#atlas-data").textContent).realms;
 const cardTemplates = new Map([...document.querySelector("#directory-card-templates").content.querySelectorAll("[data-realm-id]")].map(card => [card.dataset.realmId, card]));
 function catalogueCard(row, realm) {
@@ -46,7 +48,7 @@ function databaseBackupTime(value) {
 const bytes = value => value >= 1073741824 ? (value / 1073741824).toFixed(2) + " GB" : value >= 1048576 ? (value / 1048576).toFixed(1) + " MB" : Math.round(value / 1024) + " KB";
 const all = () => Object.keys(sections).filter(k => k !== "issues").flatMap(k => snapshot?.[k] || []);
 const entity = id => all().find(row => row.id === id);
-const rowOwnership = row => row.ownership || entity(row.owner || row.entity)?.ownership;
+const rowOwnership = row => row.ownership || row.systemOwnership || entity(row.owner || row.entity)?.ownership;
 function matchesOwnership(row) {
   const category = document.querySelector('[data-ownership-category]').value;
   const role = document.querySelector('[data-ownership-role]').value;
@@ -84,6 +86,7 @@ function writeLocation() {
   const columns = columnControls.serialize();
   if (columns) state.set("columns", columns);
   if (selectedId) state.set("entity", selectedId);
+  for (const key of ["db", "table"]) if (params().has(key)) state.set(key, params().get(key));
   state.set("dbColumns", databaseExtraColumns.join(","));
   state.set("dbLayout", "6");
 
@@ -96,7 +99,7 @@ const databaseUsedBy = row => row.component || ({ application: "App", "agent run
 const name = id => { const row = entity(id); return row ? displayName(row) : id || "Unmapped"; };
 const ownerKey = row => row.owner || (row.systemOwnership ? "__system__" : "__unmapped__");
 const ownerName = row => row.owner ? name(row.owner) : row.systemOwnership?.name || "Unmapped";
-const ownerOption = id => id === "__system__" ? "Host system" : id === "__unmapped__" ? "Unmapped owner" : name(id);
+const ownerOption = id => id === "__system__" ? "SYSTEM" : id === "__unmapped__" ? "Unmapped owner" : name(id);
 const link = (id, title) => id ? '<button class="entity" data-entity="' + escape(id) + '">' + escape(title || name(id)) + "</button>" : "Unmapped";
 const status = value => {
   const tone = ["fatal", "error", "backoff", "exited", "degraded"].includes(value) ? "bad" : value === "running" ? "good" : ["unknown", "unmapped", "warning", "old snapshot"].includes(value) ? "warn" : "";
@@ -158,11 +161,292 @@ function openBackupDetails(id, index = -1) {
   $("#backup-dialog").showModal();
   $("#backup-body .database-copy-list")?.children[index]?.scrollIntoView({ block: "nearest" });
 }
+function databaseViewerButton(row) {
+  const available = row.viewer?.available === true;
+  const reason = row.viewer?.reason || "Database viewing is unavailable.";
+  return '<button type="button" class="copy-row database-view-icon" data-view-database="' + escape(row.id) + '" aria-label="' + escape(available ? "View records for " + displayName(row) : reason) + '" aria-haspopup="dialog" aria-controls="database-view-dialog" aria-disabled="' + !available + '" data-tooltip="' + escape(reason) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg><span class="copy-row-label">View records</span></button>';
+}
+let viewerId;
+function writeViewerLocation(key, table) {
+  const state = params();
+  state.delete("db");
+  state.delete("table");
+  if (key) {
+    state.set("db", key);
+    if (table) state.set("table", table);
+  }
+  history.replaceState(null, "", location.pathname + location.search + "#list" + (state.size ? "?" + state : ""));
+}
+function syncDatabaseViewer() {
+  const key = params().get("db");
+  if (!visible() || current !== "databases" || !key) {
+    if ($("#database-view-dialog").open) $("#database-view-dialog").close();
+    return;
+  }
+  if (!snapshot) return;
+  const matches = snapshot.databases.filter(row => row.viewerKey === key);
+  const row = matches.length === 1 ? matches[0] : undefined;
+  if (!row?.viewer?.available) {
+    if ($("#database-view-dialog").open) $("#database-view-dialog").close();
+    writeViewerLocation();
+    $("#copy-feedback").textContent = row ? "Cannot reopen database: " + row.viewer.reason : "This database is no longer in Garden’s inventory. Choose another database.";
+    return;
+  }
+  if (viewerId === row.id && $("#database-view-dialog").open) {
+    const table = params().get("table");
+    const select = $("#database-view-table");
+    if (table && !select.disabled && select.value !== table && [...select.options].some(option => option.value === table)) {
+      select.value = table;
+      select.dispatchEvent(new Event("change"));
+    }
+    return;
+  }
+  openDatabaseViewer(row.id, params().get("table"));
+}
+let viewerOffset = 0;
+let viewerRequest = 0;
+let viewerAbort;
+let viewerSearch = "";
+let viewerFilters = [];
+let viewerSort = null;
+let viewerColumns = [];
+let viewerFilterColumn = "";
+let viewerFilterTrigger;
+let viewerGridScroll = 0;
+let viewerValueMode = "notIn";
+let viewerValueSelection = new Set();
+let viewerValues = [];
+let viewerValuesAbort;
+let viewerValuesTimer;
+function isValueFilter(filter) { return ["in", "notIn"].includes(filter.operator); }
+function renderViewerValues() {
+  $("#database-values-list").replaceChildren();
+  for (const value of viewerValues) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = viewerValueMode === "in" ? viewerValueSelection.has(value) : !viewerValueSelection.has(value);
+    input.addEventListener("change", () => {
+      if (input.checked === (viewerValueMode === "in")) viewerValueSelection.add(value);
+      else viewerValueSelection.delete(value);
+      if (viewerValueSelection.size > 500 || JSON.stringify([...viewerValueSelection]).length > 16000) {
+        viewerValueSelection.delete(value);
+        input.checked = !input.checked;
+        $("#database-values-status").textContent = "Selection limit reached. Use a condition to narrow these values.";
+      }
+    });
+    const text = document.createElement("span");
+    text.textContent = value === null ? "(NULL)" : value === "" ? "(Empty text)" : value;
+    label.append(input, text);
+    $("#database-values-list").append(label);
+  }
+}
+async function loadViewerValues(more = false) {
+  viewerValuesAbort?.abort();
+  const controller = viewerValuesAbort = new AbortController();
+  if (!more) viewerValues = [];
+  $("#database-values-more").hidden = true;
+  $("#database-values-status").textContent = "Loading distinct values…";
+  if (!more) renderViewerValues();
+  const query = new URLSearchParams({ id: viewerId, table: $("#database-view-table").value, distinct: viewerFilterColumn, offset: String(viewerValues.length), valueSearch: $("#database-value-search").value });
+  try {
+    const response = await fetch("/operations/api/database-viewer?" + query, { headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal });
+    const data = await response.json();
+    if (controller.signal.aborted) return;
+    if (!response.ok) throw new Error(data.error || "Could not load values. Try again.");
+    viewerValues = [...new Set([...viewerValues, ...data.values])];
+    renderViewerValues();
+    $("#database-values-more").hidden = !data.hasMore;
+    $("#database-values-status").textContent = viewerValues.length + " distinct values" + (data.hasMore ? " shown · Search or load more" : "");
+  } catch (error) {
+    if (!controller.signal.aborted) $("#database-values-status").textContent = error.message;
+  }
+}
+function resetViewerFilters() {
+  viewerSearch = "";
+  viewerFilters = [];
+  viewerSort = null;
+  viewerColumns = [];
+  $("#database-view-search").value = "";
+  $("#database-view-filter-rows").replaceChildren();
+  $("#database-view-add-filter").disabled = false;
+  $("#database-filter-dialog").close();
+  $("#database-view-active-filters").replaceChildren();
+  $("#database-view-active-filters").hidden = true;
+  viewerFilterColumn = "";
+  viewerGridScroll = 0;
+  $("#database-view-grid").scrollLeft = 0;
+  $("#database-view-summary").textContent = "";
+  $("#database-view-page").textContent = "";
+}
+const viewerFilterOperators = { contains: "Contains", equals: "Equals", notEquals: "Does not equal", empty: "Is empty", notEmpty: "Is not empty" };
+function updateViewerFilterLimit() {
+  const limited = $("#database-view-filter-rows").children.length + viewerFilters.filter(filter => filter.column !== viewerFilterColumn).length >= 8;
+  $("#database-view-add-filter").disabled = limited;
+  $("#database-filter-limit").hidden = !limited;
+}
+function openViewerColumnFilter(button) {
+  viewerFilterColumn = button.dataset.viewerColumn;
+  viewerFilterTrigger = button;
+  $("#database-view-sort").value = viewerSort?.column === viewerFilterColumn ? viewerSort.direction : "default";
+  $("#database-filter-title").textContent = viewerFilterColumn;
+  $("#database-view-filter-rows").replaceChildren();
+  viewerFilters.filter(filter => filter.column === viewerFilterColumn && !isValueFilter(filter)).forEach(addViewerFilter);
+  const valueFilter = viewerFilters.find(filter => filter.column === viewerFilterColumn && isValueFilter(filter));
+  viewerValueMode = valueFilter?.operator || "notIn";
+  viewerValueSelection = new Set(valueFilter ? JSON.parse(valueFilter.value) : []);
+  $("#database-value-search").value = "";
+  void loadViewerValues();
+  if (!$("#database-view-filter-rows").children.length) addViewerFilter();
+  $("#database-filter-conditions").open = viewerFilters.some(filter => filter.column === viewerFilterColumn && !isValueFilter(filter));
+  updateViewerFilterLimit();
+  button.setAttribute("aria-expanded", "true");
+  const dialog = $("#database-filter-dialog");
+  dialog.showModal();
+  const rect = button.getBoundingClientRect();
+  dialog.style.setProperty("--filter-left", Math.max(8, Math.min(rect.left, innerWidth - dialog.offsetWidth - 8)) + "px");
+  dialog.style.setProperty("--filter-top", Math.max(8, Math.min(rect.bottom + 4, innerHeight - dialog.offsetHeight - 8)) + "px");
+}
+function focusViewerColumn(column) {
+  const button = [...document.querySelectorAll("[data-viewer-column]")].find(button => button.dataset.viewerColumn === column);
+  button?.focus({ preventScroll: true });
+}
+function renderViewerFilterSummary() {
+  const summary = $("#database-view-active-filters");
+  summary.hidden = !viewerFilters.length && !viewerSort;
+  summary.innerHTML = viewerFilters.map((filter, index) => {
+    const text = isValueFilter(filter) ? filter.column + (filter.operator === "in" ? " · Selected " : " · Excluded ") + JSON.parse(filter.value).length + " values" : filter.column + " " + viewerFilterOperators[filter.operator].toLowerCase() + (["empty", "notEmpty"].includes(filter.operator) ? "" : ' “' + filter.value + '”');
+    return '<button type="button" class="database-filter-chip" data-remove-viewer-filter="' + index + '" aria-label="Remove filter: ' + escape(text) + '" title="' + escape(text) + '"><span>' + escape(text) + '</span><span aria-hidden="true">×</span></button>';
+  }).join("");
+  if (viewerSort) {
+    const text = viewerSort.column + (viewerSort.direction === "asc" ? " ↑ Ascending" : " ↓ Descending");
+    summary.insertAdjacentHTML("beforeend", '<button type="button" class="database-filter-chip" data-clear-viewer-sort aria-label="Remove sort: ' + escape(text) + '" title="' + escape(text) + '"><span>' + escape(text) + '</span><span aria-hidden="true">×</span></button>');
+  }
+}
+function addViewerFilter(filter) {
+  const container = $("#database-view-filter-rows");
+  if (!viewerColumns.includes(viewerFilterColumn) || container.children.length + viewerFilters.filter(filter => filter.column !== viewerFilterColumn).length >= 8) return;
+  const row = document.createElement("div");
+  row.className = "database-filter-row";
+  row.innerHTML = '<label><span>Condition</span><select aria-label="Filter condition">' + Object.entries(viewerFilterOperators).map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join("") + '</select></label>' +
+    '<label class="database-filter-value"><span>Value</span><input aria-label="Filter value" placeholder="Enter a value…" maxlength="200" autocomplete="off"></label><button type="button" class="button database-filter-remove" aria-label="Remove condition" title="Remove condition">×</button>';
+  const condition = row.querySelector('[aria-label="Filter condition"]');
+  const value = row.querySelector("input");
+  if (filter) { condition.value = filter.operator; value.value = filter.value; }
+  const syncCondition = () => {
+    value.disabled = ["empty", "notEmpty"].includes(condition.value);
+    value.placeholder = value.disabled ? "No value needed" : "Enter a value…";
+  };
+  condition.addEventListener("change", syncCondition);
+  syncCondition();
+  row.lastElementChild.addEventListener("click", () => {
+    row.remove();
+    updateViewerFilterLimit();
+    ($("#database-view-filter-rows").querySelector("select") || $("#database-view-add-filter")).focus();
+  });
+  container.append(row);
+  updateViewerFilterLimit();
+}
+function applyViewerSearch() {
+  if (!$("#database-view-table").value) return;
+  viewerSearch = $("#database-view-search").value.trim();
+  void loadDatabaseViewer($("#database-view-table").value);
+}
+
+async function loadDatabaseViewer(table, offset = 0, preferredTable) {
+  if (table !== undefined) writeViewerLocation(snapshot.databases.find(row => row.id === viewerId)?.viewerKey, table);
+  const version = ++viewerRequest;
+  viewerAbort?.abort();
+  viewerAbort = new AbortController();
+  viewerOffset = offset;
+  $("#database-view-status").textContent = "Loading…";
+  if ($("#database-view-grid").children.length) viewerGridScroll = $("#database-view-grid").scrollLeft;
+  $("#database-view-grid").replaceChildren();
+  $("#database-view-prev").disabled = true;
+  $("#database-view-next").disabled = true;
+  const params = new URLSearchParams({ id: viewerId, offset: String(offset) });
+  if (table !== undefined) params.set("table", table);
+  if (table !== undefined) {
+    params.set("search", viewerSearch);
+    params.set("filters", JSON.stringify(viewerFilters));
+    params.set("sort", JSON.stringify(viewerSort));
+  }
+  $("#database-view-grid").setAttribute("aria-busy", "true");
+
+  try {
+    const response = await fetch("/operations/api/database-viewer?" + params, { headers: { Accept: "application/json" }, cache: "no-store", signal: viewerAbort.signal });
+    const data = await response.json();
+    if (version !== viewerRequest) return;
+    if (!response.ok) throw new Error(data.error || "Could not read this database.");
+    if (table === undefined) {
+      $("#database-view-table").innerHTML = data.tables.map(name => '<option value="' + escape(name) + '">' + escape(name) + '</option>').join("");
+      $("#database-view-table").disabled = data.tables.length === 0;
+      $("#database-view-status").textContent = data.tables.length ? "Loading records…" : "No supported tables in this database.";
+      $("#database-view-table").title = data.tablesLimited ? "Showing the first 500 tables." : data.tables.length + " tables";
+      const selectedTable = data.tables.includes(preferredTable) ? preferredTable : data.tables[0];
+      if (selectedTable !== undefined) $("#database-view-table").value = selectedTable;
+      viewerTableSelect.sync();
+      writeViewerLocation(snapshot.databases.find(row => row.id === viewerId)?.viewerKey, selectedTable);
+      if (data.tables.length) void loadDatabaseViewer(selectedTable);
+      return;
+    }
+    viewerColumns = data.columns;
+    for (const selector of ["#database-view-search", "#database-view-search-button", "#database-view-clear"]) $(selector).disabled = false;
+    const filtered = Boolean(viewerSearch || viewerFilters.length);
+    $("#database-view-status").textContent = data.rows.length ? (filtered ? "Matching records " : "Records ") + (offset + 1) + "–" + (offset + data.rows.length) : filtered ? "No matching records. Try a different search or clear your filters." : "No records in this table.";
+    $("#database-view-summary").textContent = data.columns.length + " columns · " + (filtered ? "Search and filters cover the entire table" : "50 records per page");
+    $("#database-view-page").textContent = "Page " + (Math.floor(offset / 50) + 1);
+    $("#database-view-grid").innerHTML = '<table aria-label="Database records preview"><thead><tr>' + data.columns.map(name => {
+      const count = viewerFilters.filter(filter => filter.column === name).length;
+      const direction = viewerSort?.column === name ? viewerSort.direction : "";
+      return '<th scope="col" aria-sort="' + (direction === "asc" ? "ascending" : direction === "desc" ? "descending" : "none") + '"><button type="button" class="database-column-filter' + (count || direction ? ' is-filtered' : '') + '" data-viewer-column="' + escape(name) + '" aria-label="Filter column: ' + escape(name) + (count ? ' (' + count + ' active)' : '') + (direction ? ' — ' + (direction === 'asc' ? 'Ascending' : 'Descending') : '') + '" title="Filter and sort ' + escape(name) + '" aria-haspopup="dialog" aria-controls="database-filter-dialog" aria-expanded="false"><span>' + escape(name) + '</span>' + (direction ? '<span class="database-column-direction" aria-hidden="true">' + (direction === 'asc' ? '↑' : '↓') + '</span>' : '') + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 4h16l-6 7v7l-4 2v-9z"/></svg>' + (count ? '<span class="database-column-count">' + count + '</span>' : '') + '</button></th>';
+    }).join("") + '</tr></thead><tbody>' + data.rows.map(row => '<tr>' + row.map(value => '<td>' + (value === null ? '<span class="database-null">NULL</span>' : escape(String(value))) + '</td>').join("") + '</tr>').join("") + '</tbody></table>';
+    $("#database-view-grid").scrollLeft = viewerGridScroll;
+    $("#database-view-prev").disabled = offset === 0;
+    $("#database-view-next").disabled = !data.hasMore;
+  } catch (error) {
+    if (version === viewerRequest && error.name !== "AbortError") {
+      $("#database-view-status").textContent = error.message || "Database viewer unavailable. Try again.";
+      $("#database-view-summary").textContent = "";
+      $("#database-view-page").textContent = "";
+    }
+  } finally {
+    if (version === viewerRequest) $("#database-view-grid").setAttribute("aria-busy", "false");
+  }
+}
+function openDatabaseViewer(id, preferredTable) {
+  const row = snapshot?.databases.find(item => item.id === id);
+  if (!row?.viewer?.available) return;
+  viewerId = id;
+  resetViewerFilters();
+  for (const selector of ["#database-view-search", "#database-view-search-button", "#database-view-clear"]) $(selector).disabled = true;
+
+  $("#database-view-title").textContent = displayName(row) + " — Records";
+  const owner = entity(row.owner);
+  const ownership = rowOwnership(row);
+  const projects = [...new Set((snapshot.apps || []).filter(app => app.service === row.owner).map(app => app.name))];
+  const project = owner?.project || projects.join(", ") || owner?.name || row.systemOwnership?.name || "Not confirmed";
+  const pending = ownership?.status === "proposed" ? " (proposed)" : "";
+  $("#database-view-context").innerHTML = [
+    ["Project", project],
+    ["Database", row.name],
+    ["Owner", row.owner ? ownerName(row) : row.systemOwnership?.name || "Ownership pending"],
+    ["Category", ownership?.category ? ownership.category + pending : "Ownership pending"],
+    ["Sub-category", ownership?.subcategory ? ownership.subcategory + pending : "Ownership pending"]
+  ].map(([label, value]) => '<div><dt>' + escape(label) + '</dt><dd>' + escape(value) + '</dd></div>').join("");
+
+  $("#database-view-table").innerHTML = '<option value="">Loading tables…</option>';
+  $("#database-view-table").disabled = true;
+  viewerTableSelect.sync();
+  if (!$("#database-view-dialog").open) $("#database-view-dialog").showModal();
+  writeViewerLocation(row.viewerKey, preferredTable);
+  void loadDatabaseViewer(undefined, 0, preferredTable);
+}
 function databaseRow(row) {
   const open = selectedId === row.id;
   const fields = tableKeys.databases.slice(1);
   return '<tr class="database-record' + (open ? ' is-selected' : '') + '" data-database-row="' + escape(row.id) + '"><td data-label="Database"><div class="database-heading">' +
-    '<div class="database-title"><span class="database-name database-friendly-name" data-entity="' + escape(row.id) + '">' + escape(displayName(row)) + '</span>' + (displayName(row) !== row.name ? '<span class="database-filename">' + escape(row.name) + '</span>' : '') + '</div><div class="database-actions">' + copyRowButton(row) + copyPathButton(row.path, row.backupOnly ? "representative backup, original source unconfirmed" : "source database") + backupCopiesButton(row) + '</div>' +
+    '<div class="database-title"><span class="database-name database-friendly-name" data-entity="' + escape(row.id) + '">' + escape(displayName(row)) + '</span>' + (displayName(row) !== row.name ? '<span class="database-filename">' + escape(row.name) + '</span>' : '') + '</div><div class="database-actions">' + databaseViewerButton(row) + copyRowButton(row) + copyPathButton(row.path, row.backupOnly ? "representative backup, original source unconfirmed" : "source database") + backupCopiesButton(row) + '</div>' +
     '</div>' +
     (row.backupOnly ? '<span class="database-filename">Retained backups · source unconfirmed</span>' : '') + '</td>' +
     fields.map((key, index) => {
@@ -192,7 +476,7 @@ function databaseGroups(rows) {
     const totalWal = group.reduce((sum, item) => sum + (item.walBytes || 0), 0);
     return '<tr class="database-group" data-database-group="' + escape(key) + '"><th colspan="' + tableKeys.databases.length + '" scope="rowgroup"><div class="database-group-heading"><div class="database-group-summary"><span class="database-owner">' + (row.owner ? link(row.owner) : escape(ownerName(row))) +
       '</span><span class="database-ownership">' + escape(ownership?.category || "Ownership pending") + ' / ' + escape(ownership?.subcategory || "Ownership pending") +
-      '</span><span class="database-group-count"><span>' + group.length + (group.length === 1 ? ' database' : ' databases') + '</span><span class="database-group-size">Size + WAL: ' + bytes(totalSize) + '</span><span class="database-group-wal">WAL Only: ' + bytes(totalWal) + '</span></span></div><button type="button" class="database-group-link database-group-toggle" data-database-group-toggle aria-expanded="true" aria-label="Collapse ' + escape(ownerName(row)) + ' databases"><span data-group-action>Collapse</span></button></div></th></tr>' + group.map(databaseRow).join("");
+      '</span><span class="database-group-count"><span class="database-group-total"><span class="database-stat-value">' + group.length + '</span> <span class="database-stat-label">' + (group.length === 1 ? 'database' : 'databases') + '</span></span><span class="database-group-size"><span class="database-stat-label">Size + WAL</span> <span class="database-stat-value">' + bytes(totalSize) + '</span></span><span class="database-group-wal"><span class="database-stat-label">WAL only</span> <span class="database-stat-value">' + bytes(totalWal) + '</span></span></span></div><button type="button" class="database-group-link database-group-toggle" data-database-group-toggle aria-expanded="true" aria-label="Collapse ' + escape(ownerName(row)) + ' databases"><span data-group-action>Collapse</span></button></div></th></tr>' + group.map(databaseRow).join("");
   }).join("");
 }
 function updateDatabaseGroups() {
@@ -355,6 +639,55 @@ async function copyBackupPath(button) {
   }
 }
 const openFindingSections = new Set();
+let updatingBackups = false;
+let backupUpdateMessage = "";
+function backupUpdateControls() {
+  for (const button of root.querySelectorAll("[data-update-backups]")) {
+    button.disabled = updatingBackups;
+    button.textContent = updatingBackups ? "Checking & updating backups…" : "Check & update backups";
+  }
+  for (const feedback of root.querySelectorAll("[data-backup-feedback]")) feedback.textContent = backupUpdateMessage;
+}
+function backupUpdateActions() {
+  return '<div class="finding-task-actions"><button class="button" type="button" data-update-backups>Check &amp; update backups</button></div>' +
+    '<p>Checks all backup warnings, including projects hidden by filters. Creates verified local copies for Garden-managed databases. App-managed backups use their own procedure; existing copies are kept.</p>' +
+    '<p data-backup-feedback role="status" aria-live="polite"></p>';
+}
+async function updateBackups() {
+  if (updatingBackups) return;
+  updatingBackups = true;
+  backupUpdateMessage = "Checking existing copies and updating Garden-managed backups…";
+  backupUpdateControls();
+  try {
+    let method = "POST";
+    for (;;) {
+      const response = await fetch("/operations/api/backups/update", {
+        method, headers: { Accept: "application/json", "X-Garden-Action": "update-backups" }, signal: AbortSignal.timeout(30000)
+      });
+      const state = await response.json();
+      if (!response.ok || state.error) throw new Error(state.error || "Backup check unavailable. Try again.");
+      if (!state.running) {
+        const result = state.result;
+        if (!result) throw new Error("No completed backup check was found. Try again.");
+        const identify = item => {
+          const db = snapshot.databases.find(row => row.path === item.source);
+          return db ? (db.ownershipLabel || "Ownership pending") + " | " + (db.projectName || name(db.owner)) + " · " + displayName(db) : item.source;
+        };
+        backupUpdateMessage = "Finished: " + result.verifiedDatabases + " new verified copies; " + result.skipped.length + " existing copies kept. " +
+          (result.skipped.some(item => item.reason === "app-managed backup") ? "App-managed copies were checked; use their own backup procedure if still old. " : "") +
+          (result.failures.length ? "Still needs attention: " + result.failures.map(item => identify(item) + ": " + item.error).join("; ") + ". " : "") +
+          "Remaining warnings below show what still needs checking. Local copies do not protect against loss of this machine.";
+        while (busy) await new Promise(resolve => setTimeout(resolve, 100));
+        await refresh(true);
+        break;
+      }
+      method = "GET";
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  } catch (error) {
+    backupUpdateMessage = error.message + " The server may still be checking backups; press the button again to reconnect.";
+  } finally { updatingBackups = false; backupUpdateControls(); }
+}
 let updatingTasks = false;
 let taskUpdateMessage = "";
 function taskUpdateControls() {
@@ -432,7 +765,7 @@ function findingDetails(row) {  if (row.kind === "scheduled-task-list") return '
     '</span></span><span><strong>' + groups.size + '</strong><span>project groups</span></span></div></div>' +
     '<div class="finding-guide"><section class="finding-meaning"><h5>What this means</h5><p class="finding-explanation">' + escape(row.reason) + '</p>' +
     (row.scopeNote ? '<p class="finding-scope">' + escape(row.scopeNote) + '</p>' : '') + '</section>' +
-    '<section class="finding-next"><h5>What to check</h5>' + checks + '</section></div>' +
+    '<section class="finding-next"><h5>What to check</h5>' + checks + (row.kind === "database-backups" ? backupUpdateActions() : '') + '</section></div>' +
     '<details class="finding-breakdown"' + disclosure(findingKey) + '><summary>' + chevron +
     '<span class="finding-disclosure-copy"><strong>Project breakdown</strong><span>Owners, database files and locations</span></span>' +
     '<span class="finding-summary-note"><span class="finding-show">Show</span><span class="finding-hide">Hide</span> breakdown</span></summary>' +
@@ -477,6 +810,9 @@ const seededLabels = new Set();
 function migrateFilters() {
   if (!snapshot) return;
   const state = columnControls.state;
+  for (const [key, aliases] of Object.entries({ category: { "Host system": "SYSTEM" }, subcategory: { Runtime: "RUNTIME", "Temporary files": "TEMPORARY" } })) {
+    if (state.filters[key]) state.filters[key] = [...new Set(state.filters[key].map(value => aliases[value] || value))];
+  }
   if (current === "databases" && state.filters.component) {
     const labels = { "Agent runtime": "Agent Runtime", "Agent dashboard": "Agent Dashboard" };
     state.filters.component = [...new Set(state.filters.component.map(value => labels[value] || value))];
@@ -665,6 +1001,7 @@ function render() {
   $("#caption").textContent = rows.length + " of " + snapshot[current].length + " records" + total + (current === "databases" ? " · Grouped by owner; sorted within each group" : "");
   $("#evidence-caption").textContent = (["services", "agents", "apps"].includes(current) ? "Running confirms a process exists; application health is not verified." : "") + scheduleNote;
   taskUpdateControls();
+  backupUpdateControls();
 }
 function detail(id) {
   const row = entity(id);
@@ -721,7 +1058,8 @@ async function refresh(fresh = false) {
     const fieldNames = { roots: "Folders checked", complete: "Scan complete", excludedDirectories: "Folders skipped", unreadablePaths: "Unreadable paths", status: "Source status", observedAt: "Source updated", note: "Limitations" };
     const evidenceValue = (key, value) => key === "observedAt" ? when(value) + " SGT" : typeof value === "boolean" ? (value ? "Yes" : "No") : Array.isArray(value) ? value.join(" · ") : String(value ?? "Unknown");
     $("#coverage").innerHTML = Object.entries(snapshot.coverage).map(([key, value]) => '<section class="coverage-source"><h3>' + escape(sourceNames[key] || key) + '</h3>' + (value && typeof value === "object" ? '<dl>' + Object.entries(value).map(([field, evidence]) => '<dt>' + escape(fieldNames[field] || field) + '</dt><dd>' + escape(evidenceValue(field, evidence)) + '</dd>').join("") + '</dl>' : '<p>' + escape(value) + '</p>') +
-      (key === "automations" ? '<button class="button" type="button" data-update-tasks>Update task list</button><p data-task-feedback role="status" aria-live="polite"></p>' : '') + '</section>').join("");
+      (key === "automations" ? '<button class="button" type="button" data-update-tasks>Update task list</button><p data-task-feedback role="status" aria-live="polite"></p>' : '') +
+      (key === "backups" ? backupUpdateActions() : '') + '</section>').join("");
     const state = params();
     options();
     $("#filter").value = state.get("filter") || "";
@@ -730,6 +1068,7 @@ async function refresh(fresh = false) {
     if (!$("#sort").selectedOptions.length) $("#sort").value = sortChoices[current][0][0];
     render();
     if (visible() && params().get("entity")) detail(params().get("entity"));
+    syncDatabaseViewer();
     if (snapshot.stale && observing() && staleRetries < 3) {
       staleRetries++;
       setTimeout(() => { if (observing()) void refresh(); }, 2500);
@@ -764,10 +1103,13 @@ root.addEventListener("click", event => {
     updateDatabaseGroups();
     return;
   }
+  const viewDatabase = event.target.closest("[data-view-database]");
+  if (viewDatabase) { openDatabaseViewer(viewDatabase.dataset.viewDatabase); return; }
   const backup = event.target.closest("[data-backup-details]");
   if (backup) openBackupDetails(backup.dataset.backupDetails, Number(backup.dataset.backupIndex));
   const update = event.target.closest("[data-update-tasks]");
   if (update) void updateTaskList();
+  if (event.target.closest("[data-update-backups]")) void updateBackups();
   const tab = event.target.closest("[data-tab]");
   if (tab) select(tab.dataset.tab);
   const copyRow = event.target.closest("[data-copy-row]");
@@ -776,6 +1118,122 @@ root.addEventListener("click", event => {
   if (copy) void copyBackupPath(copy);
   const target = event.target.closest("button[data-entity]");
   if (target) detail(target.dataset.entity);
+});
+$("#close-database-view").addEventListener("click", () => $("#database-view-dialog").close());
+$("#database-view-table").addEventListener("change", event => {
+  viewerTableSelect.sync();
+  resetViewerFilters();
+  if (event.target.value) void loadDatabaseViewer(event.target.value);
+});
+$("#database-view-search-form").addEventListener("submit", event => { event.preventDefault(); applyViewerSearch(); });
+$("#database-view-search").addEventListener("search", applyViewerSearch);
+$("#database-view-grid").addEventListener("click", event => {
+  const button = event.target.closest("[data-viewer-column]");
+  if (button) openViewerColumnFilter(button);
+});
+$("#database-view-add-filter").addEventListener("click", () => {
+  addViewerFilter();
+  $("#database-view-filter-rows").lastElementChild?.querySelector("select").focus();
+});
+$("#database-view-reset-filters").addEventListener("click", () => {
+  $("#database-view-filter-rows").replaceChildren();
+  viewerValueMode = "notIn";
+  viewerValueSelection.clear();
+  renderViewerValues();
+  updateViewerFilterLimit();
+});
+$("#database-view-cancel-filters").addEventListener("click", () => $("#database-filter-dialog").close());
+$("#database-value-search").addEventListener("input", () => {
+  clearTimeout(viewerValuesTimer);
+  viewerValuesAbort?.abort();
+  viewerValuesTimer = setTimeout(() => void loadViewerValues(), 250);
+});
+$("#database-value-search").addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    clearTimeout(viewerValuesTimer);
+    void loadViewerValues();
+  }
+});
+$("#database-values-more").addEventListener("click", () => void loadViewerValues(true));
+for (const [id, mode] of [["all", "notIn"], ["none", "in"]]) {
+  $("#database-values-" + id).addEventListener("click", () => {
+    viewerValueMode = mode;
+    viewerValueSelection.clear();
+    renderViewerValues();
+  });
+}
+$("#database-filter-dialog").addEventListener("close", () => {
+  clearTimeout(viewerValuesTimer);
+  viewerValuesAbort?.abort();
+  viewerValues = [];
+  viewerValueSelection.clear();
+  $("#database-values-list").replaceChildren();
+  viewerFilterTrigger?.setAttribute("aria-expanded", "false");
+  if (viewerFilterTrigger?.isConnected) viewerFilterTrigger.focus({ preventScroll: true });
+});
+$("#database-filter-dialog").addEventListener("keydown", event => {
+  if (event.key !== "Tab") return;
+  const fields = [...event.currentTarget.querySelectorAll("input:not(:disabled),select:not(:disabled),button:not(:disabled),summary")].filter(field => field.getClientRects().length);
+  const first = fields[0], last = fields.at(-1);
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+});
+$("#database-view-filters").addEventListener("submit", event => {
+  event.preventDefault();
+  const nextFilters = [...viewerFilters.filter(filter => filter.column !== viewerFilterColumn), ...[...$("#database-view-filter-rows").children].map(row => ({
+    column: viewerFilterColumn,
+    operator: row.querySelector('[aria-label="Filter condition"]').value,
+    value: row.querySelector("input").disabled ? "" : row.querySelector("input").value
+  })).filter(filter => filter.operator !== "contains" || filter.value !== "")];
+  if (viewerValueMode === "in" || viewerValueSelection.size) nextFilters.push({ column: viewerFilterColumn, operator: viewerValueMode, value: JSON.stringify([...viewerValueSelection]) });
+  if (nextFilters.length > 8) {
+    $("#database-values-status").textContent = "Maximum of 8 filters. Remove a condition before applying values.";
+    return;
+  }
+  viewerFilters = nextFilters;
+  const direction = $("#database-view-sort").value;
+  if (direction !== "default") viewerSort = { column: viewerFilterColumn, direction };
+  else if (viewerSort?.column === viewerFilterColumn) viewerSort = null;
+  renderViewerFilterSummary();
+  $("#database-filter-dialog").close();
+  void loadDatabaseViewer($("#database-view-table").value).then(() => focusViewerColumn(viewerFilterColumn));
+});
+$("#database-view-active-filters").addEventListener("click", event => {
+  if (event.target.closest("[data-clear-viewer-sort]")) {
+    const column = viewerSort.column;
+    viewerSort = null;
+    renderViewerFilterSummary();
+    void loadDatabaseViewer($("#database-view-table").value).then(() => focusViewerColumn(column));
+    return;
+  }
+  const chip = event.target.closest("[data-remove-viewer-filter]");
+  if (!chip) return;
+  const column = viewerFilters[Number(chip.dataset.removeViewerFilter)].column;
+  viewerFilters.splice(Number(chip.dataset.removeViewerFilter), 1);
+  renderViewerFilterSummary();
+  void loadDatabaseViewer($("#database-view-table").value).then(() => focusViewerColumn(column));
+});
+$("#database-view-clear").addEventListener("click", () => {
+  resetViewerFilters();
+  void loadDatabaseViewer($("#database-view-table").value);
+});
+$("#database-view-prev").addEventListener("click", () => void loadDatabaseViewer($("#database-view-table").value, Math.max(0, viewerOffset - 50)));
+$("#database-view-next").addEventListener("click", () => void loadDatabaseViewer($("#database-view-table").value, viewerOffset + 50));
+$("#database-view-dialog").addEventListener("close", () => {
+  if ($("#database-view-dialog").open) return;
+  const closedKey = snapshot?.databases.find(row => row.id === viewerId)?.viewerKey;
+  if (visible() && params().get("db") === closedKey) writeViewerLocation();
+  viewerRequest++;
+  viewerAbort?.abort();
+  $("#database-view-grid").replaceChildren();
+  resetViewerFilters();
+  $("#database-view-table").replaceChildren();
+  $("#database-view-table").disabled = true;
+  viewerTableSelect.sync();
+  $("#database-view-context").replaceChildren();
+  [...root.querySelectorAll("[data-view-database]")].find(button => button.dataset.viewDatabase === viewerId)?.focus({ preventScroll: true });
+  viewerId = undefined;
 });
 $("#close-backup").addEventListener("click", () => $("#backup-dialog").close());
 $("#backup-dialog").addEventListener("close", () => {
@@ -809,6 +1267,7 @@ $("#close-inventory-info").addEventListener("click", () => $("#inventory-info-di
 $("#inventory-info-dialog").addEventListener("close", () => $("#inventory-info").focus());
 function sync() {
   if (!visible()) {
+    syncDatabaseViewer();
     if ($("#detail").open) $("#detail").close();
     if ($("#inventory-info-dialog").open) $("#inventory-info-dialog").close();
     if (observing() && !snapshot) refresh();
@@ -847,6 +1306,7 @@ function sync() {
   render();
   if (snapshot && selectedId) detail(selectedId);
   else if ($("#detail").open) $("#detail").close();
+  syncDatabaseViewer();
   if (!snapshot) refresh();
 }
 document.addEventListener("garden:viewchange", sync);

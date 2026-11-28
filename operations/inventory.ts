@@ -4,6 +4,7 @@ import type { RouterConfig } from "../config";
 import { projectOwnership, ownershipLabel } from "../project-labels";
 
 const kingdom = "/home/workspace/Start/pal/kingdom-of-pal";
+const ideasBankDatabase = "/home/workspace/Start/pal/pal-projects/idea-backlog/.data/ideas-bank.sqlite3";
 const databaseOwners: Record<string, string> = {
   [join(kingdom, "state/pal-registry.sqlite3")]: "service:pal-agent-registry",
   "/home/workspace/Start/pal/pal-agent-bastion/var/bastion.db": "agent:bastion",
@@ -27,9 +28,14 @@ function backupCreator(path: string): string {
   return "Not confirmed";
 }
 
+function isShouldIJoinData(path: string | undefined): boolean {
+  return /^\/home\/workspace\/Start\/pal\/pal-projects\/shouldijoin\/\.wrangler\/state\/v3\/d1\/miniflare-D1DatabaseObject\/[a-f0-9]{64}\.sqlite$/.test(path || "");
+}
+
 export function databaseRemarks(record: Row): string {
   if (record.remarks) return record.remarks;
   const path = record.backupOnly ? record.backupSource : record.path;
+  if (isShouldIJoinData(path)) return "Company reports, saved assessments and watchlists for the Zo deployment. Internal filename managed by the database engine.";
   const relative = path?.match(/^\/root\/\.hermes\/(?:profiles\/[^/]+\/)?(state\.db|projects\.db|cron\/(?:executions|notepad)\.db|shared-state\.db|kanban\.db)$/)?.[1];
   const purposes: Record<string, string> = {
     "state.db": "Conversation history and session state.",
@@ -44,6 +50,8 @@ export function databaseRemarks(record: Row): string {
 
 function databaseDisplayName(record: Row): string {
   const path = record.backupOnly ? record.backupSource : record.path;
+  if (path === ideasBankDatabase) return "Ideas & Memories";
+  if (isShouldIJoinData(path)) return "Company reports & assessments";
   const names: Record<string, string> = {
     "/root/.hermes/profiles/orin/state.db": "Conversation history",
     "/root/.hermes/profiles/orin/projects.db": "Hermes workspaces",
@@ -257,6 +265,17 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   if (service("pal-agent-registry")) agents.forEach(a => relate(a.id, "service:pal-agent-registry", "Kingdom registry membership"));
   const databases: Row[] = host.databases;
   for (const db of databases) {
+    if (db.path === ideasBankDatabase) {
+      db.owner = "app:ideas-bank";
+      db.category = "application";
+      db.ownershipEvidence = "Ideas Bank staging service IDEAS_BANK_DB setting and open database handle";
+      db.remarks = "Stores saved ideas and private memories.";
+    }
+    if (isShouldIJoinData(db.path)) {
+      db.owner = "service:shouldijoin-staging";
+      db.category = "application";
+      db.ownershipEvidence = "Should I Join Zo deployment persistent D1 binding";
+    }
     if (!db.owner) {
       if (databaseOwners[db.path]) db.owner = databaseOwners[db.path];
       else if (db.path.startsWith("/root/.hermes/profiles/runa/")) db.owner = "agent:runa";
@@ -289,8 +308,8 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
     const name = db.path.startsWith("/root/.codex/") ? "Codex" : db.path.startsWith("/home/.z/workspaces/") ? "Zo temporary workspace" :
       ["/root/.hermes/shared-state.db", "/root/.hermes/kanban.db", "/root/.hermes/state.db"].includes(db.path) ? "Hermes shared runtime" : null;
     if (name) {
-      db.systemOwnership = { category: "Host system", subcategory: name === "Zo temporary workspace" ? "Temporary files" : "Runtime", name };
-      db.ownershipEvidence = "host runtime location; outside project ownership labels";
+      db.systemOwnership = { category: "SYSTEM", subcategory: name === "Zo temporary workspace" ? "TEMPORARY" : "RUNTIME", name };
+      db.ownershipEvidence = "documented system runtime or temporary workspace location";
     }
   }
   for (const db of databases.filter(db => db.category === "backup" && !db.owner && db.backupSource)) {
@@ -327,7 +346,7 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   for (const db of databases) {
     const owner = [...agents, ...services, ...apps, ...workflows].find(row => row.id === db.owner);
     db.ownership = owner?.ownership || (db.owner ? projectOwnership(db.owner.slice(db.owner.indexOf(":") + 1)) : null);
-    db.ownershipLabel = db.systemOwnership ? db.systemOwnership.category + " · " + db.systemOwnership.subcategory : ownershipLabel(db.ownership);
+    db.ownershipLabel = db.systemOwnership ? db.systemOwnership.category + " | " + db.systemOwnership.subcategory : ownershipLabel(db.ownership);
     db.projectName = db.owner === "service:openclaw-dashboard" ? "PAL OpenClaw (retained files)" : owner?.name || db.systemOwnership?.name || "Ownership pending";
   }
   if (unknownOwners) issues.push({
@@ -338,6 +357,7 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   });
   const unknownBackups = databases.filter(d => ["application", "agent runtime"].includes(d.category) && d.backup.status === "unknown");
   if (unknownBackups.length) issues.push({
+    kind: "database-backups",
     severity: "warning", message: unknownBackups.length + " database files have unconfirmed backup status.",
     affected: unknownBackups.map(d => d.id),
     reason: "Garden could not verify a saved database copy for the files below. A recognised copy must exist and match its recorded checksum. This does not prove their backups are missing.",
@@ -346,6 +366,7 @@ export async function collectInventory(configs: RouterConfig[], discover = disco
   });
   const oldBackups = databases.filter(d => ["application", "agent runtime"].includes(d.category) && d.backup.status === "old snapshot");
   if (oldBackups.length) issues.push({
+    kind: "database-backups",
     severity: "warning", message: oldBackups.length + " database backups are over 24 hours old.",
     affected: oldBackups.map(d => d.id),
     reason: "Saved copies exist, but changes since the last copy are not covered.",

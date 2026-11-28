@@ -1,6 +1,6 @@
 export type ProjectOwnership = {
-  category: "PAL" | "GOZ" | "GITHUB" | "GR" | "PERSONAL" | "STAKEFOLIO";
-  subcategory: "PRODUCT" | "AGENT" | "WORKFLOW" | "SKILL" | "PLATFORM" | "GOVERNANCE" | "DATA" | "LEGACY" | "INFRASTRUCTURE" | "APP" | "MONITORING" | "WEBSITE" | "MAIL";
+  category: "PAL" | "GOZ" | "GITHUB" | "GR" | "PERSONAL" | "STAKEFOLIO" | "SYSTEM";
+  subcategory: "PRODUCT" | "AGENT" | "WORKFLOW" | "SKILL" | "PLATFORM" | "GOVERNANCE" | "DATA" | "LEGACY" | "INFRASTRUCTURE" | "APP" | "MONITORING" | "WEBSITE" | "MAIL" | "RUNTIME" | "TEMPORARY";
   status: "confirmed" | "proposed";
 };
 
@@ -10,7 +10,8 @@ export const ownershipCategories: Record<ProjectOwnership["category"], string> =
   GITHUB: "Existing ownership group for Afterimage, Itachi's Crow and Long Taa Borneo",
   GR: "GigRadar",
   PERSONAL: "Apps and tools built for the owner's own use",
-  STAKEFOLIO: "Stakefolio portfolio projects and supporting services"
+  STAKEFOLIO: "Stakefolio portfolio projects and supporting services",
+  SYSTEM: "Shared computer services and temporary working files"
 };
 
 export const ownershipRoles: Record<ProjectOwnership["subcategory"], string> = {
@@ -26,7 +27,9 @@ export const ownershipRoles: Record<ProjectOwnership["subcategory"], string> = {
   APP: "General application or utility",
   MONITORING: "Resource and operational visibility",
   WEBSITE: "Informational or public presentation website",
-  MAIL: "GigRadar's mail application"
+  MAIL: "GigRadar's mail application",
+  RUNTIME: "Shared software state used by computer tools and agent frameworks",
+  TEMPORARY: "Temporary working files created during development or conversations"
 };
 
 const groups: [ProjectOwnership["category"], ProjectOwnership["subcategory"], string[]][] = [
@@ -47,7 +50,9 @@ const groups: [ProjectOwnership["category"], ProjectOwnership["subcategory"], st
   ["GITHUB", "APP", ["itachiscrow", "afterimage"]],
   ["GITHUB", "WEBSITE", ["longtaaborneo"]],
   ["GR", "MAIL", ["gigradar-mailhub", "gr-mailhub"]],
-  ["PERSONAL", "APP", []]
+  ["PERSONAL", "APP", []],
+  ["SYSTEM", "RUNTIME", []],
+  ["SYSTEM", "TEMPORARY", []]
 ];
 
 const labels = new Map<string, ProjectOwnership>(groups.flatMap(([category, subcategory, ids]) =>

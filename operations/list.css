@@ -282,6 +282,8 @@
 #inventory .finding-task-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px }
 #inventory .finding-task-actions .button { white-space:normal; text-align:center }
 #inventory [data-task-feedback]:empty { display:none }
+#inventory [data-backup-feedback]:empty { display:none }
+#inventory [data-backup-feedback]:not(:empty) { margin-top:12px; color:var(--gold); white-space:pre-line }
 #inventory [data-task-feedback]:not(:empty) { margin-top:12px; color:var(--gold) }
 #inventory .backup-summary { display:grid; gap:4px; min-width:0 }
 #inventory table.database-table .backup-summary .backup-date { margin:0 0 0 13px; font-size:10px }
@@ -550,7 +552,7 @@
   #inventory .database-scroll table.database-table colgroup,
   #inventory .database-scroll table.database-table thead { display:none }
   #inventory .database-scroll table.database-table tr.database-group { display:block; margin:18px 0 8px }
-  #inventory .database-scroll table.database-table tr.database-group th { display:block; width:100%; min-width:0; padding:8px 0; box-sizing:border-box; background:none }
+  #inventory .database-scroll table.database-table tr.database-group th { display:block; width:100%; min-width:0; padding:8px 12px 12px; box-sizing:border-box; background:#142e33; border:1px solid #3c5655; border-top:2px solid var(--gold); border-radius:8px; text-align:left }
   #inventory .database-scroll .database-group-heading { position:static; width:100%; max-width:100%; gap:6px 12px }
   #inventory .database-scroll .database-group-heading .database-owner { flex-basis:100% }
   #inventory .database-scroll table.database-table tr.database-record { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); column-gap:12px; padding:14px; margin:0 0 12px; border:1px solid var(--line); border-radius:12px; background:#10282d }
@@ -597,13 +599,167 @@
 #inventory .database-group-link:not(:disabled):hover { color:var(--gold) }
 #inventory .database-group-toggle { align-self:center }
 @media(max-width:600px) {
-  #inventory .database-scroll .database-group-heading { width:100%; max-width:100%; gap:6px 12px }
+  #inventory .database-scroll .database-group-heading { width:100%; max-width:100%; gap:0 8px; align-items:start }
   #inventory .database-group-summary { display:contents }
   #inventory .database-group-summary .database-owner { grid-column:1; align-self:center }
-  #inventory .database-group-summary :is(.database-ownership,.database-group-count) { grid-column:1 / -1 }
+  #inventory .database-scroll .database-group-heading .database-owner,
+  #inventory .database-scroll .database-group-heading .database-owner .entity { color:#f1f5ed; font-size:17px; font-weight:700; line-height:1.35; overflow-wrap:anywhere }
+  #inventory .database-scroll .database-group-heading .database-ownership { grid-column:1 / -1; color:#a7bdb5; font-size:12px; font-weight:400; line-height:1.4; padding-bottom:10px }
+  #inventory .database-scroll .database-group-heading .database-group-count { grid-column:1 / -1; display:grid; grid-template-columns:.85fr 1.15fr 1fr; width:100%; color:#b8cdc3; line-height:1.4; gap:0; padding-top:10px; border-top:1px solid #3c5655 }
+  #inventory .database-scroll .database-group-count > span { display:flex; flex-direction:column; gap:3px; min-width:0; padding-left:10px; border-left:1px solid #3c5655; white-space:normal }
+  #inventory .database-scroll .database-group-count > .database-group-total { flex-direction:column-reverse; padding-left:0; border-left:0 }
+  #inventory .database-scroll .database-group-count > span + span::before { content:none }
+  #inventory .database-scroll .database-stat-label { font-size:12px; font-weight:400; text-transform:none; color:#a7bdb5 }
+  #inventory .database-scroll .database-group-total .database-stat-label { text-transform:capitalize }
+  #inventory .database-scroll .database-stat-value { font-size:14px; font-weight:600; color:#f1f5ed; font-variant-numeric:tabular-nums; overflow-wrap:anywhere }
+  #inventory .database-scroll .database-group-heading .database-group-toggle { color:#b8cdc3; align-self:start; font-size:12px }
   #inventory .database-group-toggle { grid-column:2; grid-row:1 }
   #inventory .database-group-link { min-height:44px }
   #inventory .directory-refine-actions:has(#database-group-controls:not([hidden])) { width:100%; gap:6px }
   #inventory #database-group-controls { margin-left:auto }
   #inventory #database-group-controls .database-group-link { font-size:12px; min-width:68px }
+}
+
+#inventory .database-view-icon[aria-disabled="true"] { opacity:.32; cursor:not-allowed }
+#inventory .database-view-icon[aria-disabled="true"]:hover { background:transparent; border-color:transparent; color:var(--muted) }
+#inventory #database-view-dialog { box-sizing:border-box; position:fixed; inset:0; width:100vw; max-width:none; height:100dvh; max-height:none; margin:0; padding:12px 20px; border:0; border-radius:0; overflow:hidden }
+#inventory #database-view-dialog[open] { display:flex; flex-direction:column; gap:8px }
+#inventory #database-view-dialog .dialog-head { flex:none; margin:0; padding-bottom:8px; gap:12px }
+#inventory #database-view-dialog .dialog-head>div { min-width:0; flex:1 }
+#inventory #database-view-dialog .inventory-label { display:inline; margin:0; font-size:10px; letter-spacing:.08em }
+#inventory #database-view-context { display:flex; flex-wrap:wrap; gap:4px 20px; margin:6px 0 0; max-height:20dvh; overflow:auto }
+#inventory #database-view-context>div { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 6px; min-width:0; max-width:100% }
+#inventory #database-view-context :is(dt,dd) { padding:0; border:0; margin:0; line-height:1.4 }
+#inventory #database-view-context dt { color:var(--muted); font:500 11px/1.4 var(--sans); text-transform:none; letter-spacing:normal }
+#inventory #database-view-context dt::after { content:":" }
+#inventory #database-view-context dd { color:var(--text); font:500 12px/1.4 var(--sans); overflow-wrap:anywhere }
+#inventory #database-view-context>div:nth-child(2) dd { font-family:ui-monospace,monospace }
+@media(max-width:700px) {
+  #inventory #database-view-context { gap:4px 14px }
+  #inventory #database-view-dialog .dialog-head { position:relative; display:block }
+  #inventory #database-view-dialog .dialog-head h2 { padding-right:64px }
+  #inventory #close-database-view { position:absolute; top:0; right:0 }
+  #inventory #database-view-context dd { font-size:12px }
+}
+#inventory #database-view-dialog h2 { display:inline; margin:0 12px 0 0; font-size:22px; line-height:1.3 }
+#inventory #database-view-dialog .button { min-height:44px; flex:none; cursor:pointer }
+#inventory #database-view-dialog .button:disabled { opacity:.4; cursor:default }
+#inventory .database-view-toolbar { display:flex; flex:none; align-items:end; gap:8px }
+#inventory #database-view-dialog .database-toolbar-icon { position:relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0 }
+#inventory .database-toolbar-icon svg { width:20px; height:20px; flex:none }
+#inventory .database-view-toolbar label { display:flex; flex-direction:column; gap:6px; min-width:0; font:500 12px var(--sans); color:var(--muted) }
+#inventory .database-table-field { flex:0 1 240px }
+#inventory #database-view-dialog .label-combobox input { padding-right:44px }
+#inventory #database-view-dialog .label-combobox__toggle { width:42px; min-height:42px }
+#inventory #database-view-dialog .label-combobox__options [role="option"] { min-height:44px; box-sizing:border-box; display:flex; align-items:center; font-size:14px }
+#inventory #database-view-dialog .label-combobox :disabled { opacity:.4; cursor:default }
+#inventory .database-search-field { flex:1 }
+#inventory #database-view-dialog input,#inventory #database-view-dialog select { box-sizing:border-box; width:100%; min-width:0; height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:#102b30; color:var(--text); font:14px var(--sans) }
+#inventory #database-view-dialog :is(input,select,button):focus-visible { outline:2px solid var(--gold); outline-offset:2px }
+#inventory #database-filter-dialog { box-sizing:border-box; position:fixed; inset:var(--filter-top,8px) auto auto var(--filter-left,8px); margin:0; width:min(340px,calc(100vw - 16px)); max-height:min(85dvh,calc(100dvh - var(--filter-top,8px) - 8px)); padding:0; overflow:hidden; border-radius:10px }
+#inventory #database-filter-dialog::backdrop { background:rgba(2,12,17,.12); backdrop-filter:none }
+#inventory #database-view-filters { display:flex; flex-direction:column; max-height:calc(min(85dvh,100dvh - var(--filter-top,8px) - 8px) - 2px); margin:0 }
+#inventory .database-filter-header { padding:10px 12px; border-bottom:1px solid var(--line) }
+#inventory #database-filter-title { font:600 14px var(--sans); margin:0; overflow-wrap:anywhere }
+#inventory #database-filter-help { margin:0; color:var(--muted); font-size:13px; line-height:1.5 }
+#inventory .database-filter-body { padding:10px 12px; overflow:auto; min-height:0; overscroll-behavior:contain }
+#inventory .database-filter-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) 44px; align-items:end; gap:6px; padding:0 0 8px; margin-bottom:8px; border-bottom:1px solid var(--line) }
+#inventory .database-filter-row label { display:flex; flex-direction:column; gap:6px; min-width:0; color:var(--muted); font-size:12px }
+#inventory #database-filter-dialog :is(input,select) { box-sizing:border-box; width:100%; min-width:0; height:34px; padding:6px 8px; border:1px solid var(--line); border-radius:5px; background:#102b30; color:var(--text); font:13px var(--sans) }
+#inventory #database-filter-dialog input:disabled { opacity:.5 }
+#inventory #database-filter-dialog select { appearance:none; -webkit-appearance:none; padding-right:34px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2395aaa9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; background-size:16px; cursor:pointer }
+#inventory #database-filter-dialog .button { min-height:34px; padding:6px 10px; border-radius:5px; font-size:13px; cursor:pointer }
+#inventory #database-filter-dialog .button:disabled { opacity:.4; cursor:default }
+#inventory #database-filter-dialog :is(input,select,button):focus-visible { outline:2px solid var(--gold); outline-offset:2px }
+#inventory #database-filter-dialog .database-filter-remove { width:44px; padding:0; font-size:24px; color:var(--muted); background:transparent; border-color:transparent }
+#inventory #database-filter-dialog .database-filter-remove:hover { color:var(--text); border-color:var(--line) }
+#inventory .database-filter-actions { display:flex; flex:none; align-items:center; gap:6px; padding:8px 12px; border-top:1px solid var(--line) }
+#inventory #database-view-reset-filters { margin-right:auto }
+#inventory #database-filter-dialog .database-filter-apply { background:var(--gold); border-color:var(--gold); color:#102b30; font-weight:600 }
+#inventory #database-filter-limit { margin:8px 0 0; color:var(--muted); font-size:12px }
+#inventory #database-view-active-filters { display:flex; flex:none; gap:6px; overflow:auto; max-height:48px }
+#inventory #database-view-active-filters[hidden] { display:none }
+#inventory .database-filter-chip { display:inline-flex; align-items:center; gap:10px; flex:none; max-width:320px; min-height:36px; padding:6px 10px; border:1px solid rgba(228,193,120,.35); border-radius:8px; background:rgba(228,193,120,.07); color:var(--text); font:12px var(--sans); cursor:pointer }
+#inventory .database-filter-chip span:first-child { overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+#inventory .database-view-results { display:flex; flex:1; min-width:0; margin-right:auto; flex-wrap:wrap; gap:2px 12px; align-items:center }
+#inventory #database-view-status { margin:0; color:var(--text) }
+#inventory #database-view-summary,#inventory #database-view-page { color:var(--muted); font-size:12px }
+#inventory #database-view-dialog .database-view-note { margin:0; font-size:12px }
+@media(max-width:700px) {
+  #inventory #database-view-dialog { padding:12px }
+  #inventory #database-view-dialog[open] { gap:8px }
+  #inventory #database-view-dialog h2 { display:block; margin:0; font-size:20px }
+  #inventory #database-view-dialog .dialog-head .inventory-label { display:block; margin-top:2px }
+  #inventory .database-view-toolbar { display:grid; grid-template-columns:minmax(0,1fr) repeat(2,44px); gap:8px }
+  #inventory .database-table-field { grid-column:1/-1 }
+  #inventory #database-filter-dialog { position:fixed; inset:auto 0 0; margin:0; width:100%; max-width:none; max-height:80dvh; border-radius:16px 16px 0 0 }
+  #inventory #database-view-filters { max-height:calc(80dvh - 2px) }
+  #inventory .database-filter-row { grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px }
+  #inventory .database-filter-row label:first-child { grid-column:1/3 }
+  #inventory .database-filter-row .database-filter-value { grid-row:2; grid-column:1/4 }
+  #inventory .database-filter-remove { grid-row:1; grid-column:3 }
+  #inventory .database-filter-actions { padding:12px; gap:6px; padding-bottom:max(12px,env(safe-area-inset-bottom)) }
+  #inventory .database-filter-header { padding:16px }
+  #inventory .database-filter-body { padding:16px }
+  #inventory #database-filter-dialog .button { padding-left:10px; padding-right:10px }
+  #inventory .database-filter-chip { min-height:44px; box-sizing:border-box }
+  #inventory .database-view-pages { flex-wrap:wrap; gap:8px }
+  #inventory .database-view-pages .database-view-results { flex:1 0 100% }
+  #inventory .database-view-pages .database-view-note { display:none }
+}
+#inventory .database-view-note,#inventory #database-view-status { color:var(--muted); font-size:14px; line-height:1.6 }
+#inventory #database-view-grid { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; border:1px solid var(--line); border-radius:8px; background:rgba(2,12,17,.18) }
+#inventory #database-view-grid:empty { border:0 }
+#inventory #database-view-grid table { display:table; width:100%; min-width:0; border-collapse:collapse; table-layout:auto }
+#inventory #database-view-grid thead { display:table-header-group }
+#inventory #database-view-grid tbody { display:table-row-group }
+#inventory #database-view-grid tr { display:table-row }
+#inventory #database-view-grid th,#inventory #database-view-grid td { display:table-cell; position:static; min-width:120px; max-width:360px; padding:12px; border:1px solid var(--line); white-space:pre-wrap; overflow-wrap:anywhere; font:13px/1.5 ui-monospace,monospace }
+#inventory #database-view-grid th { position:sticky; top:0; background:#183438; z-index:1; text-transform:none; letter-spacing:normal; color:var(--text); font-weight:600 }
+#inventory #database-view-grid tbody tr:nth-child(even) { background:rgba(138,199,180,.035) }
+#inventory #database-view-grid tbody tr:hover { background:rgba(138,199,180,.08) }
+#inventory #database-view-grid td::before { display:none }
+#inventory .database-null { color:var(--muted); font-style:italic }
+#inventory .database-view-pages { display:flex; flex:none; align-items:center; justify-content:flex-end; gap:12px; margin:0 }
+#inventory .database-view-pages .database-view-note { min-width:0 }
+#inventory .database-view-pages .button { min-height:44px }
+
+#inventory #database-view-grid th { padding:0 }
+#inventory .database-column-filter { display:flex; align-items:center; gap:8px; width:100%; min-height:44px; padding:8px 12px; border:0; background:transparent; color:var(--text); font:inherit; text-align:left; cursor:pointer }
+#inventory .database-column-filter>span:first-child { flex:1; overflow-wrap:anywhere }
+#inventory .database-column-filter svg { width:16px; height:16px; flex:none; color:var(--muted) }
+#inventory .database-column-filter:hover { background:rgba(228,193,120,.08) }
+#inventory .database-column-filter.is-filtered,#inventory .database-column-filter.is-filtered svg { color:var(--gold) }
+#inventory .database-column-count { font-size:11px; flex:none }
+
+#inventory .database-sort-field { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:12px; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--line); color:var(--muted); font:12px var(--sans) }
+#inventory .database-column-direction { color:var(--gold); font:600 16px var(--sans); flex:none }
+
+#inventory .database-values { margin:0 0 8px; border-bottom:1px solid var(--line); padding-bottom:8px }
+#inventory .database-values > label { display:grid; gap:6px; font-size:12px; color:var(--muted) }
+#inventory .database-value-actions { display:flex; align-items:center; gap:8px; margin:2px 0 }
+#inventory #database-values-status { font-size:11px; color:var(--muted); margin:0 0 0 auto; text-align:right }
+#inventory #database-values-list { max-height:180px; overflow:auto; overscroll-behavior:contain }
+#inventory #database-values-list label { display:flex; align-items:center; gap:8px; min-height:30px; padding:0 4px; font-size:13px; cursor:pointer }
+#inventory #database-values-list span { overflow-wrap:anywhere; min-width:0; white-space:pre-wrap }
+#inventory #database-filter-dialog #database-values-list input { width:18px; height:18px; flex:none; padding:0; accent-color:var(--gold) }
+
+#inventory #database-filter-dialog .database-value-actions .button { background:transparent; border:0; color:var(--muted); padding:4px 2px; min-height:30px }
+#inventory #database-filter-dialog .database-value-actions .button:hover { color:var(--gold); text-decoration:underline }
+#inventory #database-values-list label:hover { background:rgba(228,193,120,.07); border-radius:4px }
+#inventory #database-filter-conditions summary { display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--muted); font:12px var(--sans); cursor:pointer; padding:8px 2px; list-style:none; user-select:none }
+#inventory #database-filter-conditions summary::-webkit-details-marker { display:none }
+#inventory #database-filter-conditions summary::marker { content:'' }
+#inventory #database-filter-conditions summary::after { content:''; width:7px; height:7px; margin-right:5px; flex:none; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(45deg) translate(-2px,-2px) }
+#inventory #database-filter-conditions[open] summary::after { transform:rotate(225deg) translate(-1px,-1px) }
+#inventory #database-filter-conditions summary:hover { color:var(--text) }
+#inventory #database-filter-conditions summary:focus-visible { outline:2px solid var(--gold); outline-offset:2px; border-radius:4px }
+#inventory #database-filter-conditions[open] summary { margin-bottom:8px }
+@media(max-width:600px) {
+  #inventory #database-filter-dialog :is(input,select),#inventory #database-filter-dialog .button { min-height:44px }
+  #inventory .database-filter-header { padding:10px 12px }
+  #inventory .database-filter-body { padding:10px 12px }
+  #inventory #database-values-list label { min-height:44px }
+  #inventory #database-filter-dialog .database-value-actions .button { min-height:44px; padding:4px 6px }
+  #inventory #database-filter-conditions summary { min-height:44px; box-sizing:border-box }
 }

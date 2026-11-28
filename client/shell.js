@@ -15,7 +15,7 @@ const roleSelect = get('[data-ownership-role]');
 const categoryRoles = JSON.parse(get('#ownership-filter-data').textContent);
 const allRoles = [...roleSelect.options].map(option => option.value).filter(Boolean);
 
-function searchableSelect(select) {
+export function searchableSelect(select) {
   const wrapper = document.createElement('div');
   wrapper.className = 'label-combobox';
   const input = document.createElement('input');
@@ -23,7 +23,7 @@ function searchableSelect(select) {
   input.type = 'text';
   input.autocomplete = 'off';
   input.spellcheck = false;
-  input.placeholder = select.options[0].text;
+  input.placeholder = select.dataset.searchPlaceholder || select.options[0]?.text || 'Search options…';
   input.setAttribute('role', 'combobox');
   input.setAttribute('aria-label', select.getAttribute('aria-label'));
   input.setAttribute('aria-autocomplete', 'list');
@@ -44,13 +44,17 @@ function searchableSelect(select) {
   wrapper.append(input, toggle);
   select.after(wrapper);
   select.hidden = true;
-  select.parentElement.querySelector('label').htmlFor = input.id;
-  document.body.append(list);
+  const label = select.closest('label') || select.parentElement.querySelector('label');
+  if (label) label.htmlFor = input.id;
+  (select.closest('dialog') || document.body).append(list);
   let options = [];
   let active = -1;
 
   function sync() {
     input.value = select.value ? select.selectedOptions[0].text : '';
+    input.disabled = select.disabled;
+    toggle.disabled = select.disabled;
+    input.title = select.title;
     wrapper.dataset.selected = String(Boolean(select.value));
   }
 
@@ -88,6 +92,7 @@ function searchableSelect(select) {
   }
 
   function open(query = '') {
+    if (select.disabled) return;
     const term = query.trim().toLowerCase();
     options = [...select.options].filter(option => option.text.toLowerCase().includes(term));
     list.replaceChildren(...options.map((option, index) => {

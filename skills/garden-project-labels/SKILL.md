@@ -1,6 +1,6 @@
 ---
 name: garden-project-labels
-description: Standardise Garden of Zo project ownership labels, classify new projects and supporting services, audit existing mappings, and maintain the canonical category and sub-category legend. Use when reviewing or updating PAL, GOZ, GITHUB, GR, PERSONAL or STAKEFOLIO project labels.
+description: Standardise Garden of Zo project ownership labels, classify new projects and supporting services, audit existing mappings, and maintain the canonical category and sub-category legend. Use when reviewing or updating PAL, GOZ, GITHUB, GR, PERSONAL, STAKEFOLIO or SYSTEM labels.
 metadata:
   author: sayyidkhan.zo.computer
   display-name: Garden Project Labels
@@ -21,7 +21,7 @@ Read `/home/workspace/Start/garden-of-zo/zo-platform/README.md` and `AGENTS.md` 
 ## Classify projects
 
 - Present reviews as `Category | Sub-category | Projects`. Combined labels use `PAL | AGENT` syntax.
-- Use categories `PAL`, `GOZ`, `GITHUB`, `GR`, `PERSONAL` and `STAKEFOLIO`, with uppercase singular roles from the legend, such as `PRODUCT`, `AGENT` and `WORKFLOW`. Do not restore the `-APPS` suffix or plural `AGENTS`.
+- Use categories `PAL`, `GOZ`, `GITHUB`, `GR`, `PERSONAL`, `STAKEFOLIO` and `SYSTEM`, with uppercase singular roles from the legend, such as `PRODUCT`, `AGENT` and `WORKFLOW`. Do not restore the `-APPS` suffix or plural `AGENTS`.
 - Classify by ownership and purpose. Garden hosting alone does not imply GOZ ownership; a GitHub remote alone does not imply GITHUB ownership. GITHUB retains the former workspace folder grouping; its existing projects now live directly under `hackathon/`, as recorded in the legend. Folder moves alone do not reclassify ownership.
 - Artifex, Agent One, Rick and Scribe are agents even when planned or incomplete. Classification does not establish runtime health or deployment.
 - Treat services as belonging to their owning project. Resolve relationships from the legend and current configuration; use the canonical mapping for Stakefolio's ledger components and its portfolio ventures. STAKEFOLIO is a separate main category for its portfolio, not a PAL sub-category. Do not classify every project in `Start/pal/pal-projects/` as STAKEFOLIO solely from its folder; follow the canonical mapping and inspect current provider records when reviewing portfolio membership.
@@ -32,7 +32,7 @@ Read `/home/workspace/Start/garden-of-zo/zo-platform/README.md` and `AGENTS.md` 
 
 For a review, report the mapping and discrepancies without modifying projects. For an authorised addition or reclassification, update the canonical legend and keep workspace/project guidance as pointers rather than duplicate tables. Record aliases, supporting services and outstanding ownership choices where relevant.
 
-The legend currently records ownership; it does not by itself implement Garden labels or filters. Inspect the current implementation before claiming labels appear in the interface. When the user requests catalogue or inventory implementation:
+The legend records ownership; `project-labels.ts` implements definitions and project mappings, while private inventory assigns SYSTEM labels to documented shared runtime and temporary-file locations. Inspect the current implementation before claiming a specific mapping appears in the interface. When the user requests catalogue or inventory implementation:
 
 - Keep ownership category/sub-category separate from existing presentation categories, `kind`, access levels and service identifiers. Do not repurpose a field such as Commerce or Insight to store ownership.
 - Keep presentation and inventory changes in `/home/workspace/Start/garden-of-zo/zo-platform` (repository `sayyidkhan/garden-of-zo`). `/home/workspace/Start/garden-of-zo/zo-router` is independent routing infrastructure (repository `sayyidkhan/zo-router`). Labels do not belong in forwarding manifests merely to display them.

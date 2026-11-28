@@ -18,6 +18,7 @@ Use three columns: **Category | Sub-category | Projects**. A combined label is w
 | GR | GigRadar | Intended `gr/`; currently `Start/gigradarapp/` |
 | PERSONAL | Apps and tools built for the owner's own use | Suggested `Start/personal/`; not yet created |
 | STAKEFOLIO | Stakefolio portfolio projects and supporting services | Currently `Start/pal/pal-projects/`; no folder move |
+| SYSTEM | Shared computer services and temporary working files | Existing system and conversation workspace locations; no folder move |
 
 GITHUB retains the existing ownership group formerly stored under `Github/`; these three hackathon projects now live directly under `hackathon/`. This folder move does not reclassify their labels. A GitHub repository alone does not establish GITHUB ownership. Hosting an app through Garden does not transfer its ownership to GOZ.
 
@@ -36,6 +37,8 @@ GITHUB retains the existing ownership group formerly stored under `Github/`; the
 | MONITORING | Resource and operational visibility |
 | WEBSITE | Informational or public presentation website |
 | MAIL | GigRadar's mail application |
+| RUNTIME | Shared software state used by computer tools and agent frameworks |
+| TEMPORARY | Temporary working files created during development or conversations |
 
 ## Project mapping
 
@@ -61,6 +64,8 @@ GITHUB retains the existing ownership group formerly stored under `Github/`; the
 | GITHUB | WEBSITE | Long Taa Borneo |
 | GR | MAIL | GigRadar MailHub |
 | PERSONAL | APP | Personal budgeting app — planned; not yet created |
+| SYSTEM | RUNTIME | Shared computer tools and agent framework state |
+| SYSTEM | TEMPORARY | Conversation scratch and development working files |
 
 ## Folder names, aliases and supporting services
 
@@ -79,10 +84,12 @@ GITHUB retains the existing ownership group formerly stored under `Github/`; the
 - Services inherit their owning project's label: Orin and Runa dashboard/gateway services use `PAL | AGENT`; public/private Garden gateways use `GOZ | INFRASTRUCTURE`; the platform process uses `GOZ | PLATFORM`. Riven's tracker belongs to the Riven agent.
 - Orin database records use one owner, **Orin Forgekeeper** (`agent:orin`). The separate **Component** field distinguishes **Agent Runtime** (Orin's Hermes profile) from **Agent Dashboard** (records discovered under `orin-hermes-dashboard`). The dashboard service remains linked in details; technical service identifiers, backup creators and filenames stay separate from ownership. Component labels describe the recorded association, not exclusive access by that component.
 - Runtime data directories, backups, generated output and compatibility links are supporting artefacts, not additional apps. Their ownership follows the related project; access and retention rules remain separate.
-- Garden database snapshots inherit the source project only through a checksum-verified backup manifest. Native `/root/.hermes/backups/orin/` and `/root/.hermes/backups/runa/` copies inherit their respective agent. Root Codex databases, shared Hermes stores (`shared-state.db`, `kanban.db`, `state.db` directly under `/root/.hermes/`) and Zo conversation scratch databases are host-system records outside this project taxonomy. Garden displays Host system / Runtime or Temporary files, without adding a project category or assigning them to an individual agent.
+- Garden database snapshots inherit the source project only through a checksum-verified backup manifest. Native `/root/.hermes/backups/orin/` and `/root/.hermes/backups/runa/` copies inherit their respective agent. Root Codex databases and shared Hermes stores (`shared-state.db`, `kanban.db`, `state.db` directly under `/root/.hermes/`) use `SYSTEM | RUNTIME`. Zo conversation scratch databases use `SYSTEM | TEMPORARY`. These are shared system records, not additional projects or an individual agent’s databases. Orin and Runa profile databases retain `PAL | AGENT`. The owner approved SYSTEM and its two roles on 27 November 2026.
 - Private inventory maps the exact live database paths `Start/pal/kingdom-of-pal/state/pal-registry.sqlite3` to the Kingdom registry service (`PAL | PLATFORM`), `Start/pal/pal-agent-bastion/var/bastion.db` to Bastion (`PAL | AGENT`), and `Start/garden-of-zo/zo-order-tracker/zorder-data/zorder.sqlite` to zorder's service (`GOZ | APP`). These owner-confirmed mappings (10 November 2026) do not apply to same-named files elsewhere or change database contents.
 
 ## Maintenance and implementation status
+
+The live Ideas Bank staging database at `Start/pal/pal-projects/idea-backlog/.data/ideas-bank.sqlite3` belongs to the **Ideas Bank** app (`STAKEFOLIO | PRODUCT`) and displays as **Ideas & Memories**. Its service's database setting and open handle confirm use. The private `.data/` directory is ignored by Git and independent of Riven's disposable review folders. This exact-path mapping does not apply to Riven review databases.
 
 Update this document when a project is added or reclassified. Keep workspace and platform AGENTS.md pointers directed here instead of duplicating the table. Record unresolved ownership explicitly before applying it to catalogue or inventory metadata.
 

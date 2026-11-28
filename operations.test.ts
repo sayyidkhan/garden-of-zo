@@ -6,6 +6,43 @@ import { collectInventory, createSnapshotCache, databaseRecords, databaseRemarks
 const publicFile = join(import.meta.dir, "../zo-router/public.routes.json");
 const privateFile = join(import.meta.dir, "../zo-router/private.routes.json");
 
+test("Should I Join persistent D1 data is labelled as app data with a readable purpose", async () => {
+  const path = "/home/workspace/Start/pal/pal-projects/shouldijoin/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/" + "a".repeat(64) + ".sqlite";
+  const otherPath = path.replace("shouldijoin", "another-app");
+  const snapshot = await collectInventory([], async () => ({
+    services: [{ id: "service:shouldijoin-staging", name: "shouldijoin-staging", status: "running", ports: [] }],
+    issues: [], coverage: {}, youtubeEvidence: { status: "unknown" },
+    databases: [path, otherPath].map(path => ({ id: "database:" + path, path, name: "a".repeat(64) + ".sqlite",
+      category: "development", owner: null, backup: { status: "unknown" } }))
+  }));
+  expect(snapshot.databases[0]).toMatchObject({ path, owner: "service:shouldijoin-staging", category: "application",
+    displayName: "Company reports & assessments" });
+  expect(snapshot.databases[0].remarks).toContain("Company reports, saved assessments and watchlists");
+  expect(snapshot.databases[1]).toMatchObject({ path: otherPath, category: "development", owner: null });
+});
+
+test("Ideas Bank private database belongs to its app without claiming Riven review files", async () => {
+  const path = "/home/workspace/Start/pal/pal-projects/idea-backlog/.data/ideas-bank.sqlite3";
+  const otherPath = "/home/workspace/Start/pal/pal-agent-riven/state/work/ideas-bank-v2-fix-001/_tmp/review/ideas-bank.sqlite3";
+  const configs = structuredClone(loadCatalogConfigs(publicFile));
+  for (const gateway of configs) {
+    gateway.routes = gateway.routes.filter(route => route.label === "ideas-bank");
+    for (const route of gateway.routes) route.targetOrigin = "https://example.invalid";
+  }
+  const snapshot = await collectInventory(configs, async () => ({
+    services: [{ id: "service:ideas-bank-review", name: "ideas-bank-review", status: "running", ports: [] }],
+    issues: [], coverage: {}, youtubeEvidence: { status: "unknown" },
+    databases: [path, otherPath].map(path => ({ id: "database:" + path, path, name: "ideas-bank.sqlite3",
+      category: "development", owner: "service:riven-proj-tracker", backup: { status: "unknown" } }))
+  }));
+  expect(snapshot.databases[0]).toMatchObject({ path, owner: "app:ideas-bank", category: "application",
+    projectName: "Ideas Bank", ownershipLabel: "STAKEFOLIO | PRODUCT", displayName: "Ideas & Memories" });
+  expect(snapshot.databases[0].remarks).toBe("Stores saved ideas and private memories.");
+  expect(snapshot.dependencies).toContainEqual({ from: "app:ideas-bank", to: "database:" + path,
+    evidence: snapshot.databases[0].ownershipEvidence });
+  expect(snapshot.databases[1]).toMatchObject({ path: otherPath, owner: "service:riven-proj-tracker", category: "development" });
+});
+
 describe("private oversight boundary", () => {
   test("public gateway rejects the page, script and inventory even with a private Host header", async () => {
     const handler = createHandler(publicFile);
@@ -340,9 +377,9 @@ test("backup copies inherit verified source owners while host stores stay outsid
   expect(snapshot.dependencies).toContainEqual({ from: "agent:orin", to: rows[0].id, evidence: "documented runtime location" });
   expect(rows[2]).toMatchObject({ owner: "agent:runa", ownershipLabel: "PAL | AGENT" });
   expect(rows[3]).toMatchObject({ owner: "agent:orin", ownershipLabel: "PAL | AGENT" });
-  expect(rows[4]).toMatchObject({ owner: null, ownership: null, systemOwnership: { name: "Hermes shared runtime" } });
-  expect(rows[5]).toMatchObject({ owner: null, ownership: null, systemOwnership: { name: "Codex" } });
-  expect(rows[6]).toMatchObject({ systemOwnership: { category: "Host system", subcategory: "Temporary files" } });
+  expect(rows[4]).toMatchObject({ owner: null, ownership: null, ownershipLabel: "SYSTEM | RUNTIME", systemOwnership: { category: "SYSTEM", subcategory: "RUNTIME", name: "Hermes shared runtime" } });
+  expect(rows[5]).toMatchObject({ owner: null, ownership: null, ownershipLabel: "SYSTEM | RUNTIME", systemOwnership: { category: "SYSTEM", subcategory: "RUNTIME", name: "Codex" } });
+  expect(rows[6]).toMatchObject({ ownershipLabel: "SYSTEM | TEMPORARY", systemOwnership: { category: "SYSTEM", subcategory: "TEMPORARY" } });
   expect(rows[7]).toMatchObject({ owner: null, ownershipLabel: "Ownership pending" });
   expect(rows[8]).toMatchObject({ owner: null, systemOwnership: { name: "Hermes shared runtime" } });
   expect(rows[9]).toMatchObject({ owner: null, ownershipLabel: "Ownership pending" });

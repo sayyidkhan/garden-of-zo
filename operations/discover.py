@@ -94,6 +94,8 @@ def database_inventory(services):
                 if not name.endswith((".db", ".sqlite", ".sqlite3", ".duckdb")):
                     continue
                 path = Path(directory) / name
+                if path.parts[-6:] == (".wrangler", "state", "v3", "d1", "miniflare-D1DatabaseObject", "metadata.sqlite"):
+                    continue
                 try:
                     if path.is_symlink():
                         continue

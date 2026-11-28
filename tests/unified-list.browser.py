@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from urllib.parse import quote
 
 from playwright.async_api import async_playwright
 
@@ -74,7 +75,7 @@ async def main():
                     await trigger.click()
                     dialog = page.get_by_role("dialog", name="Label legend", exact=True)
                     assert await dialog.is_visible()
-                    assert await dialog.locator(".label-legend__categories dt").count() == 6
+                    assert await dialog.locator(".label-legend__categories dt").count() == 7
                     assert "Garden of Zo projects" in await dialog.inner_text()
                     assert "a label has not been assigned" in await dialog.inner_text()
                     assert "Proposed" not in await dialog.inner_text()
@@ -87,7 +88,8 @@ async def main():
                         "PAL": ["PRODUCT", "AGENT", "WORKFLOW", "SKILL", "PLATFORM", "GOVERNANCE", "LEGACY"],
                         "GOZ": ["PLATFORM", "INFRASTRUCTURE", "APP", "MONITORING", "WEBSITE", "AGENT"],
                         "GITHUB": ["APP", "WEBSITE"], "GR": ["MAIL"], "PERSONAL": ["APP"],
-                        "STAKEFOLIO": ["PRODUCT", "GOVERNANCE"]
+                        "STAKEFOLIO": ["PRODUCT", "GOVERNANCE"],
+                        "SYSTEM": ["RUNTIME", "TEMPORARY"]
                     }
                     for category, roles in expected_roles.items():
                         group = dialog.locator(f'[data-legend-category="{category}"]')
@@ -287,6 +289,24 @@ async def main():
                 assert await page.locator(".database-record:visible").count() == total
                 assert await page.locator("#inventory").evaluate("e => e.getBoundingClientRect().right <= innerWidth + 1")
             await page.set_viewport_size({"width": 1440, "height": 1000})
+            original_url = page.url
+            system_ids = sorted(row["id"] for row in inventory["databases"] if row.get("systemOwnership", {}).get("category") == "SYSTEM")
+            assert system_ids
+            await column_choice("category", "SYSTEM")
+            assert sorted(await page.locator("[data-database-row]").evaluate_all("nodes => nodes.map(n => n.dataset.databaseRow)")) == system_ids
+            await column_choice("subcategory", "RUNTIME")
+            runtime_ids = sorted(row["id"] for row in inventory["databases"] if row.get("systemOwnership", {}).get("subcategory") == "RUNTIME")
+            assert sorted(await page.locator("[data-database-row]").evaluate_all("nodes => nodes.map(n => n.dataset.databaseRow)")) == runtime_ids
+            await page.reload()
+            await page.locator("[data-database-row]").first.wait_for()
+            assert sorted(await page.locator("[data-database-row]").evaluate_all("nodes => nodes.map(n => n.dataset.databaseRow)")) == runtime_ids
+            legacy = json.dumps({"filters": {"category": ["Host system"], "subcategory": ["Runtime"]}})
+            await page.goto(private + "/#list?tab=databases&columns=" + quote(legacy))
+            await page.locator("[data-database-row]").first.wait_for()
+            assert sorted(await page.locator("[data-database-row]").evaluate_all("nodes => nodes.map(n => n.dataset.databaseRow)")) == runtime_ids
+            await page.goto(original_url)
+            await page.locator("[data-database-row]").first.wait_for()
+            checks.append("SYSTEM category and RUNTIME filters select shared databases, survive reload and migrate old Host system / Runtime saved selections")
             checks.append("Database groups collapse by keyboard, preserve totals and state while sorting/filtering, and expand individually or together on desktop and phones")
             await column_sort("size", "desc")
             visible_ids = await page.locator("#rows tr td:first-child [data-entity]").evaluate_all("nodes => nodes.map(node => node.dataset.entity)")
